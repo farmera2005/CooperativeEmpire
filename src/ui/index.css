@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: "Georgia", "Times New Roman", serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --color-paper: #f7f3e8;
+  --color-ink: #24261f;
+  --color-field: #3f5f2a;
+  --color-field-light: #6d8f4e;
+  --color-grain: #c9a227;
+  --color-rust: #a3472b;
+  --color-sky: #3b6e8f;
+}
+
+html, body, #root { height: 100%; }
+body { @apply bg-paper text-ink font-sans antialiased; font-size: 14px; }
+.num { font-variant-numeric: tabular-nums; }
+.panel { @apply bg-white border border-stone-300 rounded-md shadow-sm; }
+.panel-title { @apply text-xs font-semibold uppercase tracking-wide text-stone-500 px-3 pt-2; }
+.btn { @apply inline-flex items-center gap-1 px-3 py-1.5 rounded border border-stone-400 bg-white hover:bg-stone-100 text-sm disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky; }
+.btn-primary { @apply bg-field text-white border-field hover:bg-field-light; }
+.input { @apply border border-stone-400 rounded px-2 py-1 bg-white text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-sky; }
+table.data { @apply w-full text-sm; }
+table.data th { @apply text-left font-semibold text-stone-600 border-b border-stone-300 px-2 py-1 bg-stone-50 sticky top-0; }
+table.data td { @apply border-b border-stone-200 px-2 py-0.5; }
+table.data td.r, table.data th.r { @apply text-right tabular-nums; }
+.headline { font-family: var(--font-serif); }

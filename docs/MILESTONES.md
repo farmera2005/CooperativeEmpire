@@ -11,7 +11,7 @@ Each milestone ends with a commit, a push, and a short **"what to playtest"** no
 
 ---
 
-## M1 — Foundation
+## M1 — Foundation ✅ complete
 - Scaffold: Vite + React + TS + Tailwind + Zustand + Recharts + Vitest + ESLint; `tsconfig.engine.json` (no DOM); scripts `dev, build, test, typecheck, sim, data:review`.
 - Engine core: sfc32 RNG with named substreams; calendar/fiscal periods; Cents helpers; Breakdown type; clone; state hash.
 - Ledger: chart of accounts, posting, trial balance, statements (IS/BS/CF) skeleton, invariant tests.
