@@ -4,7 +4,11 @@
 import { fiscalYearOf, formatMonth, isFiscalYearEnd } from '../core/calendar';
 import { formatCents } from '../core/format';
 import { postOverhead } from '../corp/overhead';
-import { stepTreasury } from '../finance/treasury';
+import { stepLender } from '../finance/lender';
+import { stepDepreciation, stepFacilityCosts, stepProjects } from '../facilities/facilities';
+import { stepGrain } from '../grain/operate';
+import { stepJoining } from '../members/joining';
+import { stepMarketplace } from './marketplace';
 import { checkInvariants } from '../ledger/invariants';
 import { closeFiscalYear, openMonth } from '../ledger/ledger';
 import { demographicsMonthly } from '../members/demographics';
@@ -20,7 +24,7 @@ export const RETAIN_DETAIL_YEARS = 2;
 const INBOX_LIMIT = 400;
 
 export interface Interrupt {
-  kind: 'history' | 'fiscalYearEnd' | 'invariant' | 'gameOver';
+  kind: 'history' | 'fiscalYearEnd' | 'invariant' | 'gameOver' | 'alert';
   text: string;
 }
 
@@ -68,16 +72,24 @@ export function advanceMonth(state: GameState, decisions: Command[] = [], opts: 
   // 5. scheduled historical events
   for (const id of stepHistory(ctx)) interrupts.push({ kind: 'history', text: id });
   // 6. tech/regulation availability — M7
-  // 7. facilities — M2
+  // 7. facilities: construction, marketplace
+  stepProjects(ctx);
+  stepMarketplace(ctx);
   // 8. people — M6
   // 9. member demographics
   demographicsMonthly(ctx);
-  // 10–14. competitors, demand, share of wallet, divisions, cross-division — M2/M3
-  // 15. working capital: corporate overhead
+  stepJoining(ctx);
+  // 10–13. competitor prices, demand, share of wallet and divisions (grain; others in M3)
+  stepGrain(ctx);
+  // 14. cross-division effects — M3
+  // 15. working capital: facility and corporate overhead
+  stepFacilityCosts(ctx);
   postOverhead(ctx);
-  // 16–18. valuation, depreciation, regional/lender patronage — M2/M4
-  // 19. treasury (simple sweep; borrowing base and covenants in M4)
-  stepTreasury(ctx);
+  // 16. valuation happens inside the grain step; 17. depreciation
+  stepDepreciation(ctx);
+  // 18. regional/lender patronage — M4
+  // 19. treasury: loans, line interest, borrowing base, sweep
+  stepLender(ctx);
   // 20. random events — M7
   // 21–22. close + invariants
   const errors = checkInvariants(w);
@@ -90,6 +102,7 @@ export function advanceMonth(state: GameState, decisions: Command[] = [], opts: 
   if (isFiscalYearEnd(ctx.mi, w.setup.fiscalYearEndMonth)) {
     const fy = fiscalYearOf(ctx.mi, w.setup.fiscalYearEndMonth);
     const savings = closeFiscalYear(w, '3400');
+    for (const m of w.members.list) m.ytd = {};
     ctx.inbox({
       kind: 'memo', title: `Fiscal ${fy} closed`,
       body: `The books for fiscal ${fy} are closed. Net savings of ${formatCents(savings)} were transferred to unallocated retained earnings. (Patronage distribution arrives in Milestone 4.)`,
@@ -102,6 +115,7 @@ export function advanceMonth(state: GameState, decisions: Command[] = [], opts: 
   w.history.push(snap);
   if (w.inbox.length > INBOX_LIMIT) w.inbox = w.inbox.slice(w.inbox.length - INBOX_LIMIT);
   // 29. loss conditions — M4/M5
+  for (const item of w.inbox) if (item.monthIndex === ctx.mi && item.kind === 'alert') interrupts.push({ kind: 'alert', text: item.title });
 
   ctx.summary.unshift(`${formatMonth(ctx.mi)}: cash ${formatCents(snap.cash)}, ${snap.activeMembers} active members.`);
   return {
@@ -114,9 +128,10 @@ export function advanceMonth(state: GameState, decisions: Command[] = [], opts: 
 export interface InterruptConfig {
   history: boolean;
   fiscalYearEnd: boolean;
+  alerts: boolean;
 }
 
-export const DEFAULT_INTERRUPTS: InterruptConfig = { history: true, fiscalYearEnd: true };
+export const DEFAULT_INTERRUPTS: InterruptConfig = { history: true, fiscalYearEnd: true, alerts: true };
 
 /** Advance until an interrupt the player cares about fires, or maxMonths pass. */
 export function advanceUntilAttention(state: GameState, cfg: InterruptConfig, maxMonths: number): TickResult[] {
@@ -126,7 +141,7 @@ export function advanceUntilAttention(state: GameState, cfg: InterruptConfig, ma
     const r = advanceMonth(s);
     out.push(r);
     s = r.state;
-    if (r.interrupts.some((x) => x.kind === 'invariant' || x.kind === 'gameOver' || (x.kind === 'history' && cfg.history) || (x.kind === 'fiscalYearEnd' && cfg.fiscalYearEnd))) break;
+    if (r.interrupts.some((x) => x.kind === 'invariant' || x.kind === 'gameOver' || (x.kind === 'history' && cfg.history) || (x.kind === 'fiscalYearEnd' && cfg.fiscalYearEnd) || (x.kind === 'alert' && cfg.alerts))) break;
     if (s.outcome) break;
   }
   return out;

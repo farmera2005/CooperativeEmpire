@@ -5,7 +5,13 @@ import {
 } from '../engine/index';
 import { saveSlot } from '../persistence/saves';
 
-export type Tab = 'dashboard' | 'map' | 'markets' | 'members' | 'financials' | 'board' | 'inbox' | 'saves';
+export type Tab = 'dashboard' | 'grain' | 'map' | 'markets' | 'members' | 'financials' | 'board' | 'inbox' | 'saves';
+
+export interface Toast {
+  id: number;
+  level: 'info' | 'warning' | 'error';
+  text: string;
+}
 export type Screen = 'title' | 'newGame' | 'game';
 
 interface UiState {
@@ -15,11 +21,14 @@ interface UiState {
   summaries: MonthSummary[];
   error: string | null;
   autosaveStatus: string;
+  toasts: Toast[];
+  dismissToast(id: number): void;
   setScreen(s: Screen): void;
   setTab(t: Tab): void;
   start(setup: GameSetup): void;
   load(state: GameState): void;
-  command(cmd: Command): void;
+  /** Apply a command; returns true if it succeeded. Messages appear as toasts. */
+  command(cmd: Command): boolean;
   endMonth(): void;
   advanceUntilAttention(): void;
   advanceMonths(n: number): void;
@@ -27,6 +36,7 @@ interface UiState {
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let toastId = 0;
 function scheduleAutosave(get: () => UiState, set: (p: Partial<UiState>) => void) {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
@@ -48,6 +58,8 @@ export const useStore = create<UiState>((set, get) => ({
   summaries: [],
   error: null,
   autosaveStatus: '',
+  toasts: [],
+  dismissToast: (id) => set({ toasts: get().toasts.filter((x) => x.id !== id) }),
   setScreen: (screen) => set({ screen }),
   setTab: (tab) => set({ tab }),
   start: (setup) => {
@@ -62,10 +74,12 @@ export const useStore = create<UiState>((set, get) => ({
   load: (game) => set({ game, screen: 'game', tab: 'dashboard', summaries: [] }),
   command: (cmd) => {
     const g = get().game;
-    if (!g) return;
+    if (!g) return false;
     const r = applyCommand(g, cmd);
-    if (!r.ok) set({ error: r.messages.map((m) => m.text).join(' ') });
-    else set({ game: r.state });
+    const toasts = r.messages.map((m) => ({ id: ++toastId, level: m.level, text: m.text }));
+    set({ ...(r.ok ? { game: r.state } : {}), toasts: [...get().toasts, ...toasts].slice(-5) });
+    for (const t of toasts) setTimeout(() => get().dismissToast(t.id), t.level === 'error' ? 9000 : 6000);
+    return r.ok;
   },
   endMonth: () => {
     const g = get().game;

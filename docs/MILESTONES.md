@@ -24,7 +24,7 @@ Each milestone ends with a commit, a push, and a short **"what to playtest"** no
 - UI shell: title screen with non-affiliation notice, Dashboard skeleton, Markets screen, Members list, Map (towns/rail/roads).
 - **Playtest:** create co-ops in 1970/1985/2010, advance years, look at markets, map, member aging; save/load/export.
 
-## M2 — Grain
+## M2 — Grain ✅ complete
 - Facility model (build/buy/lease, construction, depreciation, condition, mothball/close), purchasable facility marketplace.
 - Demand & share-of-wallet engine (first used by grain), competitor entities with grain bids (static AI).
 - Grain division: receipts with weekly harvest sub-steps, drying, shrink, storage, contracts, merchandising and destinations, rail/shuttle, hedging, margin calls, MTM, fees, compliance basics.

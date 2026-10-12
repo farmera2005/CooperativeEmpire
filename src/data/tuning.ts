@@ -39,13 +39,13 @@ export const GOVERNANCE_SETUP = {
 
 export const OVERHEAD = {
   /** GM salary: base + per member, 2024 $. */
-  gmSalaryBase: s(110_000, 'low'),
-  gmSalaryPerMember: s(40, 'low'),
+  gmSalaryBase: s(85_000, 'low'),
+  gmSalaryPerMember: s(35, 'low'),
   /** Benefits and payroll taxes as share of salary. */
   benefitsRate: s(0.28, 'low'),
   /** Office and admin expense per month, 2024 $ (base + per member). */
-  officeMonthlyBase: s(6000, 'low'),
-  officeMonthlyPerMember: s(2.5, 'low'),
+  officeMonthlyBase: s(3000, 'low'),
+  officeMonthlyPerMember: s(2, 'low'),
   /** Board per diem per director per monthly meeting, 2024 $. */
   directorPerDiem: s(250, 'low'),
   /** Annual audit fee (2024 $) base + per $1M of assets. */
@@ -141,6 +141,23 @@ export const LENDING = {
     cobank: s(0.25, 'low'),
     'local-bank': s(1.0, 'low'),
   } as Record<string, { value: number; confidence: 'high' | 'medium' | 'low'; note?: string }>,
+  /** Extra spread on term loans over the line rate. */
+  termSpread: s(0.5, 'low'),
+  termLoanMonths: s(120, 'low', '10-year amortization for facility loans'),
+  /** Maximum share of a purchase or project the lender will finance. */
+  maxFinancePct: s(0.7, 'low'),
   /** Cash buffer kept before repaying the line (2024 $). */
   cashBuffer: s(25_000, 'low'),
+  /** Borrowing base advance rates. */
+  advance: s({ receivables: 0.8, hedgedGrain: 0.85, unhedgedGrain: 0.5, otherInventory: 0.5, marginDeposits: 0.9 }, 'low'),
+  /** Unsecured part of the line as a share of member equity. */
+  unsecuredEquityShare: s(0.25, 'low'),
+  /** Default seasonal line commitment as a multiple of member equity. */
+  defaultCommitmentEquityMultiple: s(2, 'low'),
+  maxCommitmentEquityMultiple: s(5, 'low'),
+  /** At annual renewal the lender sizes the line to finance this share of a full house of grain. */
+  inventoryFinanceShare: s(0.8, 'low'),
+  renewalMonth: 9,
+  /** Penalty spread when the line is over its limit or base. */
+  overLimitPenalty: s(3, 'low'),
 };

@@ -4,8 +4,11 @@
 import type { Cents } from './core/money';
 import type { SeriesId } from '../data/markets';
 import type { CropId, SpeciesId } from '../data/regions/eccb';
+import type { ComponentId, LoadoutType } from '../data/facilities';
+import type { Commodity } from '../data/grain';
+import type { Breakdown } from './core/breakdown';
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export type DivisionId = 'GRAIN' | 'AGRONOMY' | 'FEED' | 'ENERGY' | 'RETAIL' | 'CORP';
 export const DIVISIONS: DivisionId[] = ['GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'RETAIL', 'CORP'];
@@ -82,6 +85,8 @@ export interface Destination {
   id: number;
   name: string;
   kind: 'riverTerminal' | 'processor' | 'exportRail' | 'feeder' | 'ethanol';
+  /** Commodities accepted (omitted = all). */
+  commodities?: Commodity[];
   /** Off-map anchor for drawing and trucking distance from nearest edge town. */
   x: number;
   y: number;
@@ -170,6 +175,10 @@ export interface Member {
   isDirector: boolean;
   /** Farms represented by this record (D-010). */
   weight: number;
+  /** The co-op's share of this farm's business, by product line (0..1). */
+  share: Record<string, number>;
+  /** Fiscal-year-to-date volume with the co-op, by product line (bu, tons, gal...). */
+  ytd: Record<string, number>;
 }
 
 export interface MemberStore {
@@ -277,6 +286,171 @@ export interface FiredEvent {
 
 // ---------- Co-op ----------
 
+export type Posture = 'aggressive' | 'market' | 'premium';
+export type StaffLevel = 'lean' | 'standard' | 'full';
+export type PayPosition = 'below' | 'at' | 'above';
+
+export interface FacilityGrainState {
+  /** Physical bushels in the house by commodity (owned + DP + open storage). */
+  bu: Record<Commodity, number>;
+  /** Harvest-wait memory (hours, EMA across harvests) that farmers use to judge service. */
+  waitMemory: number;
+  /** This season's worst weekly wait and turned-away bushels. */
+  seasonMaxWait: number;
+  seasonTurnedAway: number;
+  /** Season wait-hours × bushels and bushels offered, for the average wait. */
+  seasonWaitBu: number;
+  seasonOfferedBu: number;
+  /** Weeks of breakdown remaining. */
+  downWeeks: number;
+}
+
+export interface Facility {
+  id: number;
+  name: string;
+  townId: number;
+  division: DivisionId;
+  kind: 'elevator';
+  ownership: 'owned' | 'leased';
+  status: 'underConstruction' | 'operating' | 'mothballed' | 'closed';
+  builtYear: number;
+  acquiredMonth: number;
+  condition: number;
+  /** Installed component quantities in each component's unit (bu, bu/hr, count, acres). */
+  components: Partial<Record<ComponentId, number>>;
+  staffing: { level: StaffLevel; pay: PayPosition };
+  /** Known or hidden environmental liability (cents). */
+  envLiability?: { cost: Cents; discovered: boolean };
+  grain: FacilityGrainState;
+}
+
+export interface CapitalProject {
+  id: number;
+  facilityId: number;
+  label: string;
+  components: Partial<Record<ComponentId, number>>;
+  budget: Cents;
+  spent: Cents;
+  startMonth: number;
+  completeMonth: number;
+  /** Renovation projects restore condition instead of adding components. */
+  renovation?: boolean;
+}
+
+export interface FixedAsset {
+  id: number;
+  facilityId: number;
+  label: string;
+  account: '1500' | '1510' | '1520' | '1530';
+  cost: Cents;
+  accumDep: Cents;
+  lifeMonths: number; // 0 = not depreciated (land)
+  startMonth: number;
+}
+
+export interface GrainPolicy {
+  posture: Posture;
+  /** Target share of net owned bushels hedged with futures (1 = fully hedged). */
+  hedgeRatio: number;
+  /** Board limit on net open bushels per commodity. */
+  positionLimit: Record<Commodity, number>;
+  offerOpenStorage: boolean;
+  offerDelayedPrice: boolean;
+  offerForward: boolean;
+  /** Fee multipliers vs the standard schedule. */
+  storageFee: number;
+  dryingFee: number;
+  carryAppetite: 'low' | 'normal' | 'high';
+}
+
+export interface CommodityPosition {
+  ownedBu: number;
+  /** Carrying value of owned bushels in account 1200 (cents). */
+  book: Cents;
+  dpBu: number;
+  /** Unpriced delayed-price liability in account 2110 (cents). */
+  dpLiability: Cents;
+  openStorageBu: number;
+  /** Futures sold to hedge (bushels, positive = short). */
+  shortBu: number;
+  /** Futures price at which the position was last marked. */
+  lastFutures: number;
+}
+
+export interface GrainCommodityMonth {
+  futures: number;
+  localBasis: number;
+  ourBid: number;
+  bestSaleNet: number;
+  carry: number;
+  offeredBu: number;
+  receivedBu: number;
+  turnedAwayBu: number;
+  purchasedBu: number;
+  shippedBu: number;
+  shippedVia: Record<string, number>;
+  salesCents: Cents;
+  openPositionBu: number;
+  overLimit: boolean;
+}
+
+export interface GrainMonthReport {
+  monthIndex: number;
+  byCommodity: Record<Commodity, GrainCommodityMonth>;
+  maxWaitHours: number;
+  grossMargin: Breakdown;
+  marginCall: Cents;
+}
+
+export interface GrainBook {
+  pos: Record<Commodity, CommodityPosition>;
+  /** Futures margin on deposit (account 1310). */
+  marginAccount: Cents;
+  /** AR(1) state of destination basis noise (2024 $/bu). */
+  basisNoise: Record<Commodity, number>;
+  report: GrainMonthReport | null;
+  /** Rolling 24 months of reports for charts. */
+  reports: GrainMonthReport[];
+}
+
+export interface FacilityOffer {
+  id: number;
+  competitorId: number | null;
+  townId: number;
+  sellerName: string;
+  components: Partial<Record<ComponentId, number>>;
+  builtYear: number;
+  /** True condition (hidden until due diligence) and the seller's estimate shown to the player. */
+  condition: number;
+  conditionEstimate: [number, number];
+  price: Cents;
+  expiresMonth: number;
+  diligenceDone: boolean;
+  envLiability: Cents;
+  envFound: boolean;
+}
+
+export interface TermLoan {
+  id: number;
+  purpose: string;
+  principal: Cents;
+  balance: Cents;
+  ratePct: number;
+  payment: Cents;
+  startMonth: number;
+  months: number;
+}
+
+export interface FinanceState {
+  lineCommitment: Cents;
+  borrowingBase: Cents;
+  lineAvailable: Cents;
+  overLimit: boolean;
+  termLoans: TermLoan[];
+  nextLoanId: number;
+  lastLineRate: number;
+}
+
 export interface CoopState {
   name: string;
   homeTownId: number;
@@ -284,6 +458,44 @@ export interface CoopState {
   lenderId: string;
   regionalAffiliations: GameSetup['regionalAffiliations'];
   minCash: Cents;
+  facilities: Facility[];
+  projects: CapitalProject[];
+  assets: FixedAsset[];
+  nextId: number;
+  grainPolicy: GrainPolicy;
+  grain: GrainBook;
+  offers: FacilityOffer[];
+  finance: FinanceState;
+  grainStats: { marketBu: number; offeredBu: number; priceAdvantage: number };
+}
+
+// ---------- Competitors ----------
+
+export interface CompetitorSite {
+  id: number;
+  townId: number;
+  storageBu: number;
+  receiveBuHr: number;
+  dryBuHr: number;
+  loadout: LoadoutType;
+  builtYear: number;
+  condition: number;
+}
+
+export interface Competitor {
+  id: number;
+  name: string;
+  kind: 'independent' | 'coop' | 'national';
+  brandId?: string;
+  sites: CompetitorSite[];
+  /** Bid adjustment vs the local market (2024 $/bu; positive bids more). */
+  posture: number;
+  /** Service quality −1..1. */
+  service: number;
+  status: 'active' | 'sold' | 'failed';
+  ownerAge: number;
+  /** Season bushels handled (for reports). */
+  volumeYtd: number;
 }
 
 // ---------- History snapshots ----------
@@ -298,6 +510,9 @@ export interface MonthSnapshot {
   activeFarms: number;
   totalAcres: number;
   avgSatisfaction: number;
+  grainBu: number;
+  grainShare: number;
+  lineDrawn: Cents;
 }
 
 // ---------- Game ----------
@@ -314,6 +529,7 @@ export interface GameState {
   equity: EquitySubledger;
   governance: GovernanceState;
   coop: CoopState;
+  competitors: Competitor[];
   inbox: InboxItem[];
   nextInboxId: number;
   firedEvents: FiredEvent[];

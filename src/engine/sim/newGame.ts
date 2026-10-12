@@ -3,7 +3,12 @@
 import { brandsAvailable, getBrand } from '../../data/brands';
 import { COOP_NAME_PATTERNS } from '../../data/names';
 import { REGIONS } from '../../data/regions/eccb';
-import { GOVERNANCE_SETUP, SETUP } from '../../data/tuning';
+import { GOVERNANCE_SETUP, LENDING, SETUP } from '../../data/tuning';
+import { MARKETPLACE } from '../../data/grain';
+import { formatCents } from '../core/format';
+import { defaultCommitment, emptyFinance } from '../finance/lender';
+import { ensureHomeIndependent, generateCompetitors, generateOffers } from '../competitors/competitors';
+import { defaultGrainPolicy, emptyGrainBook } from '../grain/defaults';
 import { formatMonth, toMonthIndex } from '../core/calendar';
 import { allocateCents, roundCents, type Cents } from '../core/money';
 import { stream } from '../core/rng';
@@ -111,7 +116,10 @@ export function newGame(setup: GameSetup): GameState {
     coop: {
       name, homeTownId: homeTown.id, foundedMonth: startMonth, lenderId: setup.lenderId,
       regionalAffiliations: setup.regionalAffiliations, minCash: 0,
+      facilities: [], projects: [], assets: [], nextId: 1, grainPolicy: defaultGrainPolicy(), grain: emptyGrainBook(), offers: [],
+      finance: emptyFinance(), grainStats: { marketBu: 0, offeredBu: 0, priceAdvantage: 0 },
     },
+    competitors: [],
     inbox: [],
     nextInboxId: 1,
     firedEvents: [],
@@ -130,6 +138,13 @@ export function newGame(setup: GameSetup): GameState {
     lines: [{ account: '1000', division: 'CORP', amount: capital }, { account: '3000', division: 'CORP', amount: -capital }],
   });
 
+  // Lender commitment, competitors, and the first facilities offered for sale.
+  state.coop.finance.lineCommitment = defaultCommitment(state);
+  const crng = stream(setup.gameSeed, -1, 'competitors.generate');
+  state.competitors = generateCompetitors(state, crng, setup.startYear);
+  ensureHomeIndependent(state, crng, setup.startYear);
+  generateOffers(state, getMarketPath(setup.gameSeed, setup.historyMode, drift), crng, MARKETPLACE.initialOffers, startMonth, setup.startYear, homeTown.id);
+
   // Founding memos.
   const dir = governance.directors.map((d) => {
     const m = list.find((x) => x.id === d.memberId)!;
@@ -144,7 +159,7 @@ export function newGame(setup: GameSetup): GameState {
   );
   push(
     'Banking and supply arrangements',
-    `The board approved ${lender} as the cooperative's lender and affiliation with: ${regionals}.\n\nThe cooperative owns no facilities yet. The usual first move is to buy an existing elevator from a retiring independent owner or to build one (available from Milestone 2).`,
+    `The board approved ${lender} as the cooperative's lender and affiliation with: ${regionals}.\n\nThe cooperative owns no facilities yet. The usual first move is to buy an existing elevator from a retiring independent owner or to build one: see the Grain screen's "Buy or build" tab. The lender has approved a seasonal line of ${formatCents(state.coop.finance.lineCommitment)} and will finance up to ${Math.round(LENDING.maxFinancePct.value * 100)}% of facility purchases with term debt.`,
   );
   push('Welcome', `It is ${formatMonth(startMonth)}. Review the markets, your members, and the map. End the month when ready.`);
   state.history.push(snapshot(state));

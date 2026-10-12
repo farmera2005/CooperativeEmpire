@@ -7,7 +7,33 @@ import { SCHEMA_VERSION, type GameState } from '../types';
 type AnyState = any;
 
 export const MIGRATIONS: Record<number, (s: AnyState) => AnyState> = {
-  // 1: (s) => ({ ...s, schemaVersion: 2, newField: default }),
+  // v1 → v2 (Milestone 2): facilities, grain, competitors, lender, member shares.
+  1: (s) => {
+    for (const m of s.members.list) {
+      m.share ??= {};
+      m.ytd ??= {};
+    }
+    for (const d of s.world.destinations) {
+      if (d.kind === 'processor' && !d.commodities) d.commodities = /soy/i.test(d.name) ? ['soybeans'] : ['corn', 'wheat'];
+    }
+    const lim = 25_000;
+    const pos = () => ({ ownedBu: 0, book: 0, dpBu: 0, dpLiability: 0, openStorageBu: 0, shortBu: 0, lastFutures: 0 });
+    s.coop = {
+      ...s.coop,
+      facilities: [], projects: [], assets: [], nextId: 1, offers: [],
+      grainPolicy: { posture: 'market', hedgeRatio: 1, positionLimit: { corn: lim, soybeans: lim, wheat: lim }, offerOpenStorage: true, offerDelayedPrice: true, offerForward: true, storageFee: 1, dryingFee: 1, carryAppetite: 'normal' },
+      grain: { pos: { corn: pos(), soybeans: pos(), wheat: pos() }, marginAccount: 0, basisNoise: { corn: 0, soybeans: 0, wheat: 0 }, report: null, reports: [] },
+      finance: { lineCommitment: 0, borrowingBase: 0, lineAvailable: 0, overLimit: false, termLoans: [], nextLoanId: 1, lastLineRate: 0 },
+      grainStats: { marketBu: 0, offeredBu: 0, priceAdvantage: 0 },
+    };
+    s.competitors ??= [];
+    for (const h of s.history) {
+      h.grainBu ??= 0;
+      h.grainShare ??= 0;
+      h.lineDrawn ??= 0;
+    }
+    return { ...s, schemaVersion: 2 };
+  },
 };
 
 export interface SaveFile {

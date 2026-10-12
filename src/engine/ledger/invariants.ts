@@ -56,5 +56,38 @@ export function checkInvariants(state: GameState): string[] {
   if (q !== glQ) errors.push(`Qualified equity subledger ${q} != GL ${glQ}`);
   if (nq !== glNq) errors.push(`Nonqualified equity subledger ${nq} != GL ${glNq}`);
 
+  // 5. Grain positions tie to inventory, DP liability and margin accounts.
+  const g = state.coop.grain;
+  let book = 0;
+  let dp = 0;
+  for (const c of Object.keys(g.pos) as (keyof typeof g.pos)[]) {
+    book += g.pos[c].book;
+    dp += g.pos[c].dpLiability;
+  }
+  const glOf = (acct: string) => {
+    let v = 0;
+    for (const k in l.balances) if (splitKey(k)[0] === acct) v += l.balances[k];
+    return v;
+  };
+  if (book !== glOf('1200')) errors.push(`Grain inventory subledger ${book} != GL ${glOf('1200')}`);
+  if (dp !== -glOf('2110')) errors.push(`DP liability subledger ${dp} != GL ${-glOf('2110')}`);
+  if (g.marginAccount !== glOf('1310')) errors.push(`Margin account ${g.marginAccount} != GL ${glOf('1310')}`);
+
+  // 6. Fixed-asset register ties to property accounts; projects to construction in progress.
+  const byAcct: Record<string, number> = {};
+  let accum = 0;
+  for (const a of state.coop.assets) {
+    byAcct[a.account] = (byAcct[a.account] ?? 0) + a.cost;
+    accum += a.accumDep;
+  }
+  for (const acct of ['1500', '1510', '1520', '1530']) if ((byAcct[acct] ?? 0) !== glOf(acct)) errors.push(`Asset register ${acct} ${byAcct[acct] ?? 0} != GL ${glOf(acct)}`);
+  if (accum !== -glOf('1590')) errors.push(`Accumulated depreciation register ${accum} != GL ${-glOf('1590')}`);
+  const cip = state.coop.projects.reduce((s, p) => s + p.spent, 0);
+  if (cip !== glOf('1540')) errors.push(`Projects ${cip} != construction in progress ${glOf('1540')}`);
+
+  // 7. Term loans tie to long-term debt.
+  const loans = state.coop.finance.termLoans.reduce((s, x) => s + x.balance, 0);
+  if (loans !== -(glOf('2300') + glOf('2200'))) errors.push(`Term loans ${loans} != GL ${-(glOf('2300') + glOf('2200'))}`);
+
   return errors;
 }

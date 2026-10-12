@@ -1,3 +1,4 @@
+import { COMMODITIES } from '../../data/grain';
 import { balance } from '../ledger/ledger';
 import { activityFor, balanceSheet, netSavingsOf } from '../ledger/statements';
 import { totalAcres } from '../members/generate';
@@ -29,5 +30,8 @@ export function snapshot(state: GameState): MonthSnapshot {
     activeFarms: farms,
     totalAcres: acres,
     avgSatisfaction: members ? sat / members : 0,
+    grainBu: COMMODITIES.reduce((a, c) => a + (state.coop.grain.report?.byCommodity[c]?.receivedBu ?? 0), 0),
+    grainShare: state.coop.grainStats.marketBu > 0 ? COMMODITIES.reduce((a, c) => a + (state.coop.grain.report?.byCommodity[c]?.receivedBu ?? 0), 0) / state.coop.grainStats.marketBu : 0,
+    lineDrawn: -balance(state.ledger, '2000'),
   };
 }

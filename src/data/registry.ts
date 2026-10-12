@@ -2,6 +2,7 @@
 
 import * as brands from './brands';
 import * as facilities from './facilities';
+import * as grain from './grain';
 import * as history from './history';
 import * as law from './law';
 import * as markets from './markets';
@@ -15,5 +16,6 @@ export const DATA_REGISTRY: Record<string, Record<string, unknown>> = {
   'law.ts': law as unknown as Record<string, unknown>,
   'tuning.ts': tuning as unknown as Record<string, unknown>,
   'facilities.ts': facilities as unknown as Record<string, unknown>,
+  'grain.ts': grain as unknown as Record<string, unknown>,
   'regions/eccb.ts': eccb as unknown as Record<string, unknown>,
 };

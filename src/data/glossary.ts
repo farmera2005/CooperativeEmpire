@@ -26,6 +26,11 @@ export const GLOSSARY: GlossaryEntry[] = [
   { id: 'capper-volstead', term: 'Capper-Volstead', text: 'The 1922 law letting farmers market jointly through co-ops. One condition: a co-op may not do more business with non-members than with members.' },
   { id: 'subchapter-t', term: 'Subchapter T', text: 'The part of the tax code governing co-ops: patronage refunds paid or allocated on a qualified basis are deductible to the co-op.' },
   { id: 'owner-equity', term: 'Owner equity %', text: 'Member equity divided by total assets. Healthy local co-ops historically financed 40–50% of assets with equity.' },
+  { id: 'hedge', term: 'Hedge', text: 'Selling futures against grain the co-op owns so a price drop on the grain is offset by a gain on the futures. A fully hedged elevator earns basis, carry and service income, not price speculation.' },
+  { id: 'open-storage', term: 'Open storage', text: 'Grain a farmer stores at the elevator while keeping ownership. The co-op earns a monthly storage charge; the farmer sells later.' },
+  { id: 'margin-call', term: 'Margin call', text: 'When futures rise, a short hedge loses money that must be deposited with the broker immediately, even though the grain gained the same amount. Rallies with a full house drain cash and the line of credit.' },
+  { id: 'position-limit', term: 'Position limit', text: 'The board\'s cap on unhedged (net open) bushels per commodity.' },
+  { id: 'turns', term: 'Turns', text: 'Bushels handled in a year divided by storage capacity. Country elevators typically turn 1.5 to 3 times.' },
   { id: 'fiscal-year', term: 'Fiscal year', text: 'The co-op\'s accounting year, labeled by the calendar year in which it ends. Many Corn Belt locals end their year on August 31, before harvest.' },
   { id: 'drift', term: 'History with drift', text: 'Historical forces arrive in their eras, but timing shifts by up to about two years and magnitudes vary, so hindsight is not a cheat code.' },
 ];

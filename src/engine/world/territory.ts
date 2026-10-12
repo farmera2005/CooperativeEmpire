@@ -210,12 +210,12 @@ export function generateTerritory(mapSeed: number, region: RegionDef, startYear:
   {
     const miles = Math.round(rng.range(...T.processorMiles.value));
     const [x, y] = offMap(miles);
-    destinations.push({ id: destinations.length, name: 'Soybean processor', kind: 'processor', x, y, milesFromEdge: miles });
+    destinations.push({ id: destinations.length, name: 'Soybean processor', kind: 'processor', commodities: ['soybeans'], x, y, milesFromEdge: miles });
   }
   {
     const miles = Math.round(rng.range(...T.processorMiles.value));
     const [x, y] = offMap(miles);
-    destinations.push({ id: destinations.length, name: 'Corn processor', kind: 'processor', x, y, milesFromEdge: miles });
+    destinations.push({ id: destinations.length, name: 'Corn & wheat processor', kind: 'processor', commodities: ['corn', 'wheat'], x, y, milesFromEdge: miles });
   }
 
   const territory: Territory = {

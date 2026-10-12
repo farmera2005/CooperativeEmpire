@@ -19,7 +19,7 @@ describe('ledger', () => {
     const s = cloneState(base());
     post(s, { source: 't', memo: 'sale', lines: [{ account: '1100', division: 'GRAIN', amount: 50000 }, { account: '4000', division: 'GRAIN', amount: -50000 }] });
     post(s, { source: 't', memo: 'cogs', lines: [{ account: '5000', division: 'GRAIN', amount: 30000 }, { account: '1000', division: 'GRAIN', amount: -30000 }] });
-    post(s, { source: 't', memo: 'loan', lines: [{ account: '1000', division: 'CORP', amount: 100000 }, { account: '2300', division: 'CORP', amount: -100000 }] });
+    post(s, { source: 't', memo: 'loan', lines: [{ account: '1000', division: 'CORP', amount: 100000 }, { account: '2000', division: 'CORP', amount: -100000 }] });
     expect(checkInvariants(s)).toEqual([]);
     const is = incomeStatement(s.ledger, s.clock.monthIndex, s.clock.monthIndex, 'GRAIN');
     expect(is.sales).toBe(50000);

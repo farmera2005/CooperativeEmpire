@@ -4,6 +4,7 @@ import {
   type DivisionId, type IncomeStatement, type JournalEntry,
 } from '../../engine/index';
 import { Panel } from '../components/Panel';
+import { lineRate, maxCommitment, ratios } from '../../engine/index';
 import { Term } from '../components/Term';
 import { money } from '../format';
 import { useStore } from '../store';
@@ -127,6 +128,10 @@ export function FinancialsScreen() {
           )}
         </Panel>
       </div>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <RatiosPanel />
+        <LenderPanel />
+      </div>
       <p className="text-xs text-stone-500">Chart of accounts: {ACCOUNTS.length} accounts, posted by division ({DIVISIONS.join(', ')}).</p>
     </div>
   );
@@ -145,3 +150,61 @@ function BsSection({ title, lines, onDrill }: { title: string; lines: { account:
 }
 
 export type { DivisionId };
+
+function RatiosPanel() {
+  const game = useStore((s) => s.game)!;
+  const r = ratios(game);
+  const f = (x: number, d = 2) => (Number.isFinite(x) ? x.toFixed(d) : '—');
+  const rows: [string, string, string][] = [
+    ['Working capital', money(r.workingCapital), 'Current assets minus current liabilities'],
+    ['Current ratio', f(r.currentRatio), 'Lenders like 1.2 or better'],
+    ['Owner equity %', `${(r.ownerEquityPct * 100).toFixed(1)}%`, '40–50% is healthy; lenders get nervous well before 30%'],
+    ['Local leverage', f(r.localLeverage), 'Liabilities ÷ equity excluding investments in other co-ops'],
+    ['Term debt ÷ net fixed assets', `${(r.termDebtToNetFixed * 100).toFixed(0)}%`, ''],
+    ['Debt service coverage', f(r.debtServiceCoverage), 'Trailing 12 months; below 1.25 worries the lender'],
+    ['Return on local equity', `${(r.returnOnLocalEquity * 100).toFixed(1)}%`, 'Trailing 12 months local savings'],
+  ];
+  return (
+    <Panel title="Ratios">
+      <table className="data"><tbody>{rows.map(([a, b, c]) => <tr key={a}><td>{a}</td><td className="r">{b}</td><td className="text-xs text-stone-500">{c}</td></tr>)}</tbody></table>
+    </Panel>
+  );
+}
+
+function LenderPanel() {
+  const game = useStore((s) => s.game)!;
+  const command = useStore((s) => s.command);
+  const fin = game.coop.finance;
+  const [amt, setAmt] = useState('');
+  const drawn = game.history[game.history.length - 1]?.lineDrawn ?? 0;
+  return (
+    <Panel title="Lender">
+      <table className="data">
+        <tbody>
+          <tr><td>Seasonal line commitment</td><td className="r">{money(fin.lineCommitment)}</td></tr>
+          <tr><td>Borrowing base</td><td className="r">{money(fin.borrowingBase)}</td></tr>
+          <tr><td>Drawn</td><td className="r">{money(drawn)}</td></tr>
+          <tr><td>Available</td><td className="r">{money(fin.lineAvailable)}</td></tr>
+          <tr><td>Line rate</td><td className="r">{lineRate(game).toFixed(2)}%{fin.overLimit ? ' + penalty' : ''}</td></tr>
+        </tbody>
+      </table>
+      <div className="mt-2 flex items-center gap-2 text-sm">
+        Request commitment of $<input className="input w-32" value={amt} onChange={(e) => setAmt(e.target.value.replace(/[^\d]/g, ''))} placeholder={String(Math.round(fin.lineCommitment / 100))} />
+        <button className="btn" onClick={() => amt && command({ type: 'setLineCommitment', amount: Number(amt) * 100 })}>Request</button>
+        <span className="text-xs text-stone-500">max {money(maxCommitment(game))}</span>
+      </div>
+      <div className="mt-3 text-sm font-semibold">Term loans</div>
+      {!fin.termLoans.length ? <p className="text-sm text-stone-500">None.</p> : (
+        <table className="data">
+          <thead><tr><th>Purpose</th><th className="r">Balance</th><th className="r">Rate</th><th className="r">Payment</th><th></th></tr></thead>
+          <tbody>
+            {fin.termLoans.map((l) => (
+              <tr key={l.id}><td>{l.purpose}</td><td className="r">{money(l.balance)}</td><td className="r">{l.ratePct.toFixed(2)}%</td><td className="r">{money(l.payment)}/mo</td>
+                <td><button className="btn py-0" onClick={() => command({ type: 'prepayTermLoan', loanId: l.id, amount: l.balance })}>Prepay</button></td></tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </Panel>
+  );
+}

@@ -81,7 +81,7 @@ export function newFarmRecord(a: NewFarmArgs): Member {
     serviceSens: rng.range(s0, s1),
     creditNeed: rng.range(0.1, 0.5),
     satisfaction: MEMBER_TRAITS.initialSatisfaction.value,
-    grievances: [], relationship: {}, isDirector: false, weight: 1,
+    grievances: [], relationship: {}, isDirector: false, weight: 1, share: {}, ytd: {},
   };
 }
 

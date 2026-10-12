@@ -13,9 +13,16 @@ export interface TownOverlay {
   label?: string;
 }
 
+export interface MapSite {
+  townId: number;
+  ours: boolean;
+  label: string;
+}
+
 export function TerritoryMap({
-  world, homeTownId, overlay, showDistricts = true, fictionalize = false, height = 520, onSelectTown, selectedTownId,
+  world, homeTownId, overlay, showDistricts = true, fictionalize = false, height = 520, onSelectTown, selectedTownId, sites = [],
 }: {
+  sites?: MapSite[];
   world: MapWorld;
   homeTownId?: number;
   overlay?: Record<number, TownOverlay>;
@@ -70,6 +77,16 @@ export function TerritoryMap({
               </g>
             );
           })}
+          {sites.map((s, i) => {
+            const t = world.towns[s.townId];
+            const same = sites.filter((x) => x.townId === s.townId);
+            const k = same.indexOf(s);
+            const x = t.x - 2.4 - k * 1.8;
+            const y = t.y - 2.6;
+            return s.ours
+              ? <rect key={`s${i}`} x={x - 0.8} y={y - 0.8} width={1.6} height={1.6} fill="#3f5f2a" stroke="#fff" strokeWidth={0.2}><title>{s.label}</title></rect>
+              : <polygon key={`s${i}`} points={`${x},${y - 0.9} ${x - 0.85},${y + 0.7} ${x + 0.85},${y + 0.7}`} fill="#7a7466" stroke="#fff" strokeWidth={0.2}><title>{s.label}</title></polygon>;
+          })}
           {world.towns.map((t) => {
             const ov = overlay?.[t.id];
             const fill = ov?.intensity !== undefined ? `rgba(63,95,42,${0.15 + 0.85 * ov.intensity})` : t.isCountySeat ? '#24261f' : '#fff';
@@ -97,6 +114,7 @@ export function TerritoryMap({
       )}
       <div className="mt-1 flex flex-wrap gap-4 text-xs text-stone-600">
         <span>● county seat ○ town ★ home office</span>
+        {sites.length > 0 && <span><span className="inline-block h-2 w-2 bg-field align-middle" /> our elevator ▲ competitor elevator</span>}
         <span><span className="inline-block h-0.5 w-5 bg-[#b04a2f] align-middle" /> highway</span>
         <span><span className="inline-block h-0.5 w-5 bg-[#2c2c2c] align-middle" /> rail (thick = main line)</span>
         {showDistricts && <span>shading = board district</span>}
