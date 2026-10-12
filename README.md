@@ -21,6 +21,7 @@ npm run data:review  # regenerate docs/DATA_REVIEW.md
 
 ```sh
 docker compose up --build        # play at http://localhost:8080
+HOST_PORT=9090 docker compose up --build   # use another port if 8080 is taken
 # or
 docker build -t ag-coop-tycoon . && docker run --rm -p 8080:80 ag-coop-tycoon
 ```

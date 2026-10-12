@@ -25,6 +25,7 @@ CMD ["--start", "1970", "--years", "55", "--seeds", "10"]
 # ---- runtime: static files served by nginx ----
 FROM nginx:1.27-alpine AS web
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --chmod=755 docker/99-ready-message.sh /docker-entrypoint.d/99-ready-message.sh
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80
 HEALTHCHECK CMD wget -q -O /dev/null http://localhost/ || exit 1
