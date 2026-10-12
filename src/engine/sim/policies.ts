@@ -38,7 +38,7 @@ function scripted(style: Style): Policy {
     const pol = state.coop.grainPolicy;
     if (pol.posture !== style.posture || pol.hedgeRatio !== style.hedgeRatio) cmds.push({ type: 'setGrainPolicy', policy: { posture: style.posture, hedgeRatio: style.hedgeRatio } });
     const equity = memberEquity(state);
-    const owned = state.coop.facilities.filter((f) => f.status !== 'closed');
+    const owned = state.coop.facilities.filter((f) => f.status !== 'closed' && f.kind === 'elevator');
     const bs = balanceSheet(state.ledger, state.clock.monthIndex);
     const eqRatio = bs.totalAssets > 0 ? bs.totalEquity / bs.totalAssets : 1;
 

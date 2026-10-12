@@ -89,5 +89,19 @@ export function checkInvariants(state: GameState): string[] {
   const loans = state.coop.finance.termLoans.reduce((s, x) => s + x.balance, 0);
   if (loans !== -(glOf('2300') + glOf('2200'))) errors.push(`Term loans ${loans} != GL ${-(glOf('2300') + glOf('2200'))}`);
 
+  // 8. Supply subledgers: inventory layers, receivables, allowance, prepayments, rebates.
+  const glDiv = (acct: string, div: string) => l.balances[`${acct}|${div}`] ?? 0;
+  const invAcct: Record<string, string> = { AGRONOMY: '1210', FEED: '1220', ENERGY: '1230', RETAIL: '1240' };
+  for (const [d, book] of Object.entries(state.coop.supply)) {
+    let inv = 0;
+    for (const layers of Object.values(book.inventory)) for (const x of layers ?? []) inv += x.cost;
+    if (inv !== glDiv(invAcct[d], d)) errors.push(`${d} inventory layers ${inv} != GL ${glDiv(invAcct[d], d)}`);
+    const ar = book.ar.current + book.ar.past30 + book.ar.past60 + book.ar.past90 + book.ar.harvest;
+    if (ar !== glDiv('1100', d)) errors.push(`${d} receivables ${ar} != GL ${glDiv('1100', d)}`);
+    if (book.allowance !== -glDiv('1150', d)) errors.push(`${d} allowance ${book.allowance} != GL ${-glDiv('1150', d)}`);
+    if (book.prepay !== -glDiv('2130', d)) errors.push(`${d} prepayments ${book.prepay} != GL ${-glDiv('2130', d)}`);
+    if (book.rebatesAccrued !== glDiv('1160', d)) errors.push(`${d} rebates ${book.rebatesAccrued} != GL ${glDiv('1160', d)}`);
+  }
+
   return errors;
 }

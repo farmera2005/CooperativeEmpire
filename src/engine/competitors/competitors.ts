@@ -1,10 +1,10 @@
 // Competitors (M2: static grain elevators) and the marketplace of facilities for sale.
 
-import { brandName, brandsAvailable } from '../../data/brands';
+import { brandName, brandsAvailable, getBrand } from '../../data/brands';
 import { COMPETITORS, ELEVATOR_SIZES, MARKETPLACE } from '../../data/grain';
 import { SURNAMES } from '../../data/names';
-import type { ComponentId, LoadoutType } from '../../data/facilities';
-import { LOADOUT_COMPONENTS, COMPONENTS } from '../../data/facilities';
+import { LOADOUT_COMPONENTS, COMPONENTS, TYPICAL_SITE, type ComponentId, type FacilityKind, type LoadoutType } from '../../data/facilities';
+import { SUPPLY_COMPETITORS, SUPPLY_DIVISIONS, type SupplyDivision } from '../../data/supply';
 import { clamp } from '../core/math';
 import { roundCents } from '../core/money';
 import type { Rng } from '../core/rng';
@@ -85,6 +85,7 @@ export function competitorName(state: GameState, c: Competitor): string {
 
 /** Components of an existing elevator described by a competitor site. */
 export function siteComponents(site: CompetitorSite): Components {
+  if (site.components) return { ...site.components };
   const comps: Components = { site: Math.round(5 + site.storageBu / 100_000), receiving: site.receiveBuHr, dryer: site.dryBuHr, 'truck-scale': 1 };
   if (site.builtYear < 1955) {
     comps['storage-wood'] = roundTo(site.storageBu * 0.7, 1000);
@@ -110,7 +111,7 @@ export function makeOffer(state: GameState, path: MarketPath, rng: Rng, comp: Co
   const err = () => rng.int(3, 15);
   const [e0, e1] = MARKETPLACE.envLiabilityCost.value;
   return {
-    id: state.coop.nextId++, competitorId: comp.id, townId: site.townId,
+    id: state.coop.nextId++, competitorId: comp.id, townId: site.townId, kind: site.kind ?? 'elevator',
     sellerName: comp.kind === 'independent' ? `${comp.name} (owner retiring)` : competitorName(state, comp),
     components: comps, builtYear: site.builtYear, condition: site.condition,
     conditionEstimate: [clamp(site.condition - err(), 5, 100), clamp(site.condition + err(), 5, 100)],
@@ -123,9 +124,9 @@ export function makeOffer(state: GameState, path: MarketPath, rng: Rng, comp: Co
 export function generateOffers(state: GameState, path: MarketPath, rng: Rng, count: number, mi: number, year: number, preferTownId?: number): void {
   const offered = new Set(state.coop.offers.map((o) => o.competitorId));
   for (let i = 0; i < count; i++) {
-    const pool = state.competitors.filter((c) => c.status === 'active' && c.kind === 'independent' && !offered.has(c.id) && c.sites.length);
+    const pool = state.competitors.filter((c) => c.status === 'active' && c.kind === 'independent' && !offered.has(c.id) && c.sites.length && (c.sites[0].arrivalYear ?? 0) <= year);
     if (!pool.length) return;
-    const home = preferTownId !== undefined && i === 0 ? pool.find((c) => c.sites[0].townId === preferTownId) : undefined;
+    const home = preferTownId !== undefined && i === 0 ? pool.find((c) => c.sites[0].townId === preferTownId && (c.sites[0].kind ?? 'elevator') === 'elevator') : undefined;
     const comp = home ?? rng.weighted(pool, (c) => Math.max(1, c.ownerAge - 45) ** 2);
     offered.add(comp.id);
     state.coop.offers.push(makeOffer(state, path, rng, comp, comp.sites[0], mi, year));
@@ -143,4 +144,65 @@ export function ensureHomeIndependent(state: GameState, rng: Rng, year: number):
     sites: [{ id: 1, townId: home, ...eraElevator(rng, year, COMPETITORS.sizeScale.value.independent * 0.8), loadout: loadoutFor(rng, 'independent', town, state, year), builtYear: year - rng.int(20, 50), condition: Math.round(rng.range(45, 80)) }],
     posture: 0, service: 0, status: 'active', ownerAge: rng.int(66, 76), volumeYtd: 0,
   });
+}
+
+const SUPPLY_KIND: Record<SupplyDivision, FacilityKind[]> = { AGRONOMY: ['agronomy'], FEED: ['feedmill'], ENERGY: ['energy'], RETAIL: ['station', 'farmstore'] };
+const SUPPLY_NAMES: Record<FacilityKind, string[]> = {
+  elevator: [],
+  agronomy: ['{s} Fertilizer & Chemical', '{t} Ag Service', '{s} Farm Supply'],
+  feedmill: ['{s} Feed Mill', '{t} Feed & Seed'],
+  energy: ['{s} Oil Co.', '{t} Propane', '{s} Fuel Service'],
+  station: ['{s} Service Station', '{t} Gas & Go', '{s} Mobil-style Station'],
+  farmstore: ['{s} Hardware', '{t} Farm & Home'],
+};
+
+/** Typical site components for a supply competitor, scaled. */
+function scaledSite(kind: Exclude<FacilityKind, 'elevator'>, scale: number): Components {
+  const base = TYPICAL_SITE[kind];
+  const out: Components = {};
+  for (const id of Object.keys(base) as ComponentId[]) {
+    const q = base[id] ?? 0;
+    out[id] = COMPONENTS[id].unit === 'each' || id === 'site' ? Math.max(1, Math.round(q * scale)) : Math.round((q * scale) / 100) * 100;
+  }
+  return out;
+}
+
+/** Local dealers in each supply division, plus real chains that open in county seats over the years. */
+export function generateSupplyCompetitors(state: GameState, rng: Rng, year: number): void {
+  let nextId = Math.max(0, ...state.competitors.map((c) => c.id)) + 1;
+  for (const division of SUPPLY_DIVISIONS) {
+    const cfg = SUPPLY_COMPETITORS[division];
+    for (const town of state.world.towns) {
+      for (const kind of SUPPLY_KIND[division]) {
+        if (kind === 'farmstore' && !town.isCountySeat && town.population < 1500) continue;
+        if (!rng.chance(town.isCountySeat ? cfg.probSeat : cfg.probTown)) continue;
+        const coop = division !== 'RETAIL' && rng.chance(0.35);
+        const pattern = rng.pick(SUPPLY_NAMES[kind]);
+        const name = coop ? `${town.name} Farmers ${division === 'ENERGY' ? 'Oil Co-op' : division === 'FEED' ? 'Feed Co-op' : 'Supply Co-op'}` : pattern.replace('{s}', rng.pick(SURNAMES)).replace('{t}', town.name);
+        const scale = rng.range(0.5, 1.2);
+        state.competitors.push({
+          id: nextId++, name, kind: coop ? 'coop' : 'independent',
+          sites: [{ id: 1, townId: town.id, division, kind, components: scaledSite(kind as Exclude<FacilityKind, 'elevator'>, scale), storageBu: 0, receiveBuHr: 0, dryBuHr: 0, loadout: 'truck', builtYear: year - rng.int(5, 40), condition: Math.round(rng.range(40, 90)) }],
+          posture: Math.round(rng.normal(0, 1.2) * 10) / 10, service: clamp(rng.normal(0, COMPETITORS.serviceSd.value), -1, 1),
+          status: 'active', ownerAge: rng.int(40, 76), volumeYtd: 0,
+        });
+      }
+    }
+  }
+  for (const ch of SUPPLY_COMPETITORS.chains) {
+    const brand = getBrand(ch.brandId);
+    if (!brand) continue;
+    for (const town of state.world.towns.filter((t) => t.isCountySeat)) {
+      if (!rng.chance(ch.prob)) continue;
+      const arrival = Math.max(year + 1, rng.int(ch.from, ch.to));
+      if (arrival > ch.to && year > ch.to) continue;
+      const kind = ch.kind as Exclude<FacilityKind, 'elevator'>;
+      state.competitors.push({
+        id: nextId++, name: brand.name, kind: 'national', brandId: brand.id,
+        sites: [{ id: 1, townId: town.id, division: ch.division, kind, components: scaledSite(kind, 1.5), storageBu: 0, receiveBuHr: 0, dryBuHr: 0, loadout: 'truck', builtYear: arrival, condition: 95, arrivalYear: year >= ch.from ? Math.min(arrival, year) : arrival }],
+        // Chains compete on price and convenience.
+        posture: 1.5, service: 0.2, status: 'active', ownerAge: 50, volumeYtd: 0,
+      });
+    }
+  }
 }

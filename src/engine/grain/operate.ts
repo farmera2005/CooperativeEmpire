@@ -18,6 +18,7 @@ import {
 } from '../../data/grain';
 import type { SeriesId } from '../../data/markets';
 import { valueAt } from '../../data/types';
+import { CROSS_DIVISION } from '../../data/supply';
 import { bd, type Breakdown } from '../core/breakdown';
 import { monthOf, yearOf } from '../core/calendar';
 import { hash128 } from '../core/rng';
@@ -37,6 +38,7 @@ import {
 export const GRAIN_LINE: Record<Commodity, string> = { corn: 'GRAIN_CORN', soybeans: 'GRAIN_SOY', wheat: 'GRAIN_WHEAT' };
 const YIELD_SERIES: Record<Commodity, SeriesId> = { corn: 'yieldCorn', soybeans: 'yieldSoy', wheat: 'yieldWheat' };
 const REPORT_HISTORY = 36;
+const SUPPLY_KEYS = ['AGRONOMY', 'FEED', 'ENERGY'];
 const HOURS_PER_WEEK = 24 * 7;
 
 export function emptyPosition(): CommodityPosition {
@@ -81,13 +83,14 @@ function suppliersByTown(state: GameState, maxHaul: number): Supplier[] {
   const d = state.world.distances;
   for (const t of state.world.towns) {
     for (const f of state.coop.facilities) {
-      if (f.status !== 'operating') continue;
+      if (f.status !== 'operating' || f.kind !== 'elevator') continue;
       const dist = d[t.id][f.townId];
       if (dist <= maxHaul) out[t.id].ours.push({ facility: f, dist });
     }
     for (const c of state.competitors) {
       if (c.status !== 'active') continue;
       for (const s of c.sites) {
+        if ((s.division ?? 'GRAIN') !== 'GRAIN') continue;
         const dist = d[t.id][s.townId];
         if (dist <= maxHaul) out[t.id].comps.push({ posture: c.posture, service: c.service, dist });
       }
@@ -120,7 +123,7 @@ export function stepGrain(ctx: TickContext): void {
   const pol = state.coop.grainPolicy;
   const idx = grainCostIndex(path, mi);
   const weather = state.world.weather;
-  const operating = state.coop.facilities.filter((f) => f.status === 'operating');
+  const operating = state.coop.facilities.filter((f) => f.status === 'operating' && f.kind === 'elevator');
 
   // ---- 1. prices, basis noise, futures MTM and carry on existing hedges ----
   const nrng = ctx.rng('grain.basis');
@@ -175,13 +178,17 @@ export function stepGrain(ctx: TickContext): void {
     // Utilities in 2024 $/bu, relative to the local market bid.
     const priceW = 0.5 + m.priceSens;
     let best: { facility: Facility; u: number; price: number } | null = null;
-    const grievance = m.grievances.reduce((a, gr) => a + (gr.division === 'GRAIN' ? gr.severity : 0), 0);
+    const grievance = m.grievances.reduce((a, gr) => a + gr.severity * (gr.division === 'GRAIN' ? 1 : CROSS_DIVISION.grievanceSpillover.value), 0);
+    // Farmers who already buy inputs from us lean toward delivering grain to us (cross-division bundling).
+    let bundled = 0;
+    for (const k of SUPPLY_KEYS) if ((m.share[k] ?? 0) > CROSS_DIVISION.bundleThreshold) bundled++;
+    const bundleBonus = sm.bundle.value * Math.sqrt(bundled);
     for (const o of s.ours) {
       const price = posture - FARM_HAUL_PER_MILE.value * o.dist;
       const service = sm.staffingService.value[o.facility.staffing.level] * sm.serviceQuality.value
         - sm.waitPerHour.value * o.facility.grain.waitMemory;
       const u = priceW * price + service + contracts * sm.contractOffered.value
-        + (m.kind === 'member' ? sm.loyalty.value * m.loyalty : 0) - sm.grievance.value * grievance;
+        + (m.kind === 'member' ? sm.loyalty.value * m.loyalty : 0) - sm.grievance.value * grievance + bundleBonus;
       if (!best || u > best.u) best = { facility: o.facility, u, price };
     }
     let denom = 0;
@@ -368,13 +375,18 @@ export function stepGrain(ctx: TickContext): void {
     }
   }
 
-  // Member YTD volumes after capacity limits.
+  // Member YTD volumes after capacity limits, and member vs non-member business (by value).
+  const stats = state.coop.patronageStats.GRAIN;
   for (const mo of memberOffers) {
     const fl = flows.get(mo.fid)!;
     const off = fl.harvest[mo.c] + fl.steady[mo.c];
     const ratio = off > 0 ? fl.accepted[mo.c] / off : 0;
     const line = GRAIN_LINE[mo.c];
-    mo.m.ytd[line] = (mo.m.ytd[line] ?? 0) + mo.bu * ratio;
+    const bu = mo.bu * ratio;
+    mo.m.ytd[line] = (mo.m.ytd[line] ?? 0) + bu;
+    const value = roundCents(bu * (F[mo.c] + ourBid[mo.c]) * 100);
+    if (mo.m.kind === 'member') stats.member += value;
+    else stats.nonmember += value;
   }
 
   // ---- 4–7. accounting by commodity ----

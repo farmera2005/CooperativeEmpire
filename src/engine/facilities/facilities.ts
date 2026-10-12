@@ -1,14 +1,15 @@
 // Facilities: capacities, replacement cost, fixed-asset register, capital projects,
 // depreciation, condition, and monthly operating costs (DESIGN §8).
 
-import { COMPONENTS, LOADOUT_COMPONENTS, LOADOUT_RANK, STORAGE_COMPONENTS, midCost, type ComponentId, type LoadoutType } from '../../data/facilities';
+import { COMPONENTS, KIND_BASE_FTE, KIND_DIVISION, LOADOUT_COMPONENTS, LOADOUT_RANK, STORAGE_COMPONENTS, midCost, type ComponentId, type FacilityKind, type LoadoutType } from '../../data/facilities';
+import { CROSS_DIVISION, SEASONAL_OVERTIME, SITE_UTILITIES, SUPPLY_WAGES, type SupplyDivision } from '../../data/supply';
 import { COMMODITIES, FACILITY_COSTS, STAFF } from '../../data/grain';
 import { monthOf, yearOf } from '../core/calendar';
 import { valueAt } from '../../data/types';
 import { allocateCents, roundCents, type Cents } from '../core/money';
 import { post } from '../ledger/ledger';
 import type { TickContext } from '../sim/context';
-import type { CapitalProject, Facility, FixedAsset, GameState, JournalLine } from '../types';
+import type { CapitalProject, DivisionId, Facility, FixedAsset, GameState, JournalLine } from '../types';
 import { constructionLevel, nominalCents } from '../world/macro';
 import type { MarketPath } from '../world/marketPath';
 
@@ -53,9 +54,9 @@ export function emptyGrainState(): Facility['grain'] {
   return { bu: { corn: 0, soybeans: 0, wheat: 0 }, waitMemory: 0, seasonMaxWait: 0, seasonTurnedAway: 0, seasonWaitBu: 0, seasonOfferedBu: 0, downWeeks: 0 };
 }
 
-export function newFacility(state: GameState, townId: number, name: string, components: Components, status: Facility['status'], builtYear: number, condition: number): Facility {
+export function newFacility(state: GameState, townId: number, name: string, components: Components, status: Facility['status'], builtYear: number, condition: number, kind: FacilityKind = 'elevator'): Facility {
   const f: Facility = {
-    id: state.coop.nextId++, name, townId, division: 'GRAIN', kind: 'elevator', ownership: 'owned', status,
+    id: state.coop.nextId++, name, townId, division: KIND_DIVISION[kind], kind, ownership: 'owned', status,
     builtYear, acquiredMonth: state.clock.monthIndex, condition, components: { ...components },
     staffing: { level: 'standard', pay: 'at' }, grain: emptyGrainState(),
   };
@@ -69,6 +70,7 @@ export function newFacility(state: GameState, townId: number, name: string, comp
  * for the caller to balance against cash or construction in progress.
  */
 export function capitalize(state: GameState, facilityId: number, components: Components, total: Cents, label: string, remainingLifeShare = 1): JournalLine[] {
+  const division = state.coop.facilities.find((f) => f.id === facilityId)?.division ?? 'GRAIN';
   const ids = (Object.keys(components) as ComponentId[]).filter((id) => (components[id] ?? 0) > 0).sort();
   const weights = ids.map((id) => midCost(id) * (components[id] ?? 0));
   const parts = allocateCents(total, weights);
@@ -80,7 +82,7 @@ export function capitalize(state: GameState, facilityId: number, components: Com
       lifeMonths: def.lifeYears > 0 ? Math.max(12, Math.round(def.lifeYears * 12 * remainingLifeShare)) : 0, startMonth: state.clock.monthIndex,
     };
     state.coop.assets.push(asset);
-    lines.push({ account: def.account, division: 'GRAIN', amount: parts[i] });
+    lines.push({ account: def.account, division, amount: parts[i] });
   });
   return lines;
 }
@@ -88,16 +90,18 @@ export function capitalize(state: GameState, facilityId: number, components: Com
 /** Monthly straight-line depreciation for all assets. */
 export function stepDepreciation(ctx: TickContext): void {
   const { state } = ctx;
-  let total = 0;
+  const byDiv = new Map<DivisionId, number>();
+  const divOf = new Map(state.coop.facilities.map((f) => [f.id, f.division]));
   for (const a of state.coop.assets) {
     if (a.lifeMonths <= 0 || a.accumDep >= a.cost) continue;
     const dep = Math.min(a.cost - a.accumDep, Math.max(1, Math.round(a.cost / a.lifeMonths)));
     a.accumDep += dep;
-    total += dep;
+    const d = divOf.get(a.facilityId) ?? 'GRAIN';
+    byDiv.set(d, (byDiv.get(d) ?? 0) + dep);
   }
-  if (total > 0) {
-    post(state, { source: 'depreciation', memo: 'Monthly depreciation', lines: [{ account: '7100', division: 'GRAIN', amount: total }, { account: '1590', division: 'GRAIN', amount: -total }] });
-  }
+  const lines: JournalLine[] = [];
+  for (const [d, v] of [...byDiv.entries()].sort()) lines.push({ account: '7100', division: d, amount: v }, { account: '1590', division: d, amount: -v });
+  if (lines.length) post(state, { source: 'depreciation', memo: 'Monthly depreciation', lines });
 }
 
 export const netBookValue = (state: GameState, facilityId: number): Cents =>
@@ -110,10 +114,11 @@ export function stepProjects(ctx: TickContext): void {
   for (const p of state.coop.projects) {
     const monthsLeft = Math.max(1, p.completeMonth - mi + 1);
     const spend = Math.round((p.budget - p.spent) / monthsLeft);
+    const division = state.coop.facilities.find((f) => f.id === p.facilityId)?.division ?? 'GRAIN';
     if (spend > 0) {
       post(state, {
         source: 'capex', memo: `Construction: ${p.label}`,
-        lines: [{ account: '1540', division: 'GRAIN', amount: spend }, { account: '1000', division: 'GRAIN', amount: -spend }],
+        lines: [{ account: '1540', division, amount: spend }, { account: '1000', division, amount: -spend }],
       });
       p.spent += spend;
     }
@@ -131,15 +136,28 @@ function completeProject(ctx: TickContext, p: CapitalProject): void {
   if (p.renovation) {
     const asset: FixedAsset = { id: state.coop.nextId++, facilityId: f.id, label: `${f.name}: renovation`, account: '1510', cost: p.spent, accumDep: 0, lifeMonths: FACILITY_COSTS.renovationLifeYears * 12, startMonth: ctx.mi };
     state.coop.assets.push(asset);
-    lines = [{ account: '1510', division: 'GRAIN', amount: p.spent }];
+    lines = [{ account: '1510', division: f.division, amount: p.spent }];
     f.condition = Math.min(100, f.condition + FACILITY_COSTS.renovateConditionGain.value);
   } else {
     lines = capitalize(state, f.id, p.components, p.spent, f.name);
     for (const id of Object.keys(p.components) as ComponentId[]) f.components[id] = (f.components[id] ?? 0) + (p.components[id] ?? 0);
   }
-  post(state, { source: 'capex-complete', memo: `Placed in service: ${p.label}`, lines: [...lines, { account: '1540', division: 'GRAIN', amount: -p.spent }] });
+  post(state, { source: 'capex-complete', memo: `Placed in service: ${p.label}`, lines: [...lines, { account: '1540', division: f.division, amount: -p.spent }] });
   if (f.status === 'underConstruction') f.status = 'operating';
   ctx.inbox({ kind: 'memo', title: `Completed: ${p.label}`, body: `${p.label} at ${f.name} is finished and in service.` });
+}
+
+/** FTE at standard staffing (2024 productivity) for any site. Elevators use their own formula. */
+export function facilityFte(f: Facility): number {
+  if (f.kind === 'elevator') return elevatorFte(f);
+  let fte = KIND_BASE_FTE[f.kind];
+  for (const id of Object.keys(f.components) as ComponentId[]) fte += (COMPONENTS[id].ftePerUnit ?? 0) * (f.components[id] ?? 0);
+  return fte;
+}
+
+/** True if another of our operating sites in the same town (lower id) already carries the shared base costs. */
+function sharesSite(state: GameState, f: Facility): boolean {
+  return state.coop.facilities.some((o) => o.id < f.id && o.townId === f.townId && o.status === 'operating');
 }
 
 /** FTE at standard staffing for an elevator. */
@@ -155,19 +173,32 @@ export function stepFacilityCosts(ctx: TickContext): void {
   const { state, path, mi } = ctx;
   const lines: JournalLine[] = [];
   let cash = 0;
+  let division: DivisionId = 'GRAIN';
   const add = (account: string, amount: Cents) => {
     if (amount <= 0) return;
-    lines.push({ account, division: 'GRAIN', amount });
+    lines.push({ account, division, amount });
     cash += amount;
   };
   for (const f of state.coop.facilities) {
     if (f.status === 'closed' || f.status === 'underConstruction') continue;
+    division = f.division;
     const repl = replacementCost(path, mi, f.components);
     const mothballed = f.status === 'mothballed';
+    const shared = sharesSite(state, f);
     if (!mothballed) {
-      const fte = elevatorFte(f) * STAFF.levelFactor.value[f.staffing.level] * valueAt(STAFF.laborIntensity, yearOf(mi));
-      let wages = nominalCents(path, mi, (fte * STAFF.annualWage.value * STAFF.payFactor.value[f.staffing.pay]) / 12);
-      if (HARVEST_MONTHS.includes(monthOf(mi))) wages += roundCents(wages * STAFF.harvestOvertime.value);
+      let fte = facilityFte(f);
+      if (shared) fte -= (f.kind === 'elevator' ? STAFF.fteBase.value : KIND_BASE_FTE[f.kind]) * CROSS_DIVISION.sharedSiteSaving.value;
+      fte *= STAFF.levelFactor.value[f.staffing.level] * valueAt(STAFF.laborIntensity, yearOf(mi));
+      const wage = f.division === 'GRAIN' ? STAFF.annualWage.value : SUPPLY_WAGES.value[f.division as SupplyDivision];
+      let wages = nominalCents(path, mi, (fte * wage * STAFF.payFactor.value[f.staffing.pay]) / 12);
+      if (f.division === 'GRAIN') {
+        if (HARVEST_MONTHS.includes(monthOf(mi))) wages += roundCents(wages * STAFF.harvestOvertime.value);
+      } else {
+        const ot = SEASONAL_OVERTIME.value[f.division as SupplyDivision];
+        if (ot.months.includes(monthOf(mi))) wages += roundCents(wages * ot.share);
+        const util = SITE_UTILITIES.value[f.kind] ?? 0;
+        add('7400', nominalCents(path, mi, (util * (shared ? 1 - CROSS_DIVISION.sharedSiteSaving.value : 1)) / 12));
+      }
       add('7000', wages);
       add('7010', roundCents(wages * STAFF.benefitsRate.value));
     }
@@ -193,12 +224,12 @@ export function stepFacilityCosts(ctx: TickContext): void {
       f.envLiability.discovered = true;
       post(state, {
         source: 'env-cleanup', memo: `Environmental cleanup at ${f.name}`,
-        lines: [{ account: '7660', division: 'GRAIN', amount: f.envLiability.cost }, { account: '1000', division: 'GRAIN', amount: -f.envLiability.cost }],
+        lines: [{ account: '7660', division: f.division, amount: f.envLiability.cost }, { account: '1000', division: f.division, amount: -f.envLiability.cost }],
       });
       ctx.inbox({ kind: 'alert', title: `Contamination found at ${f.name}`, body: `Soil testing during routine work at ${f.name} found old fuel and pesticide contamination from the previous owner. Cleanup will cost about $${Math.round(f.envLiability.cost / 100).toLocaleString('en-US')}. Better due diligence might have caught it before the purchase.` });
     }
   }
-  if (lines.length) post(state, { source: 'facility-costs', memo: 'Facility payroll, repairs, insurance, property tax', lines: [...lines, { account: '1000', division: 'GRAIN', amount: -cash }] });
+  if (lines.length) post(state, { source: 'facility-costs', memo: 'Facility payroll, repairs, insurance, property tax', lines: [...lines, { account: '1000', division: 'CORP', amount: -cash }] });
 }
 
 export const yearBuiltLabel = (f: Facility): string => `${f.builtYear}`;

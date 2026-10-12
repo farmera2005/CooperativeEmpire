@@ -34,6 +34,18 @@ export const MIGRATIONS: Record<number, (s: AnyState) => AnyState> = {
     }
     return { ...s, schemaVersion: 2 };
   },
+  // v2 → v3 (Milestone 3): supply divisions, facility kinds, patronage tracking.
+  2: (s) => {
+    const book = () => ({ inventory: {}, ar: { current: 0, past30: 0, past60: 0, past90: 0, harvest: 0 }, allowance: 0, prepay: 0, prebuyGal: 0, prebuyPrice: 0, rebatesAccrued: 0, rebateBase: 0, lateMemory: 0, townShare: {}, toll: null, report: null, reports: [] });
+    const policy = () => ({ posture: 'market', credit: 'normal', prepayProgram: true, summerFillPct: 0.4, winterFillPct: 0.3, tollMilling: false, prebuyProgram: true, supplyCover: 'covered' });
+    const divs = ['AGRONOMY', 'FEED', 'ENERGY', 'RETAIL'];
+    s.coop.supply = Object.fromEntries(divs.map((d) => [d, book()]));
+    s.coop.supplyPolicy = Object.fromEntries(divs.map((d) => [d, policy()]));
+    s.coop.patronageStats = Object.fromEntries(['GRAIN', ...divs, 'CORP'].map((d) => [d, { member: 0, nonmember: 0 }]));
+    for (const o of s.coop.offers) o.kind ??= 'elevator';
+    for (const c of s.competitors) for (const site of c.sites) site.division ??= 'GRAIN';
+    return { ...s, schemaVersion: 3 };
+  },
 };
 
 export interface SaveFile {

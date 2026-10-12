@@ -1,7 +1,7 @@
 // Player actions on facilities: due diligence, purchase, build, upgrade, renovate,
 // mothball, reopen, close. Each mutates a working copy and returns messages.
 
-import { COMPONENTS, LOADOUT_COMPONENTS, LOADOUT_RANK, type ComponentId, type LoadoutType } from '../../data/facilities';
+import { COMPONENTS, KIND_DIVISION, KIND_LABEL, LOADOUT_COMPONENTS, LOADOUT_RANK, TYPICAL_SITE, type ComponentId, type FacilityKind, type LoadoutType } from '../../data/facilities';
 import { FACILITY_COSTS, MARKETPLACE } from '../../data/grain';
 import { LENDING } from '../../data/tuning';
 import { yearOf } from '../core/calendar';
@@ -92,9 +92,9 @@ export function buyOffer(state: GameState, offerId: number, financePct: number):
   if (!o) return err('That offer is no longer available.');
   const mi = state.clock.monthIndex;
   const town = state.world.towns[o.townId];
-  const fail = finance(state, o.price, financePct, `Purchase of ${town.name} elevator`);
+  const fail = finance(state, o.price, financePct, `Purchase of ${facilityName(town.name, o.kind)}`);
   if (fail) return fail;
-  const f = newFacility(state, o.townId, `${town.name} elevator`, o.components, 'operating', o.builtYear, o.condition);
+  const f = newFacility(state, o.townId, facilityName(town.name, o.kind), o.components, 'operating', o.builtYear, o.condition, o.kind);
   if (o.envLiability > 0) f.envLiability = { cost: o.envLiability, discovered: false };
   // Remaining life reflects the age of what was bought.
   const remaining = Math.max(0.3, 1 - (yearOf(mi) - o.builtYear) / 50);
@@ -108,12 +108,34 @@ export function buyOffer(state: GameState, offerId: number, financePct: number):
   }
   state.coop.offers = state.coop.offers.filter((x) => x.id !== o.id);
   const renewed = renewalCommitment(state);
-  const msg = `Bought the ${town.name} elevator for ${formatCents(o.price)}.`;
+  const msg = `Bought the ${facilityName(town.name, o.kind)} for ${formatCents(o.price)}.`;
   if (renewed > state.coop.finance.lineCommitment) {
     state.coop.finance.lineCommitment = renewed;
     return info(`${msg} The lender raised the seasonal line to ${formatCents(renewed)} to carry grain inventory.`);
   }
   return info(msg);
+}
+
+export const facilityName = (town: string, kind: FacilityKind): string =>
+  kind === 'elevator' ? `${town} elevator` : `${town} ${KIND_LABEL[kind].toLowerCase()}`;
+
+/** Build a new supply site (agronomy center, feed mill, fuel plant, station, store) from components. */
+export function buildFacility(state: GameState, kind: Exclude<FacilityKind, 'elevator'>, townId: number, components: Components, financePct: number): Result {
+  const town = state.world.towns[townId];
+  if (!town) return err('Unknown town.');
+  if (state.coop.facilities.some((f) => f.townId === townId && f.kind === kind && f.status !== 'closed')) return err(`We already have a ${KIND_LABEL[kind].toLowerCase()} in ${town.name}; upgrade it instead.`);
+  const clean: Components = { site: components.site ?? TYPICAL_SITE[kind].site ?? 1 };
+  for (const id of Object.keys(components) as ComponentId[]) if ((components[id] ?? 0) > 0) clean[id] = components[id];
+  const wrong = (Object.keys(clean) as ComponentId[]).filter((id) => id !== 'site' && COMPONENTS[id].division !== KIND_DIVISION[kind]);
+  if (wrong.length) return err(`${wrong.map((id) => COMPONENTS[id].label).join(', ')} does not belong at a ${KIND_LABEL[kind].toLowerCase()}.`);
+  const est = estimateProject(state, townId, clean);
+  if (est.problems.length) return err(est.problems.join(' '));
+  const label = `New ${KIND_LABEL[kind].toLowerCase()} at ${town.name}`;
+  const loanFail = financeProject(state, est.cost, financePct, label);
+  if (loanFail) return loanFail;
+  const f = newFacility(state, townId, facilityName(town.name, kind), {}, 'underConstruction', yearOf(state.clock.monthIndex), 100, kind);
+  state.coop.projects.push({ id: state.coop.nextId++, facilityId: f.id, label, components: clean, budget: est.cost, spent: 0, startMonth: state.clock.monthIndex, completeMonth: state.clock.monthIndex + est.months });
+  return info(`Construction approved: ${formatCents(est.cost)}, about ${est.months} months.`);
 }
 
 export interface BuildSpec {
@@ -167,6 +189,8 @@ export function upgradeFacility(state: GameState, facilityId: number, components
   if (state.coop.projects.some((p) => p.facilityId === f.id)) return err(`${f.name} already has a project under way.`);
   const clean: Components = {};
   for (const id of Object.keys(components) as ComponentId[]) if ((components[id] ?? 0) > 0) clean[id] = components[id];
+  const wrong = (Object.keys(clean) as ComponentId[]).filter((id) => id !== 'site' && COMPONENTS[id].division !== f.division);
+  if (wrong.length) return err(`${wrong.map((id) => COMPONENTS[id].label).join(', ')} does not belong at ${f.name}.`);
   const est = estimateProject(state, f.townId, clean, f);
   if (est.problems.length) return err(est.problems.join(' '));
   const fail = financeProject(state, est.cost, financePct, `Upgrade of ${f.name}`);

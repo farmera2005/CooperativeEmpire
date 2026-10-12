@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { advanceMonth, applyCommand, checkInvariants, incomeStatement, DEFAULT_SETUP, hashValue, newGame, parseSave, serializeSave, toSaveFile, type GameState } from '../src/engine/index';
+import { SCHEMA_VERSION, advanceMonth, applyCommand, checkInvariants, incomeStatement, DEFAULT_SETUP, hashValue, newGame, parseSave, serializeSave, toSaveFile, type GameState } from '../src/engine/index';
 import { POLICIES } from '../src/engine/sim/policies';
 import { migrate } from '../src/engine/save/migrations';
 import { cloneState } from '../src/engine/sim/clone';
@@ -118,12 +118,12 @@ describe('grain operations', () => {
 });
 
 describe('save migration', () => {
-  it('upgrades a schema-1 save to schema 2 and keeps playing', () => {
+  it('upgrades a schema-1 save to the current schema and keeps playing', () => {
     const v2 = newGame(setup(1975, 8));
     const v1 = JSON.parse(JSON.stringify(v2));
     v1.schemaVersion = 1;
     delete v1.competitors;
-    for (const k of ['facilities', 'projects', 'assets', 'nextId', 'grainPolicy', 'grain', 'offers', 'finance', 'grainStats']) delete v1.coop[k];
+    for (const k of ['facilities', 'projects', 'assets', 'nextId', 'grainPolicy', 'grain', 'offers', 'finance', 'grainStats', 'supply', 'supplyPolicy', 'patronageStats']) delete v1.coop[k];
     for (const m of v1.members.list) {
       delete m.share;
       delete m.ytd;
@@ -134,9 +134,9 @@ describe('save migration', () => {
       delete h.lineDrawn;
     }
     const migrated = migrate(v1);
-    expect(migrated.schemaVersion).toBe(2);
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
     const next = advanceMonth(migrated).state;
     expect(checkInvariants(next)).toEqual([]);
-    expect(parseSave(serializeSave(toSaveFile(next, 'x', 'y'))).state.schemaVersion).toBe(2);
+    expect(parseSave(serializeSave(toSaveFile(next, 'x', 'y'))).state.schemaVersion).toBe(SCHEMA_VERSION);
   });
 });

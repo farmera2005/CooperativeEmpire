@@ -228,6 +228,8 @@ export const SHARE_MODEL = {
   grievanceDecayMonths: s(24, 'low'),
   /** Hauling direct to a processor or terminal, skipping local elevators ($/bu equivalent; large farms less penalized). */
   outsideOption: s(-0.1, 'low'),
+  /** $/bu equivalent per other division the farmer buys from us (× sqrt(n)). */
+  bundle: s(0.015, 'low'),
   outsideOptionLarge: s(-0.05, 'low'),
   /** Service effect of facility staffing level (−1..1 scale). */
   staffingService: s({ lean: -0.4, standard: 0, full: 0.3 }, 'low'),

@@ -7,7 +7,8 @@ import { GOVERNANCE_SETUP, LENDING, SETUP } from '../../data/tuning';
 import { MARKETPLACE } from '../../data/grain';
 import { formatCents } from '../core/format';
 import { defaultCommitment, emptyFinance } from '../finance/lender';
-import { ensureHomeIndependent, generateCompetitors, generateOffers } from '../competitors/competitors';
+import { ensureHomeIndependent, generateCompetitors, generateOffers, generateSupplyCompetitors } from '../competitors/competitors';
+import { defaultSupplyPolicies, emptyPatronageStats, emptySupply } from '../supply/defaults';
 import { defaultGrainPolicy, emptyGrainBook } from '../grain/defaults';
 import { formatMonth, toMonthIndex } from '../core/calendar';
 import { allocateCents, roundCents, type Cents } from '../core/money';
@@ -118,6 +119,7 @@ export function newGame(setup: GameSetup): GameState {
       regionalAffiliations: setup.regionalAffiliations, minCash: 0,
       facilities: [], projects: [], assets: [], nextId: 1, grainPolicy: defaultGrainPolicy(), grain: emptyGrainBook(), offers: [],
       finance: emptyFinance(), grainStats: { marketBu: 0, offeredBu: 0, priceAdvantage: 0 },
+      supply: emptySupply(), supplyPolicy: defaultSupplyPolicies(), patronageStats: emptyPatronageStats(),
     },
     competitors: [],
     inbox: [],
@@ -143,6 +145,7 @@ export function newGame(setup: GameSetup): GameState {
   const crng = stream(setup.gameSeed, -1, 'competitors.generate');
   state.competitors = generateCompetitors(state, crng, setup.startYear);
   ensureHomeIndependent(state, crng, setup.startYear);
+  generateSupplyCompetitors(state, stream(setup.gameSeed, -1, 'competitors.supply'), setup.startYear);
   generateOffers(state, getMarketPath(setup.gameSeed, setup.historyMode, drift), crng, MARKETPLACE.initialOffers, startMonth, setup.startYear, homeTown.id);
 
   // Founding memos.

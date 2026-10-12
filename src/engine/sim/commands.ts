@@ -3,14 +3,16 @@
 
 import { formatCents } from '../core/format';
 import {
-  buildElevator, buyOffer, closeFacility, dueDiligence, renovateFacility, setFacilityStatus, setStaffing, upgradeFacility,
+  buildElevator, buildFacility, buyOffer, closeFacility, dueDiligence, renovateFacility, setFacilityStatus, setStaffing, upgradeFacility,
   type BuildSpec,
 } from '../facilities/actions';
 import type { Components } from '../facilities/facilities';
 import { maxCommitment } from '../finance/lender';
 import { post } from '../ledger/ledger';
 import { balance } from '../ledger/ledger';
-import type { GameState, GrainPolicy, PayPosition, StaffLevel } from '../types';
+import type { GameState, GrainPolicy, PayPosition, StaffLevel, SupplyPolicy } from '../types';
+import type { FacilityKind } from '../../data/facilities';
+import type { SupplyDivision } from '../../data/supply';
 import { cloneState } from './clone';
 
 export type Command =
@@ -20,6 +22,8 @@ export type Command =
   | { type: 'dueDiligence'; offerId: number }
   | { type: 'buyFacility'; offerId: number; financePct: number }
   | { type: 'buildElevator'; townId: number; spec: BuildSpec; financePct: number }
+  | { type: 'buildFacility'; kind: Exclude<FacilityKind, 'elevator'>; townId: number; components: Components; financePct: number }
+  | { type: 'setSupplyPolicy'; division: SupplyDivision; policy: Partial<SupplyPolicy> }
   | { type: 'upgradeFacility'; facilityId: number; components: Components; financePct: number }
   | { type: 'renovateFacility'; facilityId: number; financePct: number }
   | { type: 'mothballFacility'; facilityId: number }
@@ -60,6 +64,14 @@ function run(s: GameState, cmd: Command): CommandMessage[] {
     case 'dueDiligence': return dueDiligence(s, cmd.offerId);
     case 'buyFacility': return buyOffer(s, cmd.offerId, cmd.financePct);
     case 'buildElevator': return buildElevator(s, cmd.townId, cmd.spec, cmd.financePct);
+    case 'buildFacility': return buildFacility(s, cmd.kind, cmd.townId, cmd.components, cmd.financePct);
+    case 'setSupplyPolicy': {
+      const p = { ...s.coop.supplyPolicy[cmd.division], ...cmd.policy };
+      p.summerFillPct = Math.max(0, Math.min(1, p.summerFillPct));
+      p.winterFillPct = Math.max(0, Math.min(1, p.winterFillPct));
+      s.coop.supplyPolicy[cmd.division] = p;
+      return [];
+    }
     case 'upgradeFacility': return upgradeFacility(s, cmd.facilityId, cmd.components, cmd.financePct);
     case 'renovateFacility': return renovateFacility(s, cmd.facilityId, cmd.financePct);
     case 'mothballFacility': return setFacilityStatus(s, cmd.facilityId, 'mothballed');

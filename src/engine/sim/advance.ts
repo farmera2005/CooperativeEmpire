@@ -7,6 +7,8 @@ import { postOverhead } from '../corp/overhead';
 import { stepLender } from '../finance/lender';
 import { stepDepreciation, stepFacilityCosts, stepProjects } from '../facilities/facilities';
 import { stepGrain } from '../grain/operate';
+import { stepSupply } from '../supply/operate';
+import { stepCapperVolstead } from './capperVolstead';
 import { stepJoining } from '../members/joining';
 import { stepMarketplace } from './marketplace';
 import { checkInvariants } from '../ledger/invariants';
@@ -81,6 +83,8 @@ export function advanceMonth(state: GameState, decisions: Command[] = [], opts: 
   stepJoining(ctx);
   // 10–13. competitor prices, demand, share of wallet and divisions (grain; others in M3)
   stepGrain(ctx);
+  stepSupply(ctx);
+  stepCapperVolstead(ctx);
   // 14. cross-division effects — M3
   // 15. working capital: facility and corporate overhead
   stepFacilityCosts(ctx);
@@ -103,6 +107,7 @@ export function advanceMonth(state: GameState, decisions: Command[] = [], opts: 
     const fy = fiscalYearOf(ctx.mi, w.setup.fiscalYearEndMonth);
     const savings = closeFiscalYear(w, '3400');
     for (const m of w.members.list) m.ytd = {};
+    for (const k of Object.keys(w.coop.patronageStats) as (keyof typeof w.coop.patronageStats)[]) w.coop.patronageStats[k] = { member: 0, nonmember: 0 };
     ctx.inbox({
       kind: 'memo', title: `Fiscal ${fy} closed`,
       body: `The books for fiscal ${fy} are closed. Net savings of ${formatCents(savings)} were transferred to unallocated retained earnings. (Patronage distribution arrives in Milestone 4.)`,

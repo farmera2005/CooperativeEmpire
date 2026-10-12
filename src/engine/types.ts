@@ -4,11 +4,12 @@
 import type { Cents } from './core/money';
 import type { SeriesId } from '../data/markets';
 import type { CropId, SpeciesId } from '../data/regions/eccb';
-import type { ComponentId, LoadoutType } from '../data/facilities';
+import type { ComponentId, FacilityKind, LoadoutType } from '../data/facilities';
+import type { LineId, SupplyDivision } from '../data/supply';
 import type { Commodity } from '../data/grain';
 import type { Breakdown } from './core/breakdown';
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export type DivisionId = 'GRAIN' | 'AGRONOMY' | 'FEED' | 'ENERGY' | 'RETAIL' | 'CORP';
 export const DIVISIONS: DivisionId[] = ['GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'RETAIL', 'CORP'];
@@ -310,7 +311,7 @@ export interface Facility {
   name: string;
   townId: number;
   division: DivisionId;
-  kind: 'elevator';
+  kind: FacilityKind;
   ownership: 'owned' | 'leased';
   status: 'underConstruction' | 'operating' | 'mothballed' | 'closed';
   builtYear: number;
@@ -415,6 +416,7 @@ export interface GrainBook {
 
 export interface FacilityOffer {
   id: number;
+  kind: FacilityKind;
   competitorId: number | null;
   townId: number;
   sellerName: string;
@@ -467,6 +469,80 @@ export interface CoopState {
   offers: FacilityOffer[];
   finance: FinanceState;
   grainStats: { marketBu: number; offeredBu: number; priceAdvantage: number };
+  supply: Record<SupplyDivision, SupplyBook>;
+  supplyPolicy: Record<SupplyDivision, SupplyPolicy>;
+  /** Fiscal-year-to-date sales to members and non-members by division (cents), for Capper-Volstead and patronage. */
+  patronageStats: Record<DivisionId, { member: Cents; nonmember: Cents }>;
+}
+
+export interface InventoryLayer {
+  qty: number;
+  /** Total cost of the layer (cents). */
+  cost: Cents;
+  month: number;
+}
+
+export interface ReceivablesBook {
+  current: Cents;
+  past30: Cents;
+  past60: Cents;
+  past90: Cents;
+  /** Balances due at harvest (agronomy seasonal terms). */
+  harvest: Cents;
+}
+
+export interface SupplyLineMonth {
+  demand: number;
+  sold: number;
+  unmet: number;
+  price: number;
+  cost: number;
+  revenue: Cents;
+  cogs: Cents;
+}
+
+export interface SupplyMonthReport {
+  monthIndex: number;
+  lines: Partial<Record<LineId, SupplyLineMonth>>;
+  capacity: { label: string; used: number; available: number; unit: string }[];
+  margin: Breakdown;
+  badDebt: Cents;
+  writeDown: Cents;
+  share: number;
+}
+
+export interface SupplyBook {
+  inventory: Partial<Record<LineId, InventoryLayer[]>>;
+  ar: ReceivablesBook;
+  /** Allowance for bad debt (positive number; credit balance in 1150). */
+  allowance: Cents;
+  /** Customer prepayments held (positive; credit balance in 2130). */
+  prepay: Cents;
+  /** Propane prebuy gallons still to deliver, and their average contract price ($/gal). */
+  prebuyGal: number;
+  prebuyPrice: number;
+  rebatesAccrued: Cents;
+  /** Trailing crop-protection sales for the rebate tier (cents, this fiscal year). */
+  rebateBase: Cents;
+  /** Share of booked application acres done late (EMA): customers' memory of timeliness. */
+  lateMemory: number;
+  /** Retail share by kind and town, keyed "station:12" (0..1). */
+  townShare: Record<string, number>;
+  toll: { tonsPerMonth: number } | null;
+  report: SupplyMonthReport | null;
+  reports: SupplyMonthReport[];
+}
+
+export interface SupplyPolicy {
+  posture: Posture;
+  credit: 'strict' | 'normal' | 'loose';
+  prepayProgram: boolean;
+  /** Fertilizer fill purchases as share of next season's expected sales. */
+  summerFillPct: number;
+  winterFillPct: number;
+  tollMilling: boolean;
+  prebuyProgram: boolean;
+  supplyCover: 'hand' | 'covered';
 }
 
 // ---------- Competitors ----------
@@ -474,6 +550,13 @@ export interface CoopState {
 export interface CompetitorSite {
   id: number;
   townId: number;
+  /** Division and kind (grain elevator when omitted). */
+  division?: DivisionId;
+  kind?: FacilityKind;
+  /** Supply sites carry their components directly. */
+  components?: Partial<Record<ComponentId, number>>;
+  /** Chains open in the territory in this year. */
+  arrivalYear?: number;
   storageBu: number;
   receiveBuHr: number;
   dryBuHr: number;
