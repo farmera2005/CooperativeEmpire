@@ -64,13 +64,13 @@ function scripted(style: Style): Policy {
         }
         if (!style.expand || eqRatio < style.minEquityRatio) continue;
         const cap = grainCapacity(f.components);
+        // Last 12 months' receipts at this site vs its capacity (turns).
+        const received = state.coop.grain.reports.slice(-12).reduce((a, r) => a + COMMODITIES.reduce((b, c) => b + r.byCommodity[c].receivedBu + r.byCommodity[c].turnedAwayBu, 0), 0) / Math.max(1, owned.length);
+        const turns = received / Math.max(1, cap.storageBu + cap.pileBu);
         if (f.grain.waitMemory > 1.5) {
           cmds.push({ type: 'upgradeFacility', facilityId: f.id, components: { receiving: Math.round(cap.receiveBuHr * 0.5 / 500) * 500 }, financePct: style.financePct });
-        } else {
-          const full = COMMODITIES.reduce((a, c) => a + f.grain.bu[c], 0);
-          if (full > 0.9 * (cap.storageBu + cap.pileBu) || f.grain.waitMemory > 0.8) {
-            cmds.push({ type: 'upgradeFacility', facilityId: f.id, components: { 'storage-steel': Math.round(cap.storageBu * 0.3 / 10_000) * 10_000 }, financePct: style.financePct });
-          }
+        } else if (turns > 3.5) {
+          cmds.push({ type: 'upgradeFacility', facilityId: f.id, components: { 'storage-steel': Math.round(cap.storageBu * 0.4 / 10_000) * 10_000 }, financePct: style.financePct });
         }
       }
     }
