@@ -15,6 +15,7 @@ export function FinancialsScreen() {
   const game = useStore((s) => s.game)!;
   const [period, setPeriod] = useState<Period>('fytd');
   const [drill, setDrill] = useState<string | null>(null);
+  const [allocate, setAllocate] = useState(false);
   const mi = game.clock.monthIndex;
   const fye = game.setup.fiscalYearEndMonth;
   const fy = fiscalYearOf(mi, fye);
@@ -61,12 +62,26 @@ export function FinancialsScreen() {
           <button key={p} className={`btn ${period === p ? 'btn-primary' : ''}`} onClick={() => setPeriod(p)}>{l}</button>
         ))}
         <span className="text-sm text-stone-500">{formatMonth(from)} – {formatMonth(to)}</span>
+        <label className="ml-auto text-sm"><input type="checkbox" checked={allocate} onChange={(e) => setAllocate(e.target.checked)} /> Allocate corporate overhead to divisions (by gross revenue)</label>
       </div>
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Panel title={<>Income statement <span className="normal-case">(<Term id="net-savings">net savings</Term>)</span></>}>
           <table className="data">
             <thead><tr><th></th>{divs.map((d) => <th key={d} className="r">{d}</th>)}<th className="r">Consolidated</th></tr></thead>
             <tbody>
+              {allocate && (() => {
+                const corp = byDiv.find((s) => s.division === 'CORP');
+                const pool = corp ? corp.totalOpex + corp.interestNet - corp.grossRevenue : 0;
+                const ops = byDiv.filter((s) => s.division !== 'CORP');
+                const base = ops.reduce((a, s) => a + Math.max(0, s.grossRevenue), 0);
+                const share = (s: IncomeStatement) => (s.division === 'CORP' ? -pool : base > 0 ? (pool * Math.max(0, s.grossRevenue)) / base : 0);
+                return (
+                  <>
+                    <tr className="bg-[#f6f1e2]"><td>Allocated corporate overhead</td>{byDiv.map((s) => <td key={s.division} className="r">{money(-Math.round(share(s)))}</td>)}<td className="r">—</td></tr>
+                    <tr className="bg-[#f6f1e2] font-semibold"><td>Local savings after allocation</td>{byDiv.map((s) => <td key={s.division} className="r">{money(Math.round(s.localSavings - share(s)))}</td>)}<td className="r">{money(cons.localSavings)}</td></tr>
+                  </>
+                );
+              })()}
               {isRows.map(([label, f, bold, acct]) => (
                 <tr key={label} className={bold ? 'font-semibold' : ''}>
                   <td>{acct ? <button className="text-left hover:underline" onClick={() => setDrill(acct)}>{label}</button> : label}</td>

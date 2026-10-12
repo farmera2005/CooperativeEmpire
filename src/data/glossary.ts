@@ -31,6 +31,11 @@ export const GLOSSARY: GlossaryEntry[] = [
   { id: 'margin-call', term: 'Margin call', text: 'When futures rise, a short hedge loses money that must be deposited with the broker immediately, even though the grain gained the same amount. Rallies with a full house drain cash and the line of credit.' },
   { id: 'position-limit', term: 'Position limit', text: 'The board\'s cap on unhedged (net open) bushels per commodity.' },
   { id: 'turns', term: 'Turns', text: 'Bushels handled in a year divided by storage capacity. Country elevators typically turn 1.5 to 3 times.' },
+  { id: 'lcm', term: 'Lower of cost or market', text: 'Inventory is carried at what it cost or what it would cost to replace now, whichever is lower. Fertilizer bought before a price collapse is written down, and the loss shows up in cost of goods sold.' },
+  { id: 'prepay', term: 'Prepay', text: 'Farmers pay in winter (often December, for taxes) for spring inputs at a discount. The co-op holds the cash as a liability until it delivers.' },
+  { id: 'prebuy', term: 'Propane prebuy', text: 'Customers lock in a winter propane price in summer. If the co-op doesn\'t buy the gallons to cover the contracts and prices spike, it delivers at a loss.' },
+  { id: 'toll-milling', term: 'Toll milling', text: 'Grinding and mixing feed for an integrator who owns the ingredients. High volume, thin fee per ton, and one customer who can leave.' },
+  { id: 'share-of-wallet', term: 'Share of wallet', text: 'The share of a farm\'s purchases (or grain) that comes to the co-op rather than to competitors. Price, distance, service, credit, loyalty and doing other business with us all move it.' },
   { id: 'fiscal-year', term: 'Fiscal year', text: 'The co-op\'s accounting year, labeled by the calendar year in which it ends. Many Corn Belt locals end their year on August 31, before harvest.' },
   { id: 'drift', term: 'History with drift', text: 'Historical forces arrive in their eras, but timing shifts by up to about two years and magnitudes vary, so hindsight is not a cheat code.' },
 ];

@@ -8,6 +8,7 @@ import {
   type BuildSpec, type Components, type Facility, type GameState, type GrainPolicy,
 } from '../../engine/index';
 import { BreakdownView } from '../components/BreakdownView';
+import { FacilitiesPanel, FinanceSlider, OffersPanel } from '../components/FacilityPanels';
 import { Panel } from '../components/Panel';
 import { Term } from '../components/Term';
 import { money, num } from '../format';
@@ -25,7 +26,7 @@ export function GrainScreen() {
         ))}
       </div>
       {tab === 'overview' && <Overview />}
-      {tab === 'facilities' && <Facilities />}
+      {tab === 'facilities' && <FacilitiesPanel division="GRAIN" />}
       {tab === 'policies' && <Policies />}
       {tab === 'buy' && <BuyOrBuild />}
     </div>
@@ -121,125 +122,6 @@ function Overview() {
   );
 }
 
-function capacityText(c: Components) {
-  const cap = grainCapacity(c);
-  return `${bu(cap.storageBu)} bu${cap.pileBu ? ` + ${bu(cap.pileBu)} pile` : ''}, leg ${bu(cap.receiveBuHr)} bu/hr, dryer ${bu(cap.dryBuHr)} bu/hr, ${cap.loadout === 'truck' ? 'truck only' : `${cap.loadout} rail`}`;
-}
-
-const UPGRADE_OPTIONS: { id: ComponentId; label: string; unit: string; def: number }[] = [
-  { id: 'storage-steel', label: 'Steel bins', unit: 'bu', def: 100_000 },
-  { id: 'storage-concrete', label: 'Concrete silos', unit: 'bu', def: 250_000 },
-  { id: 'storage-flat', label: 'Flat storage', unit: 'bu', def: 250_000 },
-  { id: 'ground-pile', label: 'Ground pile', unit: 'bu', def: 300_000 },
-  { id: 'receiving', label: 'Receiving pit & leg', unit: 'bu/hr', def: 5_000 },
-  { id: 'dryer', label: 'Dryer', unit: 'bu/hr', def: 1_000 },
-  ...LOADOUT_COMPONENTS.map((id) => ({ id, label: COMPONENTS[id].label, unit: 'each', def: 1 })),
-];
-
-function Facilities() {
-  const game = useStore((s) => s.game)!;
-  const command = useStore((s) => s.command);
-  const [sel, setSel] = useState<number | null>(null);
-  const list = game.coop.facilities.filter((f) => f.status !== 'closed');
-  const selected = list.find((f) => f.id === sel) ?? null;
-  return (
-    <div className="space-y-4">
-      <Panel title="Elevators">
-        {!list.length ? <p className="text-sm text-stone-500">No facilities.</p> : (
-          <table className="data">
-            <thead><tr><th>Facility</th><th>Status</th><th>Capacity</th><th className="r">Inventory</th><th className="r">Condition</th><th className="r">Wait memory</th><th>Staffing</th><th className="r">Book value</th><th></th></tr></thead>
-            <tbody>
-              {list.map((f) => {
-                const cap = grainCapacity(f.components);
-                return (
-                  <tr key={f.id} className={sel === f.id ? 'bg-[#f1ead2]' : ''}>
-                    <td><button className="hover:underline" onClick={() => setSel(f.id)}>{f.name}</button><div className="text-xs text-stone-500">built {f.builtYear}</div></td>
-                    <td className="capitalize">{f.status === 'underConstruction' ? 'under construction' : f.status}</td>
-                    <td className="text-xs">{capacityText(f.components)}</td>
-                    <td className="r">{bu(facilityBu(f))}<div className="text-xs text-stone-500">{cap.storageBu + cap.pileBu ? Math.round((100 * facilityBu(f)) / (cap.storageBu + cap.pileBu)) : 0}% full</div></td>
-                    <td className={`r ${f.condition < 40 ? 'text-rust' : ''}`}>{Math.round(f.condition)}</td>
-                    <td className="r">{f.grain.waitMemory.toFixed(1)} h</td>
-                    <td>
-                      <select className="input py-0 text-xs" value={f.staffing.level} onChange={(e) => command({ type: 'setStaffing', facilityId: f.id, level: e.target.value as Facility['staffing']['level'], pay: f.staffing.pay })}>
-                        <option value="lean">Lean</option><option value="standard">Standard</option><option value="full">Full</option>
-                      </select>
-                      <select className="input ml-1 py-0 text-xs" value={f.staffing.pay} onChange={(e) => command({ type: 'setStaffing', facilityId: f.id, level: f.staffing.level, pay: e.target.value as Facility['staffing']['pay'] })}>
-                        <option value="below">Pay below market</option><option value="at">At market</option><option value="above">Above market</option>
-                      </select>
-                    </td>
-                    <td className="r">{money(netBookValue(game, f.id))}</td>
-                    <td><button className="btn py-0" onClick={() => setSel(f.id)}>Manage</button></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </Panel>
-      {game.coop.projects.length > 0 && (
-        <Panel title="Capital projects under way">
-          <table className="data">
-            <thead><tr><th>Project</th><th className="r">Budget</th><th className="r">Spent</th><th className="r">Completes</th></tr></thead>
-            <tbody>{game.coop.projects.map((p) => <tr key={p.id}><td>{p.label}</td><td className="r">{money(p.budget)}</td><td className="r">{money(p.spent)}</td><td className="r">{formatMonthShort(p.completeMonth)}</td></tr>)}</tbody>
-          </table>
-        </Panel>
-      )}
-      {selected && <ManageFacility f={selected} />}
-    </div>
-  );
-}
-
-function FinanceSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  const max = LENDING.maxFinancePct.value;
-  return (
-    <label className="flex items-center gap-2 text-sm">
-      Term loan for <input type="range" min={0} max={max} step={0.05} value={value} onChange={(e) => onChange(Number(e.target.value))} /> {Math.round(value * 100)}%
-    </label>
-  );
-}
-
-function ManageFacility({ f }: { f: Facility }) {
-  const game = useStore((s) => s.game)!;
-  const command = useStore((s) => s.command);
-  const [comp, setComp] = useState<ComponentId>('storage-steel');
-  const [qty, setQty] = useState(100_000);
-  const [fin, setFin] = useState(0.5);
-  const busy = game.coop.projects.some((p) => p.facilityId === f.id);
-  const est = useMemo(() => estimateProject(game, f.townId, { [comp]: qty }, f), [game, f, comp, qty]);
-  const opt = UPGRADE_OPTIONS.find((o) => o.id === comp)!;
-  return (
-    <Panel title={`Manage ${f.name}`}>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="space-y-2">
-          <div className="text-sm font-semibold">Upgrade</div>
-          <div className="flex flex-wrap items-center gap-2">
-            <select className="input" value={comp} onChange={(e) => { const id = e.target.value as ComponentId; setComp(id); setQty(UPGRADE_OPTIONS.find((o) => o.id === id)!.def); }}>
-              {UPGRADE_OPTIONS.filter((o) => COMPONENTS[o.id].availableFrom <= yearOf(game.clock.monthIndex)).map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-            </select>
-            {opt.unit !== 'each' && <><input className="input w-28" type="number" value={qty} step={opt.unit === 'bu' ? 10_000 : 500} onChange={(e) => setQty(Math.max(0, Number(e.target.value)))} /> <span className="text-sm">{opt.unit}</span></>}
-          </div>
-          <div className="text-sm">Estimated cost <b>{money(est.cost)}</b>, about {est.months} months.</div>
-          {est.problems.length > 0 && <div className="text-sm text-rust">{est.problems.join(' ')}</div>}
-          <FinanceSlider value={fin} onChange={setFin} />
-          <button className="btn btn-primary" disabled={busy || est.problems.length > 0} onClick={() => command({ type: 'upgradeFacility', facilityId: f.id, components: { [comp]: qty }, financePct: fin })}>Approve upgrade</button>
-          {busy && <div className="text-xs text-stone-500">A project is already under way here.</div>}
-        </div>
-        <div className="space-y-2 text-sm">
-          <div className="font-semibold">Site</div>
-          <div>{capacityText(f.components)}</div>
-          <div>Condition {Math.round(f.condition)}/100 · built {f.builtYear}</div>
-          <button className="btn" disabled={busy} onClick={() => command({ type: 'renovateFacility', facilityId: f.id, financePct: fin })}>Renovate ({money(renovationCost(game, f))})</button>
-          <div className="flex gap-2">
-            {f.status === 'operating' && <button className="btn" onClick={() => command({ type: 'mothballFacility', facilityId: f.id })}>Mothball</button>}
-            {f.status === 'mothballed' && <button className="btn" onClick={() => command({ type: 'reopenFacility', facilityId: f.id })}>Reopen</button>}
-            <button className="btn text-rust" onClick={() => { if (window.confirm(`Close and sell ${f.name}? Members in town will be unhappy.`)) command({ type: 'closeFacility', facilityId: f.id }); }}>Close and sell</button>
-          </div>
-        </div>
-      </div>
-    </Panel>
-  );
-}
-
 function Policies() {
   const game = useStore((s) => s.game)!;
   const command = useStore((s) => s.command);
@@ -293,33 +175,7 @@ function BuyOrBuild() {
   const year = yearOf(game.clock.monthIndex);
   return (
     <div className="space-y-4">
-      <Panel title="Elevators for sale">
-        {!game.coop.offers.length ? <p className="text-sm text-stone-500">Nothing is for sale right now. New offers usually appear each January.</p> : (
-          <>
-            <table className="data">
-              <thead><tr><th>Town</th><th>Seller</th><th>Built</th><th>Capacity</th><th className="r">Condition</th><th className="r">Asking</th><th>Expires</th><th></th></tr></thead>
-              <tbody>
-                {game.coop.offers.map((o) => (
-                  <tr key={o.id}>
-                    <td>{game.world.towns[o.townId].name}</td>
-                    <td>{o.sellerName}</td>
-                    <td>{o.builtYear}</td>
-                    <td className="text-xs">{capacityText(o.components)}</td>
-                    <td className="r">{o.diligenceDone ? `${Math.round(o.condition)}` : `${Math.round(o.conditionEstimate[0])}–${Math.round(o.conditionEstimate[1])}?`}{o.envFound && <div className="text-xs text-grain">cleanup by seller</div>}</td>
-                    <td className="r">{money(o.price)}</td>
-                    <td>{formatMonthShort(o.expiresMonth)}</td>
-                    <td className="flex gap-1">
-                      {!o.diligenceDone && <button className="btn py-0" onClick={() => command({ type: 'dueDiligence', offerId: o.id })}>Due diligence</button>}
-                      <button className="btn btn-primary py-0" onClick={() => command({ type: 'buyFacility', offerId: o.id, financePct: fin })}>Buy</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="mt-2 flex items-center gap-4"><FinanceSlider value={fin} onChange={setFin} /><span className="text-xs text-stone-500">Due diligence costs a fee but reveals true condition and may find contamination before you own it.</span></div>
-          </>
-        )}
-      </Panel>
+      <OffersPanel kinds={['elevator']} fin={fin} setFin={setFin} />
       <BuildNew year={year} game={game} fin={fin} setFin={setFin} />
       <Panel title="Competing elevators">
         <table className="data">

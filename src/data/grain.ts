@@ -64,7 +64,7 @@ export const SHUTTLE_TRAIN_BU = s(400_000, 'medium', '110 cars');
 export const SHUTTLE_PENALTY = s(25_000, 'low');
 
 /** A typical country elevator's handling margin (2024 $/bu): local bid = best truck destination − this. */
-export const NORMAL_MARGIN: Record<Commodity, number> = { corn: 0.18, soybeans: 0.18, wheat: 0.22 };
+export const NORMAL_MARGIN: Record<Commodity, number> = { corn: 0.15, soybeans: 0.15, wheat: 0.19 };
 /** Bid adjustment by pricing posture (2024 $/bu). Aggressive bids more. */
 export const POSTURE_BID = s({ aggressive: 0.04, market: 0, premium: -0.04 }, 'low');
 
@@ -205,7 +205,7 @@ export const HEDGING = {
   slippageSd: s(0.05, 'low', 'Execution error in hedge ratio with the GM covering the desk'),
   defaultPositionLimit: s(25_000, 'low', 'Board limit on net open bushels per commodity'),
   /** Monthly carry captured by hedged storage (2024 $/bu/month), normal market. */
-  carryPerMonth: s<Record<Commodity, number>>({ corn: 0.035, soybeans: 0.03, wheat: 0.04 }, 'low'),
+  carryPerMonth: s<Record<Commodity, number>>({ corn: 0.03, soybeans: 0.025, wheat: 0.035 }, 'low'),
   /** Carry shrinks and inverts as price rises above its 3-year average. */
   inversionSlope: s(3, 'low'),
   /** Hold grain when expected monthly storage return exceeds this (2024 $/bu) by carry appetite. */
@@ -218,7 +218,7 @@ export const HEDGING = {
 export const SHARE_MODEL = {
   /** Logit scale per 2024 dollar of net price per bushel. */
   theta: s(28, 'low', 'A 5¢ better net price moves roughly a sixth more of the volume'),
-  loyalty: s(0.06, 'low', '2024 $/bu equivalent preference of a fully loyal member for their co-op'),
+  loyalty: s(0.1, 'low', '2024 $/bu equivalent preference of a fully loyal member for their co-op'),
   contractOffered: s(0.006, 'low', '$/bu equivalent per contract type offered'),
   waitPerHour: s(0.012, 'low', '$/bu equivalent per hour of remembered harvest wait'),
   grievance: s(0.012, 'low', '$/bu equivalent per unit of grievance severity'),

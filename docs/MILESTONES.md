@@ -33,7 +33,7 @@ Each milestone ends with a commit, a push, and a short **"what to playtest"** no
 - Profiling → D-013 decision on Web Worker.
 - **Playtest:** buy an elevator, run harvests, watch wait times, hedge, live through 1973 and 2008/2012.
 
-## M3 — Agronomy, Feed, Energy, Retail
+## M3 — Agronomy, Feed, Energy, Retail ✅ complete
 Internal checkpoints (commit each): M3a Agronomy → M3b Feed → M3c Energy → M3d Retail → M3e cross-division effects (bundling, shared costs, overhead allocation, Capper-Volstead tracking).
 - **Playtest:** open each division; fill decisions vs 2008 collapse; spring application crunch; propane 2013–14; station traffic.
 

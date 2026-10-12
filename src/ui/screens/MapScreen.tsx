@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { brandName, getBrand } from '../../data/brands';
-import { competitorName, grainShareByTown, totalAcres, type Town } from '../../engine/index';
+import { competitorName, grainShareByTown, supplyShareByTown, totalAcres, type DivisionId, type Town } from '../../engine/index';
+import { DIVISION_LABEL } from '../../data/supply';
 import { Panel } from '../components/Panel';
 import { TerritoryMap, type MapSite, type TownOverlay } from '../components/TerritoryMap';
 import { num } from '../format';
@@ -9,6 +10,7 @@ import { useStore } from '../store';
 export function MapScreen() {
   const game = useStore((s) => s.game)!;
   const [mode, setMode] = useState<'districts' | 'members' | 'share'>('share');
+  const [division, setDivision] = useState<Exclude<DivisionId, 'CORP'>>('GRAIN');
   const [sel, setSel] = useState<Town | null>(null);
   const world = game.world;
   const stats = useMemo(() => {
@@ -24,22 +26,29 @@ export function MapScreen() {
     return by;
   }, [game.members.list, world.towns]);
   const maxMembers = Math.max(1, ...Object.values(stats).map((s) => s.members));
-  const share = useMemo(() => grainShareByTown(game), [game]);
+  const share = useMemo(() => {
+    if (division === 'GRAIN') return grainShareByTown(game);
+    const s = supplyShareByTown(game, division);
+    return Object.fromEntries(Object.entries(s).map(([k, v]) => [k, { share: v, farms: stats[Number(k)]?.members ?? 0, members: 0 }])) as ReturnType<typeof grainShareByTown>;
+  }, [game, division, stats]);
   const overlay: Record<number, TownOverlay> | undefined = mode === 'members'
     ? Object.fromEntries(world.towns.map((t) => [t.id, { intensity: stats[t.id].members / maxMembers, label: `${stats[t.id].members} members, ${stats[t.id].nonmembers} non-member customers` }]))
     : mode === 'share'
-      ? Object.fromEntries(world.towns.map((t) => [t.id, { intensity: Math.min(1, share[t.id].share / 0.6), label: `Our grain share ${(share[t.id].share * 100).toFixed(0)}% of ${share[t.id].farms} farms` }]))
+      ? Object.fromEntries(world.towns.map((t) => [t.id, { intensity: Math.min(1, share[t.id].share / 0.6), label: `Our ${DIVISION_LABEL[division].toLowerCase()} share ${(share[t.id].share * 100).toFixed(0)}%` }]))
       : undefined;
   const sites: MapSite[] = [
-    ...game.coop.facilities.filter((f) => f.status !== 'closed').map((f) => ({ townId: f.townId, ours: true, label: `${f.name} (${f.status})` })),
-    ...game.competitors.filter((c) => c.status === 'active').flatMap((c) => c.sites.map((s) => ({ townId: s.townId, ours: false, label: competitorName(game, c) }))),
+    ...game.coop.facilities.filter((f) => f.status !== 'closed' && f.division === division).map((f) => ({ townId: f.townId, ours: true, label: `${f.name} (${f.status})` })),
+    ...game.competitors.filter((c) => c.status === 'active').flatMap((c) => c.sites.filter((s) => (s.division ?? 'GRAIN') === division && (s.arrivalYear ?? 0) <= Math.floor(game.clock.monthIndex / 12)).map((s) => ({ townId: s.townId, ours: false, label: competitorName(game, c) }))),
   ];
   const fz = game.setup.fictionalizeBrands;
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">
       <div className="xl:col-span-3">
         <div className="mb-2 flex gap-2 text-sm">
-          <button className={`btn ${mode === 'share' ? 'btn-primary' : ''}`} onClick={() => setMode('share')}>Grain share by town</button>
+          <select className="input" aria-label="Division" value={division} onChange={(e) => setDivision(e.target.value as typeof division)}>
+            {(['GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'RETAIL'] as const).map((d) => <option key={d} value={d}>{DIVISION_LABEL[d]}</option>)}
+          </select>
+          <button className={`btn ${mode === 'share' ? 'btn-primary' : ''}`} onClick={() => setMode('share')}>Share by town</button>
           <button className={`btn ${mode === 'members' ? 'btn-primary' : ''}`} onClick={() => setMode('members')}>Members by town</button>
           <button className={`btn ${mode === 'districts' ? 'btn-primary' : ''}`} onClick={() => setMode('districts')}>Board districts</button>
         </div>
@@ -57,8 +66,8 @@ export function MapScreen() {
               <dt className="text-stone-500">Members</dt><dd className="num">{stats[sel.id].members}</dd>
               <dt className="text-stone-500">Non-member customers</dt><dd className="num">{stats[sel.id].nonmembers}</dd>
               <dt className="text-stone-500">Farm acres</dt><dd className="num">{num(stats[sel.id].acres)}</dd>
-              <dt className="text-stone-500">Our grain share</dt><dd className="num">{(share[sel.id].share * 100).toFixed(0)}%</dd>
-              <dt className="text-stone-500">Elevators</dt><dd>{sites.filter((s) => s.townId === sel.id).map((s) => s.label).join(', ') || 'None'}</dd>
+              <dt className="text-stone-500">Our {DIVISION_LABEL[division].toLowerCase()} share</dt><dd className="num">{(share[sel.id].share * 100).toFixed(0)}%</dd>
+              <dt className="text-stone-500">{DIVISION_LABEL[division]} sites</dt><dd>{sites.filter((s) => s.townId === sel.id).map((s) => s.label).join(', ') || 'None'}</dd>
             </dl>
           ) : <p className="text-sm text-stone-500">Click a town.</p>}
         </Panel>

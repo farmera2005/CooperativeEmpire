@@ -23,3 +23,22 @@ export function grainShareByTown(state: GameState): Record<number, { share: numb
   for (const id in out) res[id] = { share: out[id].w > 0 ? out[id].share / out[id].w : 0, farms: out[id].farms, members: out[id].members };
   return res;
 }
+
+/** Share of wallet by town for a supply division (farm-weighted; retail uses town shares). */
+export function supplyShareByTown(state: GameState, division: 'AGRONOMY' | 'FEED' | 'ENERGY' | 'RETAIL'): Record<number, number> {
+  const out: Record<number, number> = {};
+  if (division === 'RETAIL') {
+    const book = state.coop.supply.RETAIL;
+    for (const t of state.world.towns) out[t.id] = Math.max(book.townShare[`station:${t.id}`] ?? 0, book.townShare[`farmstore:${t.id}`] ?? 0);
+    return out;
+  }
+  const sum: Record<number, [number, number]> = {};
+  for (const m of state.members.list) {
+    if (m.status !== 'active') continue;
+    const s = (sum[m.townId] ??= [0, 0]);
+    s[0] += (m.share[division] ?? 0) * m.weight;
+    s[1] += m.weight;
+  }
+  for (const t of state.world.towns) out[t.id] = sum[t.id] && sum[t.id][1] > 0 ? sum[t.id][0] / sum[t.id][1] : 0;
+  return out;
+}

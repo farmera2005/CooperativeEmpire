@@ -5,7 +5,7 @@ import {
 } from '../engine/index';
 import { saveSlot } from '../persistence/saves';
 
-export type Tab = 'dashboard' | 'grain' | 'map' | 'markets' | 'members' | 'financials' | 'board' | 'inbox' | 'saves';
+export type Tab = 'dashboard' | 'grain' | 'supply' | 'map' | 'markets' | 'members' | 'financials' | 'board' | 'inbox' | 'saves';
 
 export interface Toast {
   id: number;
@@ -78,7 +78,7 @@ export const useStore = create<UiState>((set, get) => ({
     const r = applyCommand(g, cmd);
     const toasts = r.messages.map((m) => ({ id: ++toastId, level: m.level, text: m.text }));
     set({ ...(r.ok ? { game: r.state } : {}), toasts: [...get().toasts, ...toasts].slice(-5) });
-    for (const t of toasts) setTimeout(() => get().dismissToast(t.id), t.level === 'error' ? 9000 : 6000);
+    for (const t of toasts) setTimeout(() => get().dismissToast(t.id), t.level === 'error' ? 8000 : 4500);
     return r.ok;
   },
   endMonth: () => {

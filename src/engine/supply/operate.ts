@@ -118,8 +118,10 @@ export function stepSupply(ctx: TickContext): void {
   const { state, path, mi } = ctx;
   const month = monthOf(mi);
   const year = yearOf(mi);
-  const idx = grainCostIndex(path, mi);
   const pl = priceLevel(path, mi);
+  // Per-unit supply margins (feed $/ton, fuel ¢/gal, application $/acre) moved between general
+  // inflation and the grain cost index (D-036).
+  const idx = (grainCostIndex(path, mi) + pl) / 2;
   const region = REGIONS[state.world.regionId];
   const hddNormalYear = region.hddNormals.value.reduce((a, b) => a + b, 0);
   const weather = state.world.weather;
@@ -582,7 +584,7 @@ function operatingExtras(ctx: TickContext, d: SupplyDivision, book: SupplyBook, 
   };
   if (d === 'ENERGY') {
     const gal = (sold.FUEL_DIESEL ?? 0) + (sold.FUEL_GAS ?? 0) + (sold.PROPANE ?? 0);
-    ex('7680', roundCents(gal * (ENERGY_DEMAND.deliveryBase.value + ENERGY_DEMAND.deliveryPerMile.value * avgDist) * idx * 100));
+    ex('7680', roundCents(gal * (ENERGY_DEMAND.deliveryBase.value + ENERGY_DEMAND.deliveryPerMile.value * avgDist) * pl * 100));
     inc(roundCents(acc.propaneCustomers * ENERGY_DEMAND.tankRent.value * pl * 100));
   }
   if (d === 'FEED') {

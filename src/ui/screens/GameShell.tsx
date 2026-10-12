@@ -11,17 +11,19 @@ import { BoardScreen } from './BoardScreen';
 import { InboxScreen } from './InboxScreen';
 import { SavesScreen } from './SavesScreen';
 import { GrainScreen } from './GrainScreen';
+import { SupplyScreen } from './SupplyScreen';
 
 const TABS: { id: Tab; label: string; key: string }[] = [
   { id: 'dashboard', label: 'Dashboard', key: '1' },
   { id: 'inbox', label: 'News & Inbox', key: '2' },
   { id: 'grain', label: 'Grain', key: '3' },
-  { id: 'map', label: 'Map', key: '4' },
-  { id: 'markets', label: 'Markets', key: '5' },
-  { id: 'members', label: 'Members', key: '6' },
-  { id: 'financials', label: 'Financials', key: '7' },
-  { id: 'board', label: 'Board Room', key: '8' },
-  { id: 'saves', label: 'Save / Load', key: '9' },
+  { id: 'supply', label: 'Farm supply', key: '4' },
+  { id: 'map', label: 'Map', key: '5' },
+  { id: 'markets', label: 'Markets', key: '6' },
+  { id: 'members', label: 'Members', key: '7' },
+  { id: 'financials', label: 'Financials', key: '8' },
+  { id: 'board', label: 'Board Room', key: '9' },
+  { id: 'saves', label: 'Save / Load', key: '0' },
 ];
 
 export function GameShell() {
@@ -65,7 +67,7 @@ export function GameShell() {
           </button>
         ))}
         <div className="mt-auto p-3 text-xs text-stone-500">
-          Keys: 1–9 screens, E end month, A advance until something needs attention.
+          Keys: 0–9 screens, E end month, A advance until something needs attention.
           <div className="mt-1">{autosave}</div>
         </div>
       </nav>
@@ -87,6 +89,7 @@ export function GameShell() {
           {tab === 'dashboard' && <Dashboard />}
           {tab === 'inbox' && <InboxScreen />}
           {tab === 'grain' && <GrainScreen />}
+          {tab === 'supply' && <SupplyScreen />}
           {tab === 'map' && <MapScreen />}
           {tab === 'markets' && <MarketsScreen />}
           {tab === 'members' && <MembersScreen />}

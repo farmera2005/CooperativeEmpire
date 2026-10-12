@@ -296,7 +296,7 @@ Cost anchors are 2024 dollars scaled by the construction-cost index; other dolla
 | HEDGING.marginRate | 0.07 | medium | Initial margin ≈ 5–8% of contract value |
 | HEDGING.slippageSd | 0.05 | low | Execution error in hedge ratio with the GM covering the desk |
 | HEDGING.defaultPositionLimit | 25,000 | low | Board limit on net open bushels per commodity |
-| HEDGING.carryPerMonth | {"corn":0.035,"soybeans":0.03,"wheat":0.04} | low |  |
+| HEDGING.carryPerMonth | {"corn":0.03,"soybeans":0.025,"wheat":0.035} | low |  |
 | HEDGING.inversionSlope | 3 | low |  |
 | HEDGING.carryAppetiteThreshold | {"low":0.01,"normal":0,"high":-0.01} | low |  |
 | HEDGING.marginExcessTrigger | 1.25 | low |  |
@@ -333,7 +333,7 @@ Cost anchors are 2024 dollars scaled by the construction-cost index; other dolla
 | SATISFACTION.joinProb | 0.01 | low |  |
 | SATISFACTION.loyaltyBonus | 10 | low |  |
 | SHARE_MODEL.theta | 28 | low | A 5¢ better net price moves roughly a sixth more of the volume |
-| SHARE_MODEL.loyalty | 0.06 | low | 2024 $/bu equivalent preference of a fully loyal member for their co-op |
+| SHARE_MODEL.loyalty | 0.1 | low | 2024 $/bu equivalent preference of a fully loyal member for their co-op |
 | SHARE_MODEL.contractOffered | 0.006 | low | $/bu equivalent per contract type offered |
 | SHARE_MODEL.waitPerHour | 0.012 | low | $/bu equivalent per hour of remembered harvest wait |
 | SHARE_MODEL.grievance | 0.012 | low | $/bu equivalent per unit of grievance severity |

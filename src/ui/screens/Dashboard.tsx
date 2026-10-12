@@ -1,7 +1,8 @@
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { MARKET_SERIES, type SeriesId } from '../../data/markets';
 import { COMMODITIES } from '../../data/grain';
-import { balanceSheet, fiscalYearOf, fiscalYearStart, formatMonthShort, incomeStatement, ratios, type GameState } from '../../engine/index';
+import { balanceSheet, capperVolsteadRatio, fiscalYearOf, fiscalYearStart, formatMonthShort, incomeStatement, ratios, type DivisionId, type GameState } from '../../engine/index';
+import { DIVISION_LABEL } from '../../data/supply';
 import { Panel, Stat } from '../components/Panel';
 import { Term } from '../components/Term';
 import { money, num, pct } from '../format';
@@ -55,6 +56,7 @@ export function Dashboard() {
         <Stat label="Line of credit" value={money(last.lineDrawn, { compact: true })} sub={`available ${money(game.coop.finance.lineAvailable, { compact: true })}`} tone={game.coop.finance.overLimit ? 'bad' : 'neutral'} />
         <Stat label="Facilities" value={num(game.coop.facilities.filter((f) => f.status !== 'closed').length)} sub={`${game.coop.projects.length} project(s) under way`} />
       </div>
+      <DivisionTable fyStart={fyStart} />
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Panel title="Markets this month" className="xl:col-span-1" right={<button className="text-xs text-sky underline" onClick={() => setTab('markets')}>All markets</button>}>
           <table className="data">
@@ -114,8 +116,7 @@ export function Dashboard() {
         </Panel>
       </div>
       <p className="text-xs text-stone-500">
-        Milestone 2: grain is the only business so far. Agronomy, feed, energy and retail arrive in Milestone 3; patronage,
-        taxes and the full lender relationship in Milestone 4.
+        Patronage, income taxes and the full lender relationship (covenants) arrive in Milestone 4; the board in Milestone 5.
       </p>
     </div>
   );
@@ -125,6 +126,29 @@ interface Alert {
   level: 'bad' | 'warn';
   text: string;
   tab?: 'grain' | 'financials' | 'inbox';
+}
+
+function DivisionTable({ fyStart }: { fyStart: number }) {
+  const game = useStore((s) => s.game)!;
+  const mi = game.clock.monthIndex;
+  const divs: DivisionId[] = ['GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'RETAIL', 'CORP'];
+  const rows = divs.map((d) => ({ d, is: incomeStatement(game.ledger, fyStart, mi, d) })).filter((r) => r.d === 'CORP' || r.is.sales || r.is.serviceIncome || r.is.totalOpex);
+  const cv = capperVolsteadRatio(game);
+  const total = incomeStatement(game.ledger, fyStart, mi);
+  return (
+    <Panel title="Divisions, fiscal year to date" right={<span className="text-xs text-stone-500"><Term id="capper-volstead">Non-member business</Term> {cv.member + cv.nonmember > 0 ? `${((100 * cv.nonmember) / (cv.member + cv.nonmember)).toFixed(0)}%` : '—'} of total{cv.ratio > 1 ? ' — over the limit!' : ''}</span>}>
+      <table className="data">
+        <thead><tr><th>Division</th><th className="r">Sales + services</th><th className="r">Gross margin + services</th><th className="r">Operating expense</th><th className="r">Local savings</th></tr></thead>
+        <tbody>
+          {rows.map(({ d, is }) => (
+            <tr key={d}><td>{DIVISION_LABEL[d]}</td><td className="r">{money(is.sales + is.serviceIncome)}</td><td className="r">{money(is.grossRevenue)}</td><td className="r">{money(is.totalOpex + is.interestNet)}</td>
+              <td className={`r ${is.localSavings < 0 ? 'text-rust' : ''}`}>{money(is.localSavings)}</td></tr>
+          ))}
+          <tr className="font-semibold"><td>Total</td><td className="r">{money(total.sales + total.serviceIncome)}</td><td className="r">{money(total.grossRevenue)}</td><td className="r">{money(total.totalOpex + total.interestNet)}</td><td className="r">{money(total.localSavings)}</td></tr>
+        </tbody>
+      </table>
+    </Panel>
+  );
 }
 
 function alertsFor(game: GameState): Alert[] {
@@ -139,6 +163,10 @@ function alertsFor(game: GameState): Alert[] {
   const turned = g.report ? COMMODITIES.reduce((a, c) => a + g.report!.byCommodity[c].turnedAwayBu, 0) : 0;
   if (turned > 0) out.push({ level: 'bad', text: `${Math.round(turned).toLocaleString()} bu were turned away for lack of space or capacity.`, tab: 'grain' });
   for (const f of game.coop.facilities) if (f.status === 'operating' && f.condition < 35) out.push({ level: 'warn', text: `${f.name} is in poor condition (${Math.round(f.condition)}/100); breakdowns and repair bills will rise.`, tab: 'grain' });
+  for (const [d, b] of Object.entries(game.coop.supply)) {
+    const unmet = b.report ? Object.values(b.report.lines).reduce((a, l) => a + (l && l.sold > 0 ? l.unmet * l.price : 0), 0) : 0;
+    if (unmet > 1000) out.push({ level: 'warn', text: `${DIVISION_LABEL[d as DivisionId]}: about ${money(Math.round(unmet * 100))} of business went unserved for lack of capacity this month.` });
+  }
   if (!game.coop.facilities.length && game.coop.offers.length) out.push({ level: 'warn', text: `${game.coop.offers.length} elevator(s) are for sale. The co-op has no facility yet.`, tab: 'grain' });
   return out;
 }
