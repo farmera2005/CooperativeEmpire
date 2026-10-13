@@ -84,11 +84,30 @@ export function runCommand(s: GameState, cmd: Command, boardApproved = false): C
       const trial = cloneState(s);
       const trialMsgs = run(trial, cmd);
       if (trialMsgs.some((m) => m.level === 'error')) return trialMsgs;
+      // A revised policy proposal replaces the pending one rather than stacking a second.
+      const replaces = s.governance.agenda.find((i) => i.source === 'gm' && sameSubject(i.command as Command | undefined, cmd));
+      if (replaces) s.governance.agenda = s.governance.agenda.filter((i) => i !== replaces);
       addAgendaItem(s, { type: gate.type, title: gate.title, submittedMonth: s.clock.monthIndex, command: cmd, source: 'gm', ...(cmd.type === 'proposeBylaw' ? { bylaw: cmd.change } : {}) });
-      return [{ level: 'info', text: `"${gate.title}" goes to the board at next month's meeting.` }];
+      return [{ level: 'info', text: `"${gate.title}" ${replaces ? 'replaces the pending proposal and ' : ''}goes to the board at next month's meeting.` }];
     }
   }
   return run(s, cmd);
+}
+
+/** Two proposals about the same policy (one supersedes the other on the agenda). */
+function sameSubject(a: Command | undefined, b: Command): boolean {
+  if (!a || a.type !== b.type) return false;
+  switch (b.type) {
+    case 'setGrainPolicy':
+    case 'setRedemptionPolicy':
+    case 'setLineCommitment':
+    case 'switchLender':
+      return true;
+    case 'setAffiliation': return (a as typeof b).category === b.category;
+    case 'setSupplyPolicy': return (a as typeof b).division === b.division;
+    case 'proposeBylaw': return (a as typeof b).change.field === b.change.field;
+    default: return false;
+  }
 }
 
 function run(s: GameState, cmd: Command): CommandMessage[] {

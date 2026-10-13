@@ -75,6 +75,22 @@ describe('board proposals and votes', () => {
     expect(withdrawn.governance.agenda).toHaveLength(0);
   });
 
+  it('a revised risk-limit proposal replaces the pending one; lowering limits needs no vote', () => {
+    const s = coop(1990, 11);
+    const lim = s.coop.grainPolicy.positionLimit;
+    let r = applyCommand(s, { type: 'setGrainPolicy', policy: { hedgeRatio: 1, positionLimit: { ...lim, corn: lim.corn + 25_000 } } });
+    expect(r.state.governance.agenda).toHaveLength(1);
+    r = applyCommand(r.state, { type: 'setGrainPolicy', policy: { hedgeRatio: 1, positionLimit: { ...lim, corn: lim.corn + 50_000 } } });
+    expect(r.state.governance.agenda).toHaveLength(1);
+    expect(r.state.governance.agenda[0].title).toBe('Raise open-position limits');
+    expect((r.state.governance.agenda[0].command as { policy: { positionLimit: { corn: number } } }).policy.positionLimit.corn).toBe(lim.corn + 50_000);
+    const lower = applyCommand(s, { type: 'setGrainPolicy', policy: { positionLimit: { ...lim, corn: lim.corn - 5_000 } } });
+    expect(lower.state.governance.agenda).toHaveLength(0);
+    expect(lower.state.coop.grainPolicy.positionLimit.corn).toBe(lim.corn - 5_000);
+    const passed = advanceMonth(stackBoard(r.state, true)).state;
+    expect(passed.coop.grainPolicy.positionLimit.corn).toBe(lim.corn + 50_000);
+  });
+
   it('votes the budget in July and the patronage plan in November', () => {
     let s = runTo(coop(1995, 5), 1996, 7);
     expect(s.governance.votes.some((v) => v.type === 'budget')).toBe(true);

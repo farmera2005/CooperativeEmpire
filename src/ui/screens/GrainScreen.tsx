@@ -126,41 +126,70 @@ function Policies() {
   const game = useStore((s) => s.game)!;
   const command = useStore((s) => s.command);
   const p = game.coop.grainPolicy;
-  const set = (policy: Partial<GrainPolicy>) => command({ type: 'setGrainPolicy', policy });
+  // Edits are drafts until submitted: risk changes may need the board, and fee fields
+  // shouldn't fire on every keystroke.
+  const [pricing, setPricing] = useState({ posture: p.posture, offerOpenStorage: p.offerOpenStorage, offerDelayedPrice: p.offerDelayedPrice, offerForward: p.offerForward, storageFee: String(p.storageFee), dryingFee: String(p.dryingFee) });
+  const [risk, setRisk] = useState({ hedgeRatio: p.hedgeRatio, carryAppetite: p.carryAppetite, limits: Object.fromEntries(COMMODITIES.map((c) => [c, String(p.positionLimit[c])])) as Record<Commodity, string> });
+  const pending = game.governance.agenda.find((i) => i.type === 'riskPolicy');
+  const pricingDirty = pricing.posture !== p.posture || pricing.offerOpenStorage !== p.offerOpenStorage || pricing.offerDelayedPrice !== p.offerDelayedPrice || pricing.offerForward !== p.offerForward
+    || Number(pricing.storageFee) !== p.storageFee || Number(pricing.dryingFee) !== p.dryingFee;
+  const limits = Object.fromEntries(COMMODITIES.map((c) => [c, Math.max(0, Math.round(Number(risk.limits[c]) || 0))])) as Record<Commodity, number>;
+  const riskDirty = risk.hedgeRatio !== p.hedgeRatio || COMMODITIES.some((c) => limits[c] !== p.positionLimit[c]);
+  const needsBoard = (risk.hedgeRatio < Math.min(0.5, p.hedgeRatio)) || COMMODITIES.some((c) => limits[c] > p.positionLimit[c]);
+  const submitPricing = () => command({
+    type: 'setGrainPolicy',
+    policy: { posture: pricing.posture, offerOpenStorage: pricing.offerOpenStorage, offerDelayedPrice: pricing.offerDelayedPrice, offerForward: pricing.offerForward, storageFee: Number(pricing.storageFee) || 0, dryingFee: Number(pricing.dryingFee) || 0 },
+  });
+  const submitRisk = () => {
+    if (risk.carryAppetite !== p.carryAppetite) command({ type: 'setGrainPolicy', policy: { carryAppetite: risk.carryAppetite } });
+    if (riskDirty) command({ type: 'setGrainPolicy', policy: { hedgeRatio: risk.hedgeRatio, positionLimit: limits } });
+  };
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
       <Panel title="Pricing and service">
         <div className="space-y-3 text-sm">
           <label className="block">Bid posture
-            <select className="input ml-2" value={p.posture} onChange={(e) => set({ posture: e.target.value as GrainPolicy['posture'] })}>
+            <select className="input ml-2" value={pricing.posture} onChange={(e) => setPricing({ ...pricing, posture: e.target.value as GrainPolicy['posture'] })}>
               <option value="aggressive">Aggressive (bid above the market)</option><option value="market">Market</option><option value="premium">Premium (bid under, sell service)</option>
             </select>
           </label>
           <div>Contracts offered:
             {([['offerOpenStorage', 'Open storage'], ['offerDelayedPrice', 'Delayed price'], ['offerForward', 'Forward contracts']] as const).map(([k, l]) => (
-              <label key={k} className="ml-3"><input type="checkbox" checked={p[k]} onChange={(e) => set({ [k]: e.target.checked })} /> {l}</label>
+              <label key={k} className="ml-3"><input type="checkbox" checked={pricing[k]} onChange={(e) => setPricing({ ...pricing, [k]: e.target.checked })} /> {l}</label>
             ))}
           </div>
-          <label className="block">Storage charges × <input className="input w-20" type="number" step={0.1} value={p.storageFee} onChange={(e) => set({ storageFee: Number(e.target.value) })} /> standard</label>
-          <label className="block">Drying charges × <input className="input w-20" type="number" step={0.1} value={p.dryingFee} onChange={(e) => set({ dryingFee: Number(e.target.value) })} /> standard</label>
+          <label className="block">Storage charges × <input className="input w-20" type="number" step={0.1} min={0} max={3} value={pricing.storageFee} onChange={(e) => setPricing({ ...pricing, storageFee: e.target.value })} /> standard</label>
+          <label className="block">Drying charges × <input className="input w-20" type="number" step={0.1} min={0} max={3} value={pricing.dryingFee} onChange={(e) => setPricing({ ...pricing, dryingFee: e.target.value })} /> standard</label>
+          <div className="flex gap-2">
+            <button className="btn btn-primary" disabled={!pricingDirty} onClick={submitPricing}>Apply</button>
+            <button className="btn" disabled={!pricingDirty} onClick={() => setPricing({ posture: p.posture, offerOpenStorage: p.offerOpenStorage, offerDelayedPrice: p.offerDelayedPrice, offerForward: p.offerForward, storageFee: String(p.storageFee), dryingFee: String(p.dryingFee) })}>Reset</button>
+          </div>
           <p className="text-xs text-stone-500">Aggressive bids win bushels but thin the margin. Farmers compare our net price after hauling with every elevator within reach, and remember long harvest waits.</p>
         </div>
       </Panel>
       <Panel title="Risk policy (board limits)">
         <div className="space-y-3 text-sm">
           <label className="block"><Term id="hedge">Hedge ratio</Term>
-            <input className="ml-2 align-middle" type="range" min={0} max={1} step={0.05} value={p.hedgeRatio} onChange={(e) => set({ hedgeRatio: Number(e.target.value) })} /> {Math.round(p.hedgeRatio * 100)}%
+            <input className="ml-2 align-middle" type="range" min={0} max={1} step={0.05} value={risk.hedgeRatio} onChange={(e) => setRisk({ ...risk, hedgeRatio: Number(e.target.value) })} /> {Math.round(risk.hedgeRatio * 100)}%
+            {risk.hedgeRatio !== p.hedgeRatio && <span className="ml-2 text-xs text-stone-500">(now {Math.round(p.hedgeRatio * 100)}%)</span>}
           </label>
           {COMMODITIES.map((c: Commodity) => (
             <label key={c} className="block">{COMMODITY_LABEL[c]} position limit
-              <input className="input ml-2 w-28" type="number" step={5000} value={p.positionLimit[c]} onChange={(e) => set({ positionLimit: { ...p.positionLimit, [c]: Math.max(0, Number(e.target.value)) } })} /> bu net open
+              <input className="input ml-2 w-28" type="number" step={5000} min={0} value={risk.limits[c]} onChange={(e) => setRisk({ ...risk, limits: { ...risk.limits, [c]: e.target.value } })} /> bu net open
+              {limits[c] !== p.positionLimit[c] && <span className="ml-2 text-xs text-stone-500">(now {bu(p.positionLimit[c])})</span>}
             </label>
           ))}
           <label className="block">Carry appetite
-            <select className="input ml-2" value={p.carryAppetite} onChange={(e) => set({ carryAppetite: e.target.value as GrainPolicy['carryAppetite'] })}>
+            <select className="input ml-2" value={risk.carryAppetite} onChange={(e) => setRisk({ ...risk, carryAppetite: e.target.value as GrainPolicy['carryAppetite'] })}>
               <option value="low">Low (ship early)</option><option value="normal">Normal</option><option value="high">High (store for carry)</option>
             </select>
           </label>
+          <div className="flex items-center gap-2">
+            <button className="btn btn-primary" disabled={!riskDirty && risk.carryAppetite === p.carryAppetite} onClick={submitRisk}>{needsBoard ? 'Submit to the board' : 'Apply'}</button>
+            <button className="btn" onClick={() => setRisk({ hedgeRatio: p.hedgeRatio, carryAppetite: p.carryAppetite, limits: Object.fromEntries(COMMODITIES.map((c) => [c, String(p.positionLimit[c])])) as Record<Commodity, string> })}>Reset</button>
+            {needsBoard && <span className="text-xs text-stone-500">Hedging less than half of owned grain, or raising a position limit, needs a board vote.</span>}
+          </div>
+          {pending && <p className="text-xs text-rust">On the board's agenda: "{pending.title}". Submitting again replaces it.</p>}
           <p className="text-xs text-stone-500">A co-op elevator is a basis trader, not a price speculator. Below a full hedge, owned grain is a bet on price. A rally with a full house brings margin calls financed on the line of credit.</p>
         </div>
       </Panel>

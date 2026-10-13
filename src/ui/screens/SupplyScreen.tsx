@@ -5,6 +5,7 @@ import { DIVISION_LABEL, LINES, LINES_BY_DIVISION, type LineId, type SupplyDivis
 import { fiscalYearOf, fiscalYearStart, formatMonthShort, incomeStatement, type SupplyPolicy } from '../../engine/index';
 import { BreakdownView } from '../components/BreakdownView';
 import { BuildSupplySite, FacilitiesPanel, OffersPanel } from '../components/FacilityPanels';
+import { CommitNumber } from '../components/CommitNumber';
 import { Panel, Stat } from '../components/Panel';
 import { Term } from '../components/Term';
 import { money, num, pct } from '../format';
@@ -166,8 +167,8 @@ function Policies({ d }: { d: SupplyDivision }) {
           {d === 'AGRONOMY' && (
             <>
               <label className="block"><input type="checkbox" checked={p.prepayProgram} onChange={(e) => set({ prepayProgram: e.target.checked })} /> Spring prepay program (Dec–Feb, discounted)</label>
-              <label className="block">Summer fill: buy <input className="input w-16" type="number" min={0} max={100} value={Math.round(p.summerFillPct * 100)} onChange={(e) => set({ summerFillPct: Number(e.target.value) / 100 })} />% of next spring's fertilizer at summer prices</label>
-              <label className="block">Winter fill: buy <input className="input w-16" type="number" min={0} max={100} value={Math.round(p.winterFillPct * 100)} onChange={(e) => set({ winterFillPct: Number(e.target.value) / 100 })} />% in Dec–Feb</label>
+              <label className="block">Summer fill: buy <CommitNumber min={0} max={100} value={Math.round(p.summerFillPct * 100)} onCommit={(v) => set({ summerFillPct: v / 100 })} />% of next spring's fertilizer at summer prices</label>
+              <label className="block">Winter fill: buy <CommitNumber min={0} max={100} value={Math.round(p.winterFillPct * 100)} onCommit={(v) => set({ winterFillPct: v / 100 })} />% in Dec–Feb</label>
               <p className="text-xs text-stone-500">Fertilizer is a position business. Filling early is usually cheaper, but product bought before a price collapse must be written down to market (2008–09).</p>
             </>
           )}
