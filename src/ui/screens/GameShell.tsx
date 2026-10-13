@@ -14,6 +14,7 @@ import { GrainScreen } from './GrainScreen';
 import { SupplyScreen } from './SupplyScreen';
 import { EquityScreen } from './EquityScreen';
 import { LenderScreen } from './LenderScreen';
+import { PeopleScreen } from './PeopleScreen';
 
 const TABS: { id: Tab; label: string; key: string }[] = [
   { id: 'dashboard', label: 'Dashboard', key: '1' },
@@ -26,6 +27,7 @@ const TABS: { id: Tab; label: string; key: string }[] = [
   { id: 'financials', label: 'Financials', key: '8' },
   { id: 'equity', label: 'Equity & Patronage', key: '9' },
   { id: 'lender', label: 'Regional & Lender', key: '0' },
+  { id: 'people', label: 'People', key: 'P' },
   { id: 'board', label: 'Board Room', key: 'B' },
   { id: 'saves', label: 'Save / Load', key: 'S' },
 ];
@@ -71,7 +73,7 @@ export function GameShell() {
           </button>
         ))}
         <div className="mt-auto p-3 text-xs text-stone-500">
-          Keys: 0–9, B, S screens, E end month, A advance until something needs attention.
+          Keys: 0–9, P, B, S screens, E end month, A advance until something needs attention.
           <div className="mt-1">{autosave}</div>
         </div>
       </nav>
@@ -102,6 +104,7 @@ export function GameShell() {
           {tab === 'financials' && <FinancialsScreen />}
           {tab === 'equity' && <EquityScreen />}
           {tab === 'lender' && <LenderScreen />}
+          {tab === 'people' && <PeopleScreen />}
           {tab === 'board' && <BoardScreen />}
           {tab === 'saves' && <SavesScreen />}
         </main>

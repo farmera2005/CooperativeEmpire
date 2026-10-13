@@ -13,6 +13,7 @@ import type { TickContext } from '../sim/context';
 import type { Director, ElectionResult, ElectionSeat, GameState, Member, MemberVote, PetIssue } from '../types';
 import { assignOfficers, makeDirector } from './board';
 import { averageSatisfaction } from './review';
+import { effect } from '../people/leaders';
 
 const age = (m: Member, year: number) => year - m.birthYear;
 /** How much of a member's business is with us (0..1): engaged patrons vote and sign petitions. */
@@ -42,6 +43,7 @@ interface Candidate { m: Member; kind: 'incumbent' | 'nominee' | 'insurgent'; pl
 
 function tally(s: GameState, rng: Rng, districtId: number | null, cands: Candidate[]): { votes: number[]; turnout: number; eligible: number } {
   const g = s.governance;
+  const marketing = effect(s, 'members.election');
   const votes = cands.map(() => 0);
   let turnout = 0;
   let eligible = 0;
@@ -51,7 +53,7 @@ function tally(s: GameState, rng: Rng, districtId: number | null, cands: Candida
     turnout += v.weight * t;
     const u = cands.map((c) => {
       let x = c.kind === 'insurgent' ? (50 - v.satisfaction) / 25 + (grievanceFits(v, c.platform) ? 0.5 : 0) : (v.satisfaction - 50) / 25;
-      if (c.kind === 'incumbent') x += ELECTIONS.incumbencyBonus.value + (g.endorse ? ELECTIONS.endorsementBoost.value : 0);
+      if (c.kind === 'incumbent') x += ELECTIONS.incumbencyBonus.value + (g.endorse ? ELECTIONS.endorsementBoost.value : 0) + marketing;
       if (c.kind === 'nominee' && g.endorse) x += ELECTIONS.endorsementBoost.value / 2;
       if (c.m.townId === v.townId) x += ELECTIONS.neighborBonus.value;
       return Math.exp(x);

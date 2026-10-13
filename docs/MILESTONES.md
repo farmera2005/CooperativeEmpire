@@ -52,7 +52,7 @@ Internal checkpoints (commit each): M3a Agronomy → M3b Feed → M3c Energy →
 - Board Room screen.
 - **Playtest:** pass a capital project, lose a vote, survive an insurgent slate, get evaluated.
 
-## M6 — People
+## M6 — People ✅ complete
 - Leadership roles, skills→effects table wired into every division, traits, hiring pipeline (internal/external/poach), hidden stats & interviews, coaching/bonuses, retirements, misconduct flags.
 - Staffing levers per facility, training & safety budget, labor market by era.
 - Leader monthly notes with skill-dependent accuracy. People screen.

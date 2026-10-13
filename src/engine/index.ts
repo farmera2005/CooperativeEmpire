@@ -48,3 +48,6 @@ export type { Faction } from './governance/votes';
 export { evaluate as evaluateProposal, PROPOSAL_LABEL, bylawTitle } from './governance/proposals';
 export { averageSatisfaction } from './governance/review';
 export { engagement } from './governance/elections';
+export { effect, effectiveSkill, holder, marketSalary, totalFte } from './people/leaders';
+export { tightness, siteFte, staffServicePenalty } from './people/staff';
+export { searchQuality } from './people/hiring';

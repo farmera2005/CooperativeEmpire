@@ -53,6 +53,8 @@ export const GLOSSARY: GlossaryEntry[] = [
   { id: 'insurgent', term: 'Insurgent candidate', text: 'A member who runs against the board\'s nominee or an incumbent on a grievance: cash patronage, service in their town, debt, or old equity.' },
   { id: 'recall', term: 'Recall', text: 'Members removing a director before the term ends, at a special meeting called by petition.' },
   { id: 'supermajority', term: 'Supermajority', text: 'A higher bar than a simple majority (usually two-thirds of votes cast) required for bylaw amendments, mergers and dissolution.' },
+  { id: 'labor-market', term: 'Labor market', text: 'How hard it is to hire. In tight years wages rise, positions (truck drivers, applicators) sit open, and turnover climbs; in slack years the reverse.' },
+  { id: 'turnover', term: 'Turnover', text: 'The share of employees who leave in a year. Each departure costs hiring and training, and green crews serve customers worse.' },
   { id: 'drift', term: 'History with drift', text: 'Historical forces arrive in their eras, but timing shifts by up to about two years and magnitudes vary, so hindsight is not a cheat code.' },
 ];
 

@@ -8,8 +8,9 @@ import type { ComponentId, FacilityKind, LoadoutType } from '../data/facilities'
 import type { LineId, SupplyDivision } from '../data/supply';
 import type { Commodity } from '../data/grain';
 import type { Breakdown } from './core/breakdown';
+import type { Role, Skill, TraitId } from '../data/people';
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 export type DivisionId = 'GRAIN' | 'AGRONOMY' | 'FEED' | 'ENERGY' | 'RETAIL' | 'CORP';
 export const DIVISIONS: DivisionId[] = ['GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'RETAIL', 'CORP'];
@@ -918,6 +919,94 @@ export interface MonthSnapshot {
   boardConfidence: number;
 }
 
+// ---------- People (DESIGN §15) ----------
+
+export interface Leader {
+  id: number;
+  name: string;
+  female: boolean;
+  birthYear: number;
+  role: Role;
+  /** True skills 1..20 (hidden). */
+  skills: Record<Skill, number>;
+  /** Ranges known to the player. */
+  revealed: Record<Skill, [number, number]>;
+  traits: TraitId[];
+  /** Annual salary (nominal cents). */
+  salary: Cents;
+  loyalty: number;
+  ambition: number;
+  morale: number;
+  burnout: number;
+  hiredMonth: number;
+  retireAge: number;
+  bonusPlan: boolean;
+  coachedMonth: number | null;
+  /** Hidden flags revealed by audits or events. */
+  flags: { embezzling?: boolean; hiddenPosition?: boolean };
+  retiring?: number;
+}
+
+export interface Candidate {
+  id: number;
+  leader: Leader;
+  source: 'search' | 'internal' | 'poach';
+  competitorId?: number;
+  expiresMonth: number;
+  interviewed: boolean;
+  referenced: boolean;
+  /** One-time signing bonus (poaching). */
+  signing: Cents;
+  /** What the references said (after a check). */
+  referenceNote?: string;
+}
+
+export interface Search {
+  id: number;
+  role: Role;
+  band: 'at' | 'above';
+  readyMonth: number;
+}
+
+export interface Incident {
+  monthIndex: number;
+  facilityId: number;
+  serious: boolean;
+  cost: Cents;
+  text: string;
+}
+
+export interface LeaderNote {
+  role: Role;
+  leaderId: number;
+  text: string;
+}
+
+export type TrainingLevel = 'minimal' | 'standard' | 'strong';
+
+export interface WorkforceDivision {
+  fte: number;
+  morale: number;
+  /** Annualized turnover over recent months. */
+  turnover: number;
+  vacancy: number;
+}
+
+export interface PeopleState {
+  leaders: Leader[];
+  candidates: Candidate[];
+  searches: Search[];
+  nextId: number;
+  training: TrainingLevel;
+  /** Roles the co-op needs now (recomputed monthly). */
+  needed: Role[];
+  workforce: Partial<Record<DivisionId, WorkforceDivision>>;
+  incidents: Incident[];
+  notes: LeaderNote[];
+  /** Month each role last listed internal candidates. */
+  internalListed: Partial<Record<Role, number>>;
+}
+
 // ---------- Game ----------
 
 export interface GameState {
@@ -932,6 +1021,7 @@ export interface GameState {
   equity: EquitySubledger;
   governance: GovernanceState;
   coop: CoopState;
+  people: PeopleState;
   competitors: Competitor[];
   inbox: InboxItem[];
   nextInboxId: number;

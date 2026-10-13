@@ -9,6 +9,7 @@ import { liquidity, memberEquity } from '../finance/lender';
 import { balanceSheet } from '../ledger/statements';
 import type { GameState } from '../types';
 import type { Command } from './commands';
+import { ROLE_DEFS } from '../../data/people';
 
 export type PolicyId = 'baseline' | 'reckless' | 'conservative' | 'idle';
 
@@ -101,6 +102,25 @@ function scripted(style: Style): Policy {
     }
     // Each September, after the books close: set the patronage mix and redemption budget
     // from the balance sheet. A thin co-op keeps cash patronage at the legal minimum.
+    // Fill the leadership roles the co-op has grown into: search at market pay, interview,
+    // hire the strongest on paper.
+    for (const role of state.people.needed) {
+      if (state.people.leaders.some((l) => l.role === role)) continue;
+      const cands = state.people.candidates.filter((c) => c.leader.role === role);
+      if (!cands.length) {
+        if (!state.people.searches.some((x) => x.role === role)) cmds.push({ type: 'startSearch', role, band: 'at' });
+        continue;
+      }
+      const pending = cands.find((c) => !c.interviewed);
+      if (pending) {
+        cmds.push({ type: 'interview', candidateId: pending.id });
+        continue;
+      }
+      const score = (c: (typeof cands)[number]) => ROLE_DEFS[role].primary.reduce((a, k) => a + (c.leader.revealed[k][0] + c.leader.revealed[k][1]) / 2, 0);
+      const best = [...cands].sort((a, b) => score(b) - score(a) || a.id - b.id)[0];
+      cmds.push({ type: 'hire', candidateId: best.id });
+    }
+
     // A sensible GM answers the board's open demands where the balance sheet allows.
     const open = state.governance.demands.filter((d) => d.status === 'open');
     if (monthOf(state.clock.monthIndex) === 9) {

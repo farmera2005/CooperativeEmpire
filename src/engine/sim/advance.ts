@@ -10,6 +10,8 @@ import { stepCovenants } from '../finance/covenants';
 import { closeFiscalYearCycle, stepEquityCycle } from '../finance/patronage';
 import { stepRegionalAnnual, stepRegionalPurchases } from '../finance/regionals';
 import { holdBoardMeeting } from '../governance/votes';
+import { stepPeople } from '../people/staff';
+import { stepNotes } from '../people/notes';
 import { stepBoardRelations } from '../governance/review';
 import { stepAnnualMeeting, stepMemberDemocracy } from '../governance/elections';
 import { stepDepreciation, stepFacilityCosts, stepProjects } from '../facilities/facilities';
@@ -84,7 +86,8 @@ export function advanceMonth(state: GameState, decisions: Command[] = [], opts: 
   // 7. facilities: construction, marketplace
   stepProjects(ctx);
   stepMarketplace(ctx);
-  // 8. people — M6
+  // 8. people: leaders, hiring, workforce, incidents
+  stepPeople(ctx);
   // 9. member demographics
   demographicsMonthly(ctx);
   stepJoining(ctx);
@@ -128,7 +131,8 @@ export function advanceMonth(state: GameState, decisions: Command[] = [], opts: 
     if (opts.strictInvariants !== false) throw new InvariantError(errors);
     interrupts.push({ kind: 'invariant', text: errors.join('; ') });
   }
-  // 26–27. competitor strategy, leader notes — M6–M7
+  // 26. competitor strategy — M7. 27. leaders' notes
+  stepNotes(ctx);
   // 28. scorecard + history
   const snap = snapshot(w);
   w.history.push(snap);

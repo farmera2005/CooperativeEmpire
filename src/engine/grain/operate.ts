@@ -27,6 +27,9 @@ import { clamp } from '../core/math';
 import { post } from '../ledger/ledger';
 import { lineRate } from '../finance/lender';
 import { addFyLine } from '../finance/defaults';
+import { effect, holder } from '../people/leaders';
+import { staffServicePenalty } from '../people/staff';
+import { MISCONDUCT } from '../../data/people';
 import { grainCapacity, isHarvestMonth } from '../facilities/facilities';
 import type { TickContext } from '../sim/context';
 import type { CommodityPosition, Facility, GameState, GrainCommodityMonth, GrainMonthReport, Member } from '../types';
@@ -124,6 +127,11 @@ export function stepGrain(ctx: TickContext): void {
   const pol = state.coop.grainPolicy;
   const idx = grainCostIndex(path, mi);
   const weather = state.world.weather;
+  // People: the grain manager's merchandising and operations, and the crews' service.
+  const merch = effect(state, 'grain.basis') * idx;
+  const throughput = (1 + effect(state, 'grain.throughput')) * (1 - (state.people.workforce.GRAIN?.vacancy ?? 0));
+  const crewPenalty = staffServicePenalty(state, 'GRAIN');
+  const grainLead = holder(state, 'GRAIN');
   const operating = state.coop.facilities.filter((f) => f.status === 'operating' && f.kind === 'elevator');
 
   // ---- 1. prices, basis noise, futures MTM and carry on existing hedges ----
@@ -186,7 +194,7 @@ export function stepGrain(ctx: TickContext): void {
     const bundleBonus = sm.bundle.value * Math.sqrt(bundled);
     for (const o of s.ours) {
       const price = posture - FARM_HAUL_PER_MILE.value * o.dist;
-      const service = sm.staffingService.value[o.facility.staffing.level] * sm.serviceQuality.value
+      const service = (sm.staffingService.value[o.facility.staffing.level] - crewPenalty) * sm.serviceQuality.value
         - sm.waitPerHour.value * o.facility.grain.waitMemory;
       const u = priceW * price + service + contracts * sm.contractOffered.value
         + (m.kind === 'member' ? sm.loyalty.value * m.loyalty : 0) - sm.grievance.value * grievance + bundleBonus;
@@ -324,7 +332,7 @@ export function stepGrain(ctx: TickContext): void {
         }
       }
       // Receive against leg, dryer and space limits.
-      const legWeek = down ? 0 : cap.receiveBuHr * op.harvestHoursPerDay.value * op.harvestDaysPerWeek.value;
+      const legWeek = down ? 0 : cap.receiveBuHr * throughput * op.harvestHoursPerDay.value * op.harvestDaysPerWeek.value;
       const u = legWeek > 0 ? offeredAll / legWeek : offeredAll > 0 ? 9 : 0;
       const wait = u >= 1 ? op.maxWaitHours.value : (op.waitK.value * u) / (1 - u);
       if (offeredAll > 0) {
@@ -491,7 +499,7 @@ export function stepGrain(ctx: TickContext): void {
         if (!opt) continue;
         shipped += q;
         via[mode] = (via[mode] ?? 0) + q;
-        sales += roundCents(q * (F[c] + opt.grossBasis) * 100);
+        sales += roundCents(q * (F[c] + opt.grossBasis + merch) * 100);
         freight += roundCents(q * opt.freight * 100);
       }
     }
@@ -548,7 +556,12 @@ export function stepGrain(ctx: TickContext): void {
     // Hedge rebalance.
     const net = Math.max(0, p.ownedBu - p.dpBu);
     const contract = OPERATIONS.futuresContractBu.value;
-    const target = pol.hedgeRatio * net * (1 + HEDGING.slippageSd.value * hrng.normal());
+    // A disciplined hedger halves slippage; a gunslinger shades hedges and may hide a position.
+    const disciplined = grainLead?.traits.includes('disciplinedHedger');
+    const gunslinger = grainLead?.traits.includes('gunslinger');
+    const ratio = pol.hedgeRatio * (gunslinger ? 0.9 : 1) * (grainLead?.flags.hiddenPosition ? 1 - MISCONDUCT.hiddenPositionShare.value : 1);
+    let target = ratio * net * (1 + HEDGING.slippageSd.value * (disciplined ? 0.5 : 1) * hrng.normal());
+    if (disciplined) target = Math.max(target, net - pol.positionLimit[c]);
     p.shortBu = Math.max(0, Math.round(target / contract) * contract);
     p.lastFutures = F[c];
     const openPos = net - p.shortBu;

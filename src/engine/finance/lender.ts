@@ -16,10 +16,12 @@ import type { FinanceState, GameState, TermLoan } from '../types';
 import { nominalCents, pathFor } from '../world/macro';
 import { marketValue } from '../world/marketPath';
 import { grainCapacity } from '../facilities/facilities';
+import { effect } from '../people/leaders';
 
 export function lineRate(state: GameState, mi = state.clock.monthIndex, lenderId = state.coop.lenderId): number {
   const spread = LENDING.spreadOverPrime[lenderId]?.value ?? LENDING.spreadOverPrime['local-bank'].value;
-  return marketValue(pathFor(state), 'prime', mi) + spread + (lenderId === state.coop.lenderId ? state.coop.finance.riskSpread : 0);
+  // The CFO's standing with the lender moves the spread.
+  return marketValue(pathFor(state), 'prime', mi) + spread + (lenderId === state.coop.lenderId ? state.coop.finance.riskSpread : 0) + effect(state, 'finance.spread');
 }
 
 export const memberEquity = (state: GameState): Cents => balanceSheet(state.ledger, state.clock.monthIndex).totalEquity;

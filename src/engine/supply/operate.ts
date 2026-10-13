@@ -28,6 +28,8 @@ import { layerQty, lowerOfCostOrMarket, relieve } from './inventory';
 import { linePrice, seriesRatio, type LinePrice } from './prices';
 import { stepCredit } from './credit';
 import { addFyLine } from '../finance/defaults';
+import { effect } from '../people/leaders';
+import { staffServicePenalty } from '../people/staff';
 
 const REPORT_HISTORY = 36;
 const INVENTORY_ACCOUNT: Record<SupplyDivision, string> = { AGRONOMY: '1210', FEED: '1220', ENERGY: '1230', RETAIL: '1240' };
@@ -156,6 +158,8 @@ export function stepSupply(ctx: TickContext): void {
     const theta = cfg.thetaPerPct.value;
     const ourAdv = -cfg.posturePct.value[pol.posture];
     const lateMem = book.lateMemory;
+    // People: the division manager's selling and the crews' service.
+    const peopleU = effect(state, 'supply.share', d) - staffServicePenalty(state, d);
     const creditU = CREDIT.utility.value[pol.credit];
     const dist = state.world.distances;
 
@@ -174,7 +178,7 @@ export function stepSupply(ctx: TickContext): void {
             const f = s.facility!;
             const full = (divisionsInTown.get(f.townId)?.size ?? 0) >= 3 ? CROSS_DIVISION.fullServicePct.value : 0;
             const u = ourAdv * (0.5 + m.priceSens) - cfg.distancePctPerMile * dd
-              + cfg.serviceQuality * (STAFF_SERVICE[f.staffing.level] - (d === 'AGRONOMY' ? lateMem * SS.lateServicePenalty.value : 0))
+              + cfg.serviceQuality * (STAFF_SERVICE[f.staffing.level] + peopleU - (d === 'AGRONOMY' ? lateMem * SS.lateServicePenalty.value : 0))
               + (m.kind === 'member' ? cfg.loyalty * m.loyalty : 0) + creditU * m.creditNeed
               + CROSS_DIVISION.bundlePct.value * Math.sqrt(nb) + full - griev * SS.grievancePct.value;
             if (!best || u > best.u) best = { u, site: s, dist: dd };
@@ -225,7 +229,7 @@ export function stepSupply(ctx: TickContext): void {
     let lateShare = 0;
     if (d === 'AGRONOMY' && (acc.ours.APPLICATION ?? 0) > 0) {
       const rigs = cap(facs, 'applicator');
-      const perDay = valueAt(AGRONOMY_DEMAND.acresPerRigDay, year);
+      const perDay = valueAt(AGRONOMY_DEMAND.acresPerRigDay, year) * (1 + effect(state, 'agronomy.application')) * (1 - (state.people.workforce.AGRONOMY?.vacancy ?? 0));
       const days = weather.fieldDays.reduce((a, b) => a + b, 0);
       const capAcres = rigs * perDay * days;
       const booked = acc.ours.APPLICATION!;
@@ -245,7 +249,7 @@ export function stepSupply(ctx: TickContext): void {
     }
     if (d === 'AGRONOMY') book.lateMemory = (1 - SS.lateMemoryWeight.value) * book.lateMemory + SS.lateMemoryWeight.value * lateShare * (sold.APPLICATION ? 1 : 0);
     if (d === 'FEED') {
-      const millCap = cap(facs, 'feed-mill') / 12;
+      const millCap = (cap(facs, 'feed-mill') / 12) * (1 + effect(state, 'feed.mill'));
       const want = (['FEED_SWINE', 'FEED_DAIRY', 'FEED_BEEF'] as LineId[]).reduce((a, k) => a + (sold[k] ?? 0), 0);
       const ratio = want > millCap && want > 0 ? millCap / want : 1;
       for (const k of ['FEED_SWINE', 'FEED_DAIRY', 'FEED_BEEF'] as LineId[]) sold[k] = (sold[k] ?? 0) * ratio;
@@ -264,7 +268,8 @@ export function stepSupply(ctx: TickContext): void {
     }
     if (d === 'ENERGY') {
       const trucks = cap(facs, 'fuel-truck');
-      const truckCap = trucks * valueAt(ENERGY_DEMAND.truckGalPerMonth, year);
+      // Short of CDL drivers in a tight labor market, trucks sit.
+      const truckCap = trucks * valueAt(ENERGY_DEMAND.truckGalPerMonth, year) * (1 + effect(state, 'energy.delivery')) * (1 - (state.people.workforce.ENERGY?.vacancy ?? 0));
       const gal = (['FUEL_DIESEL', 'FUEL_GAS', 'PROPANE'] as LineId[]).reduce((a, k) => a + (sold[k] ?? 0), 0);
       const ratio = gal > truckCap && gal > 0 ? truckCap / gal : 1;
       for (const k of ['FUEL_DIESEL', 'FUEL_GAS', 'PROPANE'] as LineId[]) sold[k] = (sold[k] ?? 0) * ratio;
@@ -458,6 +463,7 @@ function retailDemand(ctx: TickContext, sites: { ours: boolean; posture: number;
   const { state, mi } = ctx;
   const month = monthOf(mi);
   const rd = RETAIL_DEMAND;
+  const peopleU = effect(state, 'supply.share', 'RETAIL') - staffServicePenalty(state, 'RETAIL');
   const acresByTown = new Map<number, number>();
   for (const m of state.members.list) if (m.status === 'active') acresByTown.set(m.townId, (acresByTown.get(m.townId) ?? 0) + (m.acres.corn + m.acres.soybeans + m.acres.wheat + m.acres.other) * m.weight);
   const dist = state.world.distances;
@@ -469,7 +475,7 @@ function retailDemand(ctx: TickContext, sites: { ours: boolean; posture: number;
       for (const s of local) {
         const dd = dist[t.id][s.townId];
         if (s.ours) {
-          const u = ourAdv - distPct * dd + DIVISION_CONFIG.RETAIL.serviceQuality * STAFF_SERVICE[s.facility!.staffing.level];
+          const u = ourAdv - distPct * dd + DIVISION_CONFIG.RETAIL.serviceQuality * (STAFF_SERVICE[s.facility!.staffing.level] + peopleU);
           if (!best || u > best.u) best = { u };
         } else denom += Math.exp(theta * (s.posture - distPct * dd + DIVISION_CONFIG.RETAIL.serviceQuality * s.service));
       }
@@ -502,6 +508,7 @@ function townEnergyDemand(ctx: TickContext, sites: SupplierSite[], acc: Acc, boo
   const { state, mi } = ctx;
   const month = monthOf(mi);
   const ed = ENERGY_DEMAND;
+  const peopleU = effect(state, 'supply.share', 'ENERGY') - staffServicePenalty(state, 'ENERGY');
   const dist = state.world.distances;
   for (const t of state.world.towns) {
     let best: number | null = null;
@@ -510,7 +517,7 @@ function townEnergyDemand(ctx: TickContext, sites: SupplierSite[], acc: Acc, boo
       const dd = dist[t.id][s.townId];
       if (dd > reach) continue;
       if (s.ours) {
-        const u = ourAdv - distPct * dd + DIVISION_CONFIG.ENERGY.serviceQuality * STAFF_SERVICE[s.facility!.staffing.level];
+        const u = ourAdv - distPct * dd + DIVISION_CONFIG.ENERGY.serviceQuality * (STAFF_SERVICE[s.facility!.staffing.level] + peopleU);
         if (best === null || u > best) best = u;
       } else denom += Math.exp(theta * (s.posture - distPct * dd + DIVISION_CONFIG.ENERGY.serviceQuality * s.service));
     }

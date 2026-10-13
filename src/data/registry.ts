@@ -4,6 +4,7 @@ import * as brands from './brands';
 import * as facilities from './facilities';
 import * as finance from './finance';
 import * as governance from './governance';
+import * as people from './people';
 import * as supply from './supply';
 import * as grain from './grain';
 import * as history from './history';
@@ -23,5 +24,6 @@ export const DATA_REGISTRY: Record<string, Record<string, unknown>> = {
   'supply.ts': supply as unknown as Record<string, unknown>,
   'finance.ts': finance as unknown as Record<string, unknown>,
   'governance.ts': governance as unknown as Record<string, unknown>,
+  'people.ts': people as unknown as Record<string, unknown>,
   'regions/eccb.ts': eccb as unknown as Record<string, unknown>,
 };

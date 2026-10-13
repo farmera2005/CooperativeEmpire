@@ -14,7 +14,9 @@ import { BOARD_RECONSIDER_MONTHS, POLITICAL_CAPITAL, VOTE_MODEL } from '../../da
 import { formatMonth } from '../core/calendar';
 import { boardGate } from '../governance/proposals';
 import { addAgendaItem } from '../governance/votes';
-import type { BylawChange, GameState, GrainPolicy, PatronageProposal, PayPosition, RedemptionPolicy, StaffLevel, SupplyPolicy } from '../types';
+import type { Role } from '../../data/people';
+import { checkReferences, coach, fire, giveRaise, hire, interview, listInternal, poach, setBonusPlan, startSearch } from '../people/hiring';
+import type { BylawChange, TrainingLevel, GameState, GrainPolicy, PatronageProposal, PayPosition, RedemptionPolicy, StaffLevel, SupplyPolicy } from '../types';
 import type { RegionalCategory } from '../../data/finance';
 import { validateProposal } from '../finance/patronage';
 import { setAffiliation } from '../finance/regionals';
@@ -54,7 +56,18 @@ export type Command =
   | { type: 'tableItem'; itemId: number }
   | { type: 'withdrawItem'; itemId: number }
   | { type: 'proposeBylaw'; change: BylawChange }
-  | { type: 'endorseIncumbents'; on: boolean };
+  | { type: 'endorseIncumbents'; on: boolean }
+  | { type: 'startSearch'; role: Role; band: 'at' | 'above' }
+  | { type: 'listInternal'; role: Role }
+  | { type: 'poach'; role: Role }
+  | { type: 'interview'; candidateId: number }
+  | { type: 'checkReferences'; candidateId: number }
+  | { type: 'hire'; candidateId: number }
+  | { type: 'fireLeader'; leaderId: number }
+  | { type: 'coach'; leaderId: number }
+  | { type: 'setBonusPlan'; leaderId: number; on: boolean }
+  | { type: 'giveRaise'; leaderId: number }
+  | { type: 'setTraining'; level: TrainingLevel };
 
 export interface CommandMessage {
   level: 'info' | 'warning' | 'error';
@@ -200,6 +213,19 @@ function run(s: GameState, cmd: Command): CommandMessage[] {
     case 'proposeBylaw':
     case 'endorseIncumbents':
       return governanceCommand(s, cmd);
+    case 'startSearch': return startSearch(s, cmd.role, cmd.band);
+    case 'listInternal': return listInternal(s, cmd.role);
+    case 'poach': return poach(s, cmd.role);
+    case 'interview': return interview(s, cmd.candidateId);
+    case 'checkReferences': return checkReferences(s, cmd.candidateId);
+    case 'hire': return hire(s, cmd.candidateId);
+    case 'fireLeader': return fire(s, cmd.leaderId);
+    case 'coach': return coach(s, cmd.leaderId);
+    case 'setBonusPlan': return setBonusPlan(s, cmd.leaderId, cmd.on);
+    case 'giveRaise': return giveRaise(s, cmd.leaderId);
+    case 'setTraining':
+      s.people.training = cmd.level;
+      return [{ level: 'info', text: `Training & safety budget set to ${cmd.level}.` }];
     case 'setBudget': {
       const fye = s.setup.fiscalYearEndMonth;
       const b = s.coop.budget;

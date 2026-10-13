@@ -9,6 +9,7 @@ import { formatCents } from '../core/format';
 import { defaultCommitment, emptyFinance } from '../finance/lender';
 import { emptyEquityProgram, emptyRegional } from '../finance/defaults';
 import { defaultAffiliations } from '../finance/regionals';
+import { emptyPeople } from '../people/leaders';
 import { ensureHomeIndependent, generateCompetitors, generateOffers, generateSupplyCompetitors } from '../competitors/competitors';
 import { defaultSupplyPolicies, emptyPatronageStats, emptySupply } from '../supply/defaults';
 import { defaultGrainPolicy, emptyGrainBook } from '../grain/defaults';
@@ -130,6 +131,7 @@ export function newGame(setupIn: GameSetup): GameState {
       supply: emptySupply(), supplyPolicy: defaultSupplyPolicies(), patronageStats: emptyPatronageStats(),
       equityProgram: emptyEquityProgram(), regional: emptyRegional(), budget: null,
     },
+    people: emptyPeople(),
     competitors: [],
     inbox: [],
     nextInboxId: 1,

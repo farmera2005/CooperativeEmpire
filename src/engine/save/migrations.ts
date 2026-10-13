@@ -4,6 +4,7 @@
 import { SCHEMA_VERSION, type GameState } from '../types';
 import { emptyEquityProgram, emptyRegional } from '../finance/defaults';
 import { emptyBoardActivity } from '../governance/board';
+import { emptyPeople } from '../people/leaders';
 import { BYLAWS_DEFAULT } from '../../data/governance';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -72,6 +73,11 @@ export const MIGRATIONS: Record<number, (s: AnyState) => AnyState> = {
     };
     for (const h of s.history) h.boardConfidence ??= s.governance.boardConfidence;
     return { ...s, schemaVersion: 5 };
+  },
+  // v5 → v6 (Milestone 6): leaders, hiring, workforce, incidents.
+  5: (s) => {
+    s.people ??= emptyPeople();
+    return { ...s, schemaVersion: 6 };
   },
 };
 

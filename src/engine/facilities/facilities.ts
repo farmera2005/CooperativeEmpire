@@ -4,6 +4,8 @@
 import { COMPONENTS, KIND_BASE_FTE, KIND_DIVISION, LOADOUT_COMPONENTS, LOADOUT_RANK, STORAGE_COMPONENTS, midCost, type ComponentId, type FacilityKind, type LoadoutType } from '../../data/facilities';
 import { CROSS_DIVISION, SEASONAL_OVERTIME, SITE_UTILITIES, SUPPLY_WAGES, type SupplyDivision } from '../../data/supply';
 import { COMMODITIES, FACILITY_COSTS, STAFF } from '../../data/grain';
+import { DIVISION_ROLE, effect, holder } from '../people/leaders';
+import { vacancyShare, wageMarket } from '../people/staff';
 import { monthOf, yearOf } from '../core/calendar';
 import { valueAt } from '../../data/types';
 import { allocateCents, roundCents, type Cents } from '../core/money';
@@ -144,7 +146,7 @@ function completeProject(ctx: TickContext, p: CapitalProject): void {
   }
   post(state, { source: 'capex-complete', memo: `Placed in service: ${p.label}`, lines: [...lines, { account: '1540', division: f.division, amount: -p.spent }] });
   if (f.status === 'underConstruction') f.status = 'operating';
-  ctx.inbox({ kind: 'memo', title: `Completed: ${p.label}`, body: `${p.label} at ${f.name} is finished and in service.` });
+  ctx.inbox({ kind: 'memo', title: `Completed: ${p.label}`, body: `${p.label} is finished and in service.` });
 }
 
 /** FTE at standard staffing (2024 productivity) for any site. Elevators use their own formula. */
@@ -179,6 +181,12 @@ export function stepFacilityCosts(ctx: TickContext): void {
     lines.push({ account, division, amount });
     cash += amount;
   };
+  const coo = 1 + effect(state, 'coo.opex');
+  const decayFactor = 1 + effect(state, 'coo.decay');
+  const opexFactor = (d: DivisionId) => {
+    const r = DIVISION_ROLE[d];
+    return coo * (r && holder(state, r)?.traits.includes('tightWithADollar') ? 0.97 : 1);
+  };
   for (const f of state.coop.facilities) {
     if (f.status === 'closed' || f.status === 'underConstruction') continue;
     division = f.division;
@@ -190,7 +198,8 @@ export function stepFacilityCosts(ctx: TickContext): void {
       if (shared) fte -= (f.kind === 'elevator' ? STAFF.fteBase.value : KIND_BASE_FTE[f.kind]) * CROSS_DIVISION.sharedSiteSaving.value;
       fte *= STAFF.levelFactor.value[f.staffing.level] * valueAt(STAFF.laborIntensity, yearOf(mi));
       const wage = f.division === 'GRAIN' ? STAFF.annualWage.value : SUPPLY_WAGES.value[f.division as SupplyDivision];
-      let wages = nominalCents(path, mi, (fte * wage * STAFF.payFactor.value[f.staffing.pay]) / 12);
+      // Labor market, unfilled positions, the COO's efficiency and a tight-fisted manager.
+      let wages = nominalCents(path, mi, (fte * wage * STAFF.payFactor.value[f.staffing.pay] * wageMarket(state) * (1 - vacancyShare(state, f)) * opexFactor(f.division)) / 12);
       if (f.division === 'GRAIN') {
         if (HARVEST_MONTHS.includes(monthOf(mi))) wages += roundCents(wages * STAFF.harvestOvertime.value);
       } else {
@@ -211,14 +220,14 @@ export function stepFacilityCosts(ctx: TickContext): void {
       weight += w;
     }
     repairRate = weight ? repairRate / weight : 0;
-    const repairs = roundCents(((repl * repairRate) / 12) * (1 + (100 - f.condition) / 100) * (mothballed ? FACILITY_COSTS.mothballRepairShare.value : 1));
+    const repairs = roundCents(((repl * repairRate) / 12) * (1 + (100 - f.condition) / 100) * (mothballed ? FACILITY_COSTS.mothballRepairShare.value : 1) * opexFactor(f.division));
     add('7200', repairs);
-    add('7300', roundCents((repl * FACILITY_COSTS.insuranceRate.value) / 12));
+    add('7300', roundCents(((repl * FACILITY_COSTS.insuranceRate.value) / 12) * (1 + effect(state, 'safety.insurance'))));
     add('7640', roundCents((netBookValue(state, f.id) * FACILITY_COSTS.propertyTaxRate.value) / 12));
     // Condition decay.
     let decay = 0;
     for (const id of Object.keys(f.components) as ComponentId[]) decay += COMPONENTS[id].decayPerYear * midCost(id) * (f.components[id] ?? 0);
-    f.condition = Math.max(0, f.condition - (weight ? decay / weight : 0) / 12 * (mothballed ? FACILITY_COSTS.mothballDecayShare.value : 1));
+    f.condition = Math.max(0, f.condition - (weight ? decay / weight : 0) / 12 * (mothballed ? FACILITY_COSTS.mothballDecayShare.value : 1) * decayFactor);
     // Hidden environmental problems surface eventually.
     if (f.envLiability && !f.envLiability.discovered && ctx.rng('facilities.env', f.id).chance(FACILITY_COSTS.envDiscoveryMonthly.value)) {
       f.envLiability.discovered = true;
