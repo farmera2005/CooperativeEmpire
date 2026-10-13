@@ -43,3 +43,8 @@ export { budgetVsActual, capexThisYear } from './finance/budget';
 export type { BudgetComparison } from './finance/budget';
 export { regionalEquityHeld, affiliationFor, programOf, CATEGORIES } from './finance/regionals';
 export { lenderEquityHeld, totalDebt, brandLabel } from './finance/lender';
+export { forecastItem, factionOf } from './governance/votes';
+export type { Faction } from './governance/votes';
+export { evaluate as evaluateProposal, PROPOSAL_LABEL, bylawTitle } from './governance/proposals';
+export { averageSatisfaction } from './governance/review';
+export { engagement } from './governance/elections';

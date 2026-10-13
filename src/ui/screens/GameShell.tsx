@@ -90,6 +90,7 @@ export function GameShell() {
             <button className="btn btn-primary" onClick={endMonth} title="End the month (E)">End month ▸</button>
           </div>
         </header>
+        {game.outcome && <GameOver />}
         <main className="min-h-0 flex-1 overflow-auto p-4">
           {tab === 'dashboard' && <Dashboard />}
           {tab === 'inbox' && <InboxScreen />}
@@ -104,6 +105,25 @@ export function GameShell() {
           {tab === 'board' && <BoardScreen />}
           {tab === 'saves' && <SavesScreen />}
         </main>
+      </div>
+    </div>
+  );
+}
+
+function GameOver() {
+  const game = useStore((s) => s.game)!;
+  const setTab = useStore((s) => s.setTab);
+  const setScreen = useStore((s) => s.setScreen);
+  const o = game.outcome!;
+  const title = o.kind === 'fired' ? 'The board has let you go' : o.kind === 'liquidated' ? 'The lender forced a sale' : 'The co-op has been absorbed';
+  return (
+    <div role="alert" className="border-b-4 border-rust bg-[#f6e3dc] px-4 py-3">
+      <div className="headline text-lg font-bold text-rust">{title} — {formatMonth(o.monthIndex)}</div>
+      <p className="text-sm">{o.text}</p>
+      <div className="mt-2 flex gap-2">
+        <button className="btn" onClick={() => setTab('saves')}>Load an earlier save</button>
+        <button className="btn" onClick={() => setScreen('title')}>Title screen</button>
+        <span className="self-center text-xs text-stone-500">The books stay open for review; months can no longer be played.</span>
       </div>
     </div>
   );

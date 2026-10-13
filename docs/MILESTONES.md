@@ -45,7 +45,7 @@ Internal checkpoints (commit each): M3a Agronomy → M3b Feed → M3c Energy →
 - Budget & capital plan; Equity & Patronage screen; Regional & Lender screen.
 - **Playtest:** a full annual cycle; compare patronage mixes; survive 1980–86 rates and bad debt.
 
-## M5 — Governance
+## M5 — Governance ✅ complete
 - Bylaws, directors with factions, monthly board meeting and agenda, proposal evaluators, votes, lobbying/amend/table, director-raised items and demands, executive sessions.
 - GM evaluation and confidence; termination loss.
 - Elections, nominating, insurgents, annual meeting, member petitions, member votes (supermajority).

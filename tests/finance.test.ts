@@ -20,10 +20,10 @@ const run = (s: GameState, months: number) => {
 /** A co-op with an elevator and an agronomy center, founded in January of `year`. */
 function coop(year: number, seed = 1, extra: Partial<typeof DEFAULT_SETUP> = {}): GameState {
   let s = newGame({ ...DEFAULT_SETUP, startYear: year, startingMembers: 400, gameSeed: seed, mapSeed: seed, capitalPreset: 'well', ...extra });
-  let r = applyCommand(s, { type: 'buyFacility', offerId: s.coop.offers.find((o) => o.kind === 'elevator')!.id, financePct: 0.5 });
+  let r = applyCommand(s, { type: 'buyFacility', offerId: s.coop.offers.find((o) => o.kind === 'elevator')!.id, financePct: 0.5 }, { boardApproved: true });
   expect(r.ok, r.messages.map((m) => m.text).join()).toBe(true);
   s = r.state;
-  r = applyCommand(s, { type: 'buildFacility', kind: 'agronomy', townId: s.coop.homeTownId, components: TYPICAL_SITE.agronomy, financePct: 0.5 });
+  r = applyCommand(s, { type: 'buildFacility', kind: 'agronomy', townId: s.coop.homeTownId, components: TYPICAL_SITE.agronomy, financePct: 0.5 }, { boardApproved: true });
   expect(r.ok, r.messages.map((m) => m.text).join()).toBe(true);
   return r.state;
 }

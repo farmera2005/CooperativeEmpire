@@ -9,7 +9,7 @@ const setup = (startYear: number, seed = 1) => ({ ...DEFAULT_SETUP, startYear, s
 
 function withElevator(startYear: number, seed = 1): GameState {
   const s = newGame(setup(startYear, seed));
-  const r = applyCommand(s, { type: 'buyFacility', offerId: s.coop.offers[0].id, financePct: 0.5 });
+  const r = applyCommand(s, { type: 'buyFacility', offerId: s.coop.offers[0].id, financePct: 0.5 }, { boardApproved: true });
   expect(r.ok).toBe(true);
   return r.state;
 }
@@ -32,7 +32,7 @@ describe('facilities', () => {
   it('builds a new elevator through construction in progress', () => {
     const s0 = newGame(setup(1980, 4));
     const town = s0.world.towns.find((t) => !s0.competitors.some((c) => c.sites.some((x) => x.townId === t.id)))!;
-    const r = applyCommand(s0, { type: 'buildElevator', townId: town.id, spec: { storageType: 'storage-steel', storageBu: 100_000, receiveBuHr: 3000, dryBuHr: 500, loadout: 'truck' }, financePct: 0.5 });
+    const r = applyCommand(s0, { type: 'buildElevator', townId: town.id, spec: { storageType: 'storage-steel', storageBu: 100_000, receiveBuHr: 3000, dryBuHr: 500, loadout: 'truck' }, financePct: 0.5 }, { boardApproved: true });
     expect(r.ok, r.messages.map((m) => m.text).join()).toBe(true);
     expect(r.state.coop.facilities[0].status).toBe('underConstruction');
     const s = run(r.state, 10);
@@ -44,7 +44,7 @@ describe('facilities', () => {
   it('closing a site removes its assets and books a gain or loss', () => {
     let s = withElevator(1985, 2);
     const id = s.coop.facilities[0].id;
-    const r = applyCommand(s, { type: 'closeFacility', facilityId: id });
+    const r = applyCommand(s, { type: 'closeFacility', facilityId: id }, { boardApproved: true });
     expect(r.ok).toBe(true);
     s = r.state;
     expect(s.coop.assets.filter((a) => a.facilityId === id)).toHaveLength(0);
@@ -55,7 +55,7 @@ describe('facilities', () => {
     const s = cloneState(newGame({ ...setup(1990, 3), startingMembers: 50, capitalPreset: 'shoestring' }));
     const expensive = [...s.coop.offers].sort((a, b) => b.price - a.price)[0];
     expensive.price = 1e12;
-    const r = applyCommand(s, { type: 'buyFacility', offerId: expensive.id, financePct: 0.5 });
+    const r = applyCommand(s, { type: 'buyFacility', offerId: expensive.id, financePct: 0.5 }, { boardApproved: true });
     expect(r.ok).toBe(false);
   });
 });
@@ -75,7 +75,7 @@ describe('grain operations', () => {
 
   it('hedging makes monthly grain margins steadier than an open position', () => {
     let hedged = withElevator(2006, 5);
-    let open = applyCommand(hedged, { type: 'setGrainPolicy', policy: { hedgeRatio: 0 } }).state;
+    let open = applyCommand(hedged, { type: 'setGrainPolicy', policy: { hedgeRatio: 0 } }, { boardApproved: true }).state;
     const mh: number[] = [];
     const mo: number[] = [];
     for (let i = 0; i < 60; i++) {

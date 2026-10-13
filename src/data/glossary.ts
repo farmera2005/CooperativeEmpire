@@ -48,6 +48,11 @@ export const GLOSSARY: GlossaryEntry[] = [
   { id: 'term-out', term: 'Terming out', text: 'Converting part of a seasonal line of credit into an amortizing term loan to restore working capital.' },
   { id: 'lender-equity', term: 'Co-op bank stock', text: 'Banks for Cooperatives and CoBank are owned by their borrowers, who hold stock built from retained patronage. Stock above the bank\'s target is retired.' },
   { id: 'unfunded-obligation', term: 'Unfunded redemption obligation', text: 'Allocated equity held by members who no longer do business with the co-op, plus vintages older than the target revolving period: what members expect back with no plan to pay it.' },
+  { id: 'board-confidence', term: 'Board confidence', text: 'How much the directors trust the general manager (0–100). It moves with results, votes won and lost, directors\' goals, the lender\'s view and member satisfaction, and resets partly at each annual review.' },
+  { id: 'political-capital', term: 'Political capital', text: 'The time and goodwill a general manager can spend making a case to individual directors before a vote. It recharges monthly.' },
+  { id: 'insurgent', term: 'Insurgent candidate', text: 'A member who runs against the board\'s nominee or an incumbent on a grievance: cash patronage, service in their town, debt, or old equity.' },
+  { id: 'recall', term: 'Recall', text: 'Members removing a director before the term ends, at a special meeting called by petition.' },
+  { id: 'supermajority', term: 'Supermajority', text: 'A higher bar than a simple majority (usually two-thirds of votes cast) required for bylaw amendments, mergers and dissolution.' },
   { id: 'drift', term: 'History with drift', text: 'Historical forces arrive in their eras, but timing shifts by up to about two years and magnitudes vary, so hindsight is not a cheat code.' },
 ];
 

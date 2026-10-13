@@ -9,7 +9,7 @@ import type { LineId, SupplyDivision } from '../data/supply';
 import type { Commodity } from '../data/grain';
 import type { Breakdown } from './core/breakdown';
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 export type DivisionId = 'GRAIN' | 'AGRONOMY' | 'FEED' | 'ENERGY' | 'RETAIL' | 'CORP';
 export const DIVISIONS: DivisionId[] = ['GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'RETAIL', 'CORP'];
@@ -258,16 +258,147 @@ export interface Director {
   office?: 'chair' | 'vice' | 'secretary';
 }
 
+export interface Bylaws {
+  boardSize: number;
+  districts: number;
+  atLargeSeats: number;
+  termYears: number;
+  /** Maximum consecutive terms (null = none). */
+  termLimit: number | null;
+  supermajority: number;
+  quorumPct: number;
+  /** Capital projects at or above this cost (2024 $) need a board vote. */
+  capitalApproval: number;
+  memberPetitionPct: number;
+}
+
+export type ProposalType =
+  | 'capitalProject' | 'facilityClosure' | 'patronage' | 'redemptionPolicy' | 'budget' | 'affiliationChange'
+  | 'lenderChange' | 'borrowing' | 'riskPolicy' | 'creditPolicy' | 'bylawRecommendation';
+
+export type BylawChange =
+  | { field: 'boardSize'; value: number }
+  | { field: 'termLimit'; value: number | null }
+  | { field: 'capitalApproval'; value: number }
+  | { field: 'memberPetitionPct'; value: number };
+
+export interface MeritVector {
+  /** What a careful reader of the numbers concludes (−1..1). */
+  trueMerit: number;
+  /** What the headline suggests to a director who doesn't read the packet (−1..1). */
+  headlineMerit: number;
+  riskScore: number;
+  /** Cash to members (+) or retained (−), −1..1. */
+  memberCashEffect: number;
+  equityRatioAfter: number;
+  covenantHeadroom: number;
+  townEffects: Record<number, number>;
+  divisionEffects: Partial<Record<DivisionId, number>>;
+  /** +1 expansion/growth, −1 retrenchment. */
+  growth: number;
+  controversy: number;
+  notes: string[];
+}
+
+export interface AgendaItem {
+  id: number;
+  type: ProposalType;
+  title: string;
+  submittedMonth: number;
+  /** The command to execute if the board approves (GM proposals). */
+  command?: unknown;
+  bylaw?: BylawChange;
+  source: 'gm' | 'system';
+  tabled: number;
+  attempts: number;
+  /** Directors (member ids) the GM lobbied for this item. */
+  lobbied: number[];
+}
+
+export interface DirectorVote {
+  memberId: number;
+  yes: boolean;
+  support: number;
+}
+
+export interface VoteRecord {
+  id: number;
+  monthIndex: number;
+  type: ProposalType;
+  title: string;
+  /** The proposed command, serialized, to recognize the same proposal brought back. */
+  commandKey?: string;
+  passed: boolean;
+  yes: number;
+  no: number;
+  votes: DirectorVote[];
+}
+
+export type DemandKind = 'expandTown' | 'redemptionBudget' | 'cashPatronage' | 'equityRatio' | 'growDivision' | 'fixDivision';
+
+export interface Demand {
+  id: number;
+  directorId: number;
+  kind: DemandKind;
+  text: string;
+  townId?: number;
+  division?: DivisionId;
+  target: number;
+  createdMonth: number;
+  deadlineMonth: number;
+  status: 'open' | 'met' | 'missed';
+}
+
+export interface GmReview {
+  monthIndex: number;
+  fy: number;
+  score: number;
+  components: Record<string, number>;
+  bonus: Cents;
+  pip: boolean;
+  notes: string[];
+}
+
+export interface ElectionSeat {
+  districtId: number | null;
+  winnerId: number;
+  candidates: { memberId: number; name: string; kind: 'incumbent' | 'nominee' | 'insurgent'; platform?: PetIssue['kind']; votes: number }[];
+}
+
+export interface ElectionResult {
+  year: number;
+  turnout: number;
+  seats: ElectionSeat[];
+}
+
+export interface MemberVote {
+  id: number;
+  kind: 'bylaw' | 'recall';
+  title: string;
+  bylaw?: BylawChange;
+  directorId?: number;
+  meetingMonth: number;
+  supermajority: boolean;
+  result?: { yesShare: number; turnout: number; passed: boolean };
+}
+
 export interface GovernanceState {
-  bylaws: {
-    boardSize: number;
-    districts: number;
-    atLargeSeats: number;
-    termYears: number;
-    supermajority: number;
-  };
+  bylaws: Bylaws;
   directors: Director[];
   boardConfidence: number;
+  politicalCapital: number;
+  agenda: AgendaItem[];
+  nextItemId: number;
+  votes: VoteRecord[];
+  demands: Demand[];
+  reviews: GmReview[];
+  /** On a performance improvement plan after a weak review. */
+  pip: boolean;
+  /** GM speaks for incumbents at the next election. */
+  endorse: boolean;
+  elections: ElectionResult[];
+  memberVotes: MemberVote[];
+  lastPetitionMonth: number | null;
 }
 
 // ---------- Inbox / events ----------
@@ -784,6 +915,7 @@ export interface MonthSnapshot {
   grainBu: number;
   grainShare: number;
   lineDrawn: Cents;
+  boardConfidence: number;
 }
 
 // ---------- Game ----------

@@ -10,7 +10,11 @@ import type { Components } from '../facilities/facilities';
 import { maxCommitment } from '../finance/lender';
 import { post } from '../ledger/ledger';
 import { balance } from '../ledger/ledger';
-import type { GameState, GrainPolicy, PatronageProposal, PayPosition, RedemptionPolicy, StaffLevel, SupplyPolicy } from '../types';
+import { BOARD_RECONSIDER_MONTHS, POLITICAL_CAPITAL, VOTE_MODEL } from '../../data/governance';
+import { formatMonth } from '../core/calendar';
+import { boardGate } from '../governance/proposals';
+import { addAgendaItem } from '../governance/votes';
+import type { BylawChange, GameState, GrainPolicy, PatronageProposal, PayPosition, RedemptionPolicy, StaffLevel, SupplyPolicy } from '../types';
 import type { RegionalCategory } from '../../data/finance';
 import { validateProposal } from '../finance/patronage';
 import { setAffiliation } from '../finance/regionals';
@@ -45,7 +49,12 @@ export type Command =
   | { type: 'setAffiliation'; category: RegionalCategory; regionalId: string | null }
   | { type: 'switchLender'; lenderId: string }
   | { type: 'termOutLine' }
-  | { type: 'setBudget'; salesGrowthPct?: number; costGrowthPct?: number; capex?: number };
+  | { type: 'setBudget'; salesGrowthPct?: number; costGrowthPct?: number; capex?: number }
+  | { type: 'lobbyDirector'; itemId: number; directorId: number }
+  | { type: 'tableItem'; itemId: number }
+  | { type: 'withdrawItem'; itemId: number }
+  | { type: 'proposeBylaw'; change: BylawChange }
+  | { type: 'endorseIncumbents'; on: boolean };
 
 export interface CommandMessage {
   level: 'info' | 'warning' | 'error';
@@ -56,6 +65,30 @@ export interface CommandResult {
   state: GameState;
   ok: boolean;
   messages: CommandMessage[];
+}
+
+/**
+ * Apply a command to a working copy. GM actions that need the board (DESIGN §14.3) go on
+ * the agenda instead, unless `boardApproved` (the board is executing its decision).
+ */
+export function runCommand(s: GameState, cmd: Command, boardApproved = false): CommandMessage[] {
+  if (!boardApproved) {
+    const gate = boardGate(s, cmd);
+    if (gate) {
+      const dup = s.governance.agenda.some((i) => i.type === gate.type && JSON.stringify(i.command) === JSON.stringify(cmd));
+      if (dup) return [{ level: 'info', text: 'That is already on the board\'s agenda.' }];
+      const key = JSON.stringify(cmd);
+      const recent = s.governance.votes.find((v) => v.commandKey === key && !v.passed && s.clock.monthIndex - v.monthIndex < BOARD_RECONSIDER_MONTHS);
+      if (recent) return [{ level: 'error', text: `The board turned this down in ${formatMonth(recent.monthIndex)} and won't reconsider it for ${BOARD_RECONSIDER_MONTHS} months. Change the proposal or wait.` }];
+      // Check the action is possible before taking it to the board.
+      const trial = cloneState(s);
+      const trialMsgs = run(trial, cmd);
+      if (trialMsgs.some((m) => m.level === 'error')) return trialMsgs;
+      addAgendaItem(s, { type: gate.type, title: gate.title, submittedMonth: s.clock.monthIndex, command: cmd, source: 'gm', ...(cmd.type === 'proposeBylaw' ? { bylaw: cmd.change } : {}) });
+      return [{ level: 'info', text: `"${gate.title}" goes to the board at next month's meeting.` }];
+    }
+  }
+  return run(s, cmd);
 }
 
 function run(s: GameState, cmd: Command): CommandMessage[] {
@@ -142,6 +175,12 @@ function run(s: GameState, cmd: Command): CommandMessage[] {
       const amt = termOutLine(s, c.minCurrentRatio + 0.25, c.maxTermDebtToFixed);
       return amt > 0 ? [{ level: 'info', text: `${brandLabel(s.coop.lenderId)} converted ${formatCents(amt)} of the line into a term loan.` }] : [{ level: 'error', text: 'The lender sees no need (or no room under the term-debt covenant) to term out the line.' }];
     }
+    case 'lobbyDirector':
+    case 'tableItem':
+    case 'withdrawItem':
+    case 'proposeBylaw':
+    case 'endorseIncumbents':
+      return governanceCommand(s, cmd);
     case 'setBudget': {
       const fye = s.setup.fiscalYearEndMonth;
       const b = s.coop.budget;
@@ -158,14 +197,59 @@ function run(s: GameState, cmd: Command): CommandMessage[] {
   }
 }
 
+function governanceCommand(s: GameState, cmd: Extract<Command, { type: 'lobbyDirector' | 'tableItem' | 'withdrawItem' | 'proposeBylaw' | 'endorseIncumbents' }>): CommandMessage[] {
+  const g = s.governance;
+  switch (cmd.type) {
+    case 'lobbyDirector': {
+      const item = g.agenda.find((i) => i.id === cmd.itemId);
+      if (!item) return [{ level: 'error', text: 'That item is not on the agenda.' }];
+      if (!g.directors.some((d) => d.memberId === cmd.directorId)) return [{ level: 'error', text: 'Not a director.' }];
+      if (item.lobbied.includes(cmd.directorId)) return [{ level: 'info', text: 'You already made your case to that director.' }];
+      if (g.politicalCapital < POLITICAL_CAPITAL.lobbyCost) return [{ level: 'error', text: 'You have no political capital left this month.' }];
+      g.politicalCapital -= POLITICAL_CAPITAL.lobbyCost;
+      g.agenda = g.agenda.map((i) => (i.id === item.id ? { ...i, lobbied: [...i.lobbied, cmd.directorId] } : i));
+      return [{ level: 'info', text: 'You made your case over coffee.' }];
+    }
+    case 'tableItem': {
+      const item = g.agenda.find((i) => i.id === cmd.itemId);
+      if (!item) return [{ level: 'error', text: 'That item is not on the agenda.' }];
+      if (item.tabled >= VOTE_MODEL.maxTables) return [{ level: 'error', text: 'The board will not table it again.' }];
+      g.agenda = g.agenda.map((i) => (i.id === item.id ? { ...i, tabled: i.tabled + 1, submittedMonth: s.clock.monthIndex } : i));
+      return [{ level: 'info', text: 'Tabled until the following meeting.' }];
+    }
+    case 'withdrawItem': {
+      const item = g.agenda.find((i) => i.id === cmd.itemId);
+      if (!item) return [{ level: 'error', text: 'That item is not on the agenda.' }];
+      if (item.source !== 'gm') return [{ level: 'error', text: 'Only your own proposals can be withdrawn.' }];
+      g.agenda = g.agenda.filter((i) => i.id !== item.id);
+      return [{ level: 'info', text: 'Withdrawn.' }];
+    }
+    case 'proposeBylaw': {
+      const c = cmd.change;
+      if (c.field === 'boardSize' && (c.value < 5 || c.value > 15)) return [{ level: 'error', text: 'A board has 5 to 15 directors.' }];
+      if (c.field === 'termLimit' && c.value !== null && (c.value < 1 || c.value > 6)) return [{ level: 'error', text: 'Term limits run from 1 to 6 terms.' }];
+      if (c.field === 'memberPetitionPct' && (c.value < 0.02 || c.value > 0.3)) return [{ level: 'error', text: 'Petition thresholds run from 2% to 30%.' }];
+      if (c.field === 'capitalApproval' && (c.value < 10_000 || c.value > 5_000_000)) return [{ level: 'error', text: 'The threshold must be between $10,000 and $5,000,000 (2024 dollars).' }];
+      return [];
+    }
+    case 'endorseIncumbents':
+      g.endorse = cmd.on;
+      return [{ level: 'info', text: cmd.on ? 'You will speak for the incumbents at the annual meeting.' : 'You will stay neutral in board elections.' }];
+  }
+}
+
 const structuredCloneProposal = (p: PatronageProposal): PatronageProposal => ({
   ...p, basis: { ...p.basis }, pools: Object.fromEntries(Object.entries(p.pools).map(([k, v]) => [k, { ...v }])),
 });
 
-export function applyCommand(state: GameState, cmd: Command): CommandResult {
+/**
+ * Apply a player command. `boardApproved` skips the board (tests and scripted setups that
+ * start from an already-approved decision); the UI never sets it.
+ */
+export function applyCommand(state: GameState, cmd: Command, opts: { boardApproved?: boolean } = {}): CommandResult {
   const s = cloneState(state);
   s.clock.commandsThisMonth += 1;
-  const messages = run(s, cmd);
+  const messages = runCommand(s, cmd, opts.boardApproved);
   if (messages.some((m) => m.level === 'error')) return { state, ok: false, messages };
   return { state: s, ok: true, messages };
 }

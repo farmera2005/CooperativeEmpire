@@ -8,15 +8,16 @@ type SupplyKind = Exclude<FacilityKind, 'elevator'>;
 function coop(startYear: number, kinds: SupplyKind[], seed = 1, mode: 'strict' | 'drift' = 'drift'): GameState {
   let s = newGame({ ...DEFAULT_SETUP, startYear, startingMembers: 400, gameSeed: seed, mapSeed: seed, capitalPreset: 'well', historyMode: mode });
   for (const kind of kinds) {
-    const r = applyCommand(s, { type: 'buildFacility', kind, townId: s.coop.homeTownId, components: TYPICAL_SITE[kind], financePct: 0.6 });
+    const r = applyCommand(s, { type: 'buildFacility', kind, townId: s.coop.homeTownId, components: TYPICAL_SITE[kind], financePct: 0.6 }, { boardApproved: true });
     expect(r.ok, r.messages.map((m) => m.text).join()).toBe(true);
     s = r.state;
   }
   return s;
 }
 
+// Stops early if the board or the lender ends the game (an all-in co-op can lose money fast).
 const run = (s: GameState, months: number) => {
-  for (let i = 0; i < months; i++) s = advanceMonth(s).state;
+  for (let i = 0; i < months && !s.outcome; i++) s = advanceMonth(s).state;
   return s;
 };
 

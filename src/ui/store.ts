@@ -83,7 +83,7 @@ export const useStore = create<UiState>((set, get) => ({
   },
   endMonth: () => {
     const g = get().game;
-    if (!g) return;
+    if (!g || g.outcome) return;
     try {
       const r = advanceMonth(g, [], { strictInvariants: false });
       set({ game: r.state, summaries: [r.summary, ...get().summaries].slice(0, 24) });
@@ -95,7 +95,7 @@ export const useStore = create<UiState>((set, get) => ({
   },
   advanceUntilAttention: () => {
     const g = get().game;
-    if (!g) return;
+    if (!g || g.outcome) return;
     try {
       const rs = advanceUntilAttention(g, DEFAULT_INTERRUPTS, 120);
       if (!rs.length) return;

@@ -3,6 +3,8 @@
 
 import { SCHEMA_VERSION, type GameState } from '../types';
 import { emptyEquityProgram, emptyRegional } from '../finance/defaults';
+import { emptyBoardActivity } from '../governance/board';
+import { BYLAWS_DEFAULT } from '../../data/governance';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyState = any;
@@ -57,6 +59,19 @@ export const MIGRATIONS: Record<number, (s: AnyState) => AnyState> = {
     Object.assign(f, { status: 'standard', riskSpread: 0, breachQuarters: 0, okQuarters: 0, lastTest: null, lenderEquity: {}, loanSum: 0, loanMonths: 0, ...f });
     // Before v4 the fiscal year close sent net savings straight to unallocated retained earnings, so 3900 is empty.
     return { ...s, schemaVersion: 4 };
+  },
+  // v4 → v5 (Milestone 5): board meetings, votes, demands, reviews, elections, bylaws.
+  4: (s) => {
+    const g = s.governance;
+    s.governance = {
+      ...emptyBoardActivity(), ...g,
+      bylaws: {
+        quorumPct: BYLAWS_DEFAULT.quorumPct.value, capitalApproval: BYLAWS_DEFAULT.capitalApproval.value, memberPetitionPct: BYLAWS_DEFAULT.memberPetitionPct.value,
+        termLimit: BYLAWS_DEFAULT.termLimit, ...g.bylaws,
+      },
+    };
+    for (const h of s.history) h.boardConfidence ??= s.governance.boardConfidence;
+    return { ...s, schemaVersion: 5 };
   },
 };
 

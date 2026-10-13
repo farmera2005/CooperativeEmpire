@@ -11,6 +11,7 @@ import type { TickContext } from '../sim/context';
 import { DIVISIONS, type Budget, type BudgetLine, type DivisionId, type GameState } from '../types';
 import { marketValue } from '../world/marketPath';
 import { pathFor } from '../world/macro';
+import { addAgendaItem } from '../governance/votes';
 
 const FIXED_ASSET_ACCOUNTS = new Set(['1500', '1510', '1520', '1530', '1540']);
 
@@ -52,9 +53,10 @@ export function stepBudget(ctx: TickContext): void {
     const ls = DIVISIONS.reduce((s, d) => s + tot[d].localSavings, 0);
     ctx.inbox({ kind: 'memo', title: `Draft budget for fiscal ${nextFy}`, body: `The CFO drafted next year's budget from the last twelve months: local savings of ${formatCents(ls)}, sales growth ${state.coop.budget.salesGrowthPct}%, cost growth ${state.coop.budget.costGrowthPct}%. Adjust the assumptions and the capital budget on the Financials screen before the board approves it.` });
   }
-  if (monthOf(ctx.mi) === approveMonth && state.coop.budget && state.coop.budget.fy === nextFy && !state.coop.budget.approved) {
-    state.coop.budget.approved = true;
-    ctx.inbox({ kind: 'memo', title: `Board approves fiscal ${nextFy} budget`, body: `The board approved the operating budget and a capital budget of ${formatCents(state.coop.budget.capex)}.` });
+  // The draft goes on the agenda a month before the approval meeting.
+  const submitMonth = ((approveMonth - 2 + 12) % 12) + 1;
+  if (monthOf(ctx.mi) === submitMonth && state.coop.budget && state.coop.budget.fy === nextFy && !state.coop.budget.approved && !state.governance.agenda.some((i) => i.type === 'budget')) {
+    addAgendaItem(state, { type: 'budget', title: `Fiscal ${nextFy} operating and capital budget`, submittedMonth: ctx.mi, source: 'system' });
   }
 }
 

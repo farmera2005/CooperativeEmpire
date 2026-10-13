@@ -33,5 +33,6 @@ export function snapshot(state: GameState): MonthSnapshot {
     grainBu: COMMODITIES.reduce((a, c) => a + (state.coop.grain.report?.byCommodity[c]?.receivedBu ?? 0), 0),
     grainShare: state.coop.grainStats.marketBu > 0 ? COMMODITIES.reduce((a, c) => a + (state.coop.grain.report?.byCommodity[c]?.receivedBu ?? 0), 0) / state.coop.grainStats.marketBu : 0,
     lineDrawn: -balance(state.ledger, '2000'),
+    boardConfidence: state.governance.boardConfidence,
   };
 }

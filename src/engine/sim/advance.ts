@@ -9,6 +9,9 @@ import { stepBudget } from '../finance/budget';
 import { stepCovenants } from '../finance/covenants';
 import { closeFiscalYearCycle, stepEquityCycle } from '../finance/patronage';
 import { stepRegionalAnnual, stepRegionalPurchases } from '../finance/regionals';
+import { holdBoardMeeting } from '../governance/votes';
+import { stepBoardRelations } from '../governance/review';
+import { stepAnnualMeeting, stepMemberDemocracy } from '../governance/elections';
 import { stepDepreciation, stepFacilityCosts, stepProjects } from '../facilities/facilities';
 import { stepGrain } from '../grain/operate';
 import { stepSupply } from '../supply/operate';
@@ -111,7 +114,12 @@ export function advanceMonth(state: GameState, decisions: Command[] = [], opts: 
     interrupts.push({ kind: 'fiscalYearEnd', text: `FY${r.fy}` });
   }
   stepBudget(ctx);
-  // 23. quarter-end covenants and the lender's reaction
+  // 25. governance: board meeting, directors' goals and the GM review, annual meeting, petitions
+  holdBoardMeeting(ctx);
+  stepBoardRelations(ctx);
+  stepAnnualMeeting(ctx);
+  stepMemberDemocracy(ctx);
+  // 23. year-end covenants and the lender's reaction
   stepCovenants(ctx);
   if (balance(w.ledger, '1000') < 0) sweep(ctx);
   // 21–22. close + invariants
@@ -120,7 +128,7 @@ export function advanceMonth(state: GameState, decisions: Command[] = [], opts: 
     if (opts.strictInvariants !== false) throw new InvariantError(errors);
     interrupts.push({ kind: 'invariant', text: errors.join('; ') });
   }
-  // 25–27. governance, competitor strategy, leader notes — M5–M7
+  // 26–27. competitor strategy, leader notes — M6–M7
   // 28. scorecard + history
   const snap = snapshot(w);
   w.history.push(snap);

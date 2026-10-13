@@ -13,6 +13,7 @@ import type { Member } from '../types';
 import { nominalCents } from '../world/macro';
 import { marketValue } from '../world/marketPath';
 import { cropSplit, farmAcres, newFarmRecord, sizeClassOf, totalAcres } from './generate';
+import { makeDirector } from '../governance/board';
 
 const monthlyMortality = (age: number): number => {
   const q = Math.min(1, DEMOGRAPHICS.mortalityA.value * Math.exp(DEMOGRAPHICS.mortalityB.value * age));
@@ -114,12 +115,15 @@ function replaceDirector(ctx: TickContext, gone: Member, rng: Rng): void {
   );
   if (!pool.length) {
     gov.directors = gov.directors.filter((d) => d !== seat);
+    gov.demands = gov.demands.filter((x) => !(x.directorId === gone.id && x.status === 'open'));
     return;
   }
   const pick = rng.weighted(pool, (p) => totalAcres(p) * (ctx.year - p.birthYear < 70 ? 1 : 0.1));
-  pick.isDirector = true;
-  seat.memberId = pick.id;
-  seat.tenureYears = 0;
+  // The appointee serves out the seat's term with their own outlook.
+  const fresh = makeDirector(rng, pick, seat.districtId, seat.termEndYear);
+  gov.directors = gov.directors.map((d) => (d === seat ? { ...fresh, ...(seat.office ? { office: seat.office } : {}) } : d));
+  // A departed director's open demands lapse.
+  gov.demands = gov.demands.filter((x) => !(x.directorId === gone.id && x.status === 'open'));
   ctx.inbox({ kind: 'memo', title: `Board vacancy filled: ${pick.name}`, body: `The board appointed ${pick.name} to fill the seat left by ${gone.name} until the next annual election.` });
 }
 

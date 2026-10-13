@@ -29,6 +29,7 @@ const seedRows: string[] = ['seed,survived,outcome,endYear,finalEquity,finalMemb
 const pctAll: number[] = [];
 let negSeeds = 0;
 let survived = 0;
+const outcomes: Record<string, number> = {};
 let errors = 0;
 const t0 = performance.now();
 
@@ -66,9 +67,11 @@ for (let seed = 1; seed <= seeds; seed++) {
     err = (e as Error).message.replace(/[,\n]/g, ' ');
     errors++;
   }
-  // Until the lender's covenant system (M4) can force liquidation, three years of negative
-  // equity counts as failure for balance purposes.
+  // Three years of negative equity also counts as failure, even if neither the lender nor
+  // the board has ended the game.
   const insolvent = negYears >= 3;
+  const kind = s.outcome?.kind ?? (insolvent ? 'insolvent' : err ? 'error' : 'survived');
+  outcomes[kind] = (outcomes[kind] ?? 0) + 1;
   if (insolvent) negSeeds++;
   const ok = !s.outcome && !err && !insolvent;
   if (ok) survived++;
@@ -81,11 +84,12 @@ for (let seed = 1; seed <= seeds; seed++) {
 }
 
 const secs = (performance.now() - t0) / 1000;
+void negSeeds;
 writeFileSync(join(dir, 'years.csv'), yearRows.join('\n') + '\n');
 writeFileSync(join(dir, 'seeds.csv'), seedRows.join('\n') + '\n');
 pctAll.sort((a, b) => a - b);
 const med = pctAll.length ? pctAll[Math.floor(pctAll.length / 2)] : 0;
-const summary = `# Balance run\n\n- Policy: ${policyId}\n- Start: ${start}, years: ${years}, members: ${members}, mode: ${mode}\n- Seeds: ${seeds}\n- Survived: ${survived}/${seeds} (insolvent: ${negSeeds})\n- Median net savings: ${(med * 100).toFixed(2)}% of sales\n- Engine errors: ${errors}\n- Wall time: ${secs.toFixed(1)} s\n`;
+const summary = `# Balance run\n\n- Policy: ${policyId}\n- Start: ${start}, years: ${years}, members: ${members}, mode: ${mode}\n- Seeds: ${seeds}\n- Survived: ${survived}/${seeds} (${Object.entries(outcomes).filter(([k]) => k !== 'survived').map(([k, n]) => `${k}: ${n}`).join(', ') || 'no failures'})\n- Median net savings: ${(med * 100).toFixed(2)}% of sales\n- Engine errors: ${errors}\n- Wall time: ${secs.toFixed(1)} s\n`;
 writeFileSync(join(dir, 'summary.md'), summary);
 process.stdout.write(`\n${summary}\nOutput: ${dir}\n`);
 if (errors) process.exitCode = 1;

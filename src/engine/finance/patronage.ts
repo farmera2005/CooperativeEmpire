@@ -28,6 +28,7 @@ import {
 import { nominalCents, pathFor } from '../world/macro';
 import { computeTax, productionDeductionRate } from './tax';
 import { runRedemptions } from './redemption';
+import { addAgendaItem } from '../governance/votes';
 
 export function lineDivision(line: string): OpDivision | null {
   if (line.startsWith('GRAIN_')) return 'GRAIN';
@@ -424,8 +425,8 @@ export function payDistribution(ctx: TickContext): void {
   }
   ep.approved = null;
   ctx.inbox({
-    kind: 'memo', title: 'Annual meeting',
-    body: `At the annual meeting the co-op paid ${formatCents(cashDue)} in cash patronage${red.total > 0 ? ` and redeemed ${formatCents(red.total)} of members' equity (estates ${formatCents(red.estate)}, age ${formatCents(red.age)}, revolving ${formatCents(red.revolving)}, pool ${formatCents(red.pool)}, base capital ${formatCents(red.base)})` : ''}.${taxDue > 0 ? ` Income tax of ${formatCents(taxDue)} was paid.` : ''}`,
+    kind: 'memo', title: 'Patronage checks mailed',
+    body: `The co-op paid ${formatCents(cashDue)} in cash patronage${red.total > 0 ? ` and redeemed ${formatCents(red.total)} of members' equity (estates ${formatCents(red.estate)}, age ${formatCents(red.age)}, revolving ${formatCents(red.revolving)}, pool ${formatCents(red.pool)}, base capital ${formatCents(red.base)})` : ''}.${taxDue > 0 ? ` Income tax of ${formatCents(taxDue)} was paid.` : ''}`,
   });
 }
 
@@ -436,9 +437,16 @@ export function stepEquityCycle(ctx: TickContext): void {
     const since = ctx.mi - ep.pending.closedMonth;
     if (since === PATRONAGE.auditMonths && ep.pending.status === 'audit') {
       ep.pending.status = 'proposal';
-      ctx.inbox({ kind: 'memo', title: `Fiscal ${ep.pending.fy} audit complete`, body: `The auditors issued a clean opinion on fiscal ${ep.pending.fy}. Review the patronage plan on the Equity & Patronage screen: the board votes on it next month.` });
+      ctx.inbox({ kind: 'memo', title: `Fiscal ${ep.pending.fy} audit complete`, body: `The auditors issued a clean opinion on fiscal ${ep.pending.fy}. The patronage plan is on the agenda for next month's board meeting; review it on the Equity & Patronage screen and lobby directors in the Board Room.` });
     }
-    if (since >= PATRONAGE.voteMonthsAfterFye) distributePatronage(ctx);
+    if (since === PATRONAGE.auditMonths && !ctx.state.governance.agenda.some((i) => i.type === 'patronage')) {
+      addAgendaItem(ctx.state, { type: 'patronage', title: `Fiscal ${ep.pending.fy} patronage distribution`, submittedMonth: ctx.mi, source: 'system' });
+    }
+    // Tax law requires the distribution within 8½ months of year end.
+    if (since >= 8 && ep.pending) {
+      ctx.state.governance.agenda = ctx.state.governance.agenda.filter((i) => i.type !== 'patronage');
+      distributePatronage(ctx);
+    }
     return;
   }
   if (ep.approved && ctx.mi - ep.approved.monthIndex >= PATRONAGE.payMonthsAfterFye - PATRONAGE.voteMonthsAfterFye) payDistribution(ctx);

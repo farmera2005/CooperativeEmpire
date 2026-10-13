@@ -101,13 +101,20 @@ function scripted(style: Style): Policy {
     }
     // Each September, after the books close: set the patronage mix and redemption budget
     // from the balance sheet. A thin co-op keeps cash patronage at the legal minimum.
+    // A sensible GM answers the board's open demands where the balance sheet allows.
+    const open = state.governance.demands.filter((d) => d.status === 'open');
     if (monthOf(state.clock.monthIndex) === 9) {
       const thin = style.manageEquity && eqRatio < style.minEquityRatio;
-      const cash = thin ? 0.2 : style.cashPatronage;
+      const wantsCash = open.some((d) => d.kind === 'cashPatronage');
+      const wantsEquity = open.some((d) => d.kind === 'equityRatio');
+      const cash = thin || wantsEquity ? 0.2 : wantsCash ? Math.max(0.4, style.cashPatronage) : style.cashPatronage;
       const ep = state.coop.equityProgram;
       if (ep.proposal.pools.ALL.cash !== cash) cmds.push({ type: 'setPatronageProposal', proposal: { ...ep.proposal, pools: { ALL: { cash, qualified: 1 - cash, nonqualified: 0, unallocated: 0 } } } });
-      const pct = thin ? 0 : style.redemptionPct;
-      if (ep.redemption.budgetPctOfSavings !== pct) cmds.push({ type: 'setRedemptionPolicy', policy: { ...ep.redemption, budgetPctOfSavings: pct } });
+      const pct = thin || wantsEquity ? 0 : style.redemptionPct;
+      const red = open.find((d) => d.kind === 'redemptionBudget');
+      // Only a well-capitalized co-op humors a director who wants more redemptions; the extra lapses with the demand.
+      const fixed = red && eqRatio >= style.minEquityRatio + 0.1 ? red.target : 0;
+      if (ep.redemption.budgetPctOfSavings !== pct || ep.redemption.budgetFixed !== fixed) cmds.push({ type: 'setRedemptionPolicy', policy: { ...ep.redemption, budgetPctOfSavings: pct, budgetFixed: fixed } });
     }
     return cmds;
   };
