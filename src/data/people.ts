@@ -19,22 +19,26 @@ export interface RoleDef {
   salary: number;
   /** Skills that matter most (candidates are drawn strong in these). */
   primary: Skill[];
-  /** When the position exists. Before that, a location manager or bookkeeper handles it at `baseSkill`. */
-  unlock: { minOperatingSites?: number; divisionSites?: number; minSales2024?: number; minFte?: number; fromYear?: number; minMembers?: number };
+  /**
+   * When the position exists. Thresholds are on gross revenue (margins plus service income,
+   * trailing year, 2024 $) so a role appears when the business can carry its salary.
+   * Before that, a location manager or bookkeeper handles it at `baseSkill`.
+   */
+  unlock: { minOperatingSites?: number; divisionSites?: number; minGross2024?: number; divisionGross2024?: number; minFte?: number; fromYear?: number; minMembers?: number };
 }
 
 export const ROLE_DEFS: Record<Role, RoleDef> = {
-  CFO: { label: 'Chief financial officer', salary: 120_000, primary: ['finance', 'leadership'], unlock: { minSales2024: 8_000_000 } },
-  COO: { label: 'Chief operating officer', salary: 140_000, primary: ['operations', 'leadership'], unlock: { minOperatingSites: 5 } },
-  GRAIN: { label: 'Grain division manager', salary: 100_000, primary: ['merchandising', 'operations'], unlock: { divisionSites: 2 } },
-  AGRONOMY: { label: 'Agronomy division manager', salary: 95_000, primary: ['sales', 'operations'], unlock: { divisionSites: 2 } },
-  FEED: { label: 'Feed division manager', salary: 90_000, primary: ['sales', 'operations'], unlock: { divisionSites: 2 } },
-  ENERGY: { label: 'Energy division manager', salary: 90_000, primary: ['sales', 'operations'], unlock: { divisionSites: 2 } },
-  RETAIL: { label: 'Retail manager', salary: 80_000, primary: ['sales', 'leadership'], unlock: { divisionSites: 2 } },
-  SAFETY: { label: 'Safety director', salary: 85_000, primary: ['safety', 'operations'], unlock: { minOperatingSites: 3, fromYear: 1975 } },
-  HR: { label: 'Human resources manager', salary: 80_000, primary: ['leadership', 'memberRelations'], unlock: { minFte: 40 } },
-  MARKETING: { label: 'Marketing & member relations manager', salary: 85_000, primary: ['memberRelations', 'sales'], unlock: { minMembers: 600 } },
-  IT: { label: 'Information technology manager', salary: 95_000, primary: ['innovation', 'operations'], unlock: { minFte: 50, fromYear: 1990 } },
+  CFO: { label: 'Chief financial officer', salary: 120_000, primary: ['finance', 'leadership'], unlock: { minGross2024: 5_000_000 } },
+  COO: { label: 'Chief operating officer', salary: 140_000, primary: ['operations', 'leadership'], unlock: { minOperatingSites: 6, minGross2024: 8_000_000 } },
+  GRAIN: { label: 'Grain division manager', salary: 100_000, primary: ['merchandising', 'operations'], unlock: { divisionSites: 2, divisionGross2024: 3_000_000 } },
+  AGRONOMY: { label: 'Agronomy division manager', salary: 95_000, primary: ['sales', 'operations'], unlock: { divisionSites: 2, divisionGross2024: 3_000_000 } },
+  FEED: { label: 'Feed division manager', salary: 90_000, primary: ['sales', 'operations'], unlock: { divisionSites: 2, divisionGross2024: 2_500_000 } },
+  ENERGY: { label: 'Energy division manager', salary: 90_000, primary: ['sales', 'operations'], unlock: { divisionSites: 2, divisionGross2024: 2_500_000 } },
+  RETAIL: { label: 'Retail manager', salary: 80_000, primary: ['sales', 'leadership'], unlock: { divisionSites: 3, divisionGross2024: 2_000_000 } },
+  SAFETY: { label: 'Safety director', salary: 85_000, primary: ['safety', 'operations'], unlock: { minOperatingSites: 4, minGross2024: 6_000_000, fromYear: 1975 } },
+  HR: { label: 'Human resources manager', salary: 80_000, primary: ['leadership', 'memberRelations'], unlock: { minFte: 60 } },
+  MARKETING: { label: 'Marketing & member relations manager', salary: 85_000, primary: ['memberRelations', 'sales'], unlock: { minMembers: 1000, minGross2024: 8_000_000 } },
+  IT: { label: 'Information technology manager', salary: 95_000, primary: ['innovation', 'operations'], unlock: { minFte: 60, fromYear: 1990 } },
 };
 
 export const PEOPLE = {

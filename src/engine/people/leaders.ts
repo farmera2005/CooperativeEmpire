@@ -33,13 +33,15 @@ export function rolesNeeded(s: GameState): Role[] {
   const year = yearOf(mi);
   const ops = s.coop.facilities.filter((f) => f.status === 'operating');
   const from = Math.max(s.ledger.firstMonth, mi - 11);
-  const sales2024 = incomeStatement(s.ledger, from, mi).sales / 100 / priceLevel(pathFor(s), mi) * (12 / Math.max(1, mi - from + 1));
+  const toReal = 100 * priceLevel(pathFor(s), mi) * (Math.max(1, mi - from + 1) / 12);
+  const gross = (d?: DivisionId) => incomeStatement(s.ledger, from, mi, d ?? 'ALL').grossRevenue / toReal;
   const fte = totalFte(s);
   const members = s.members.list.filter((m) => m.kind === 'member' && m.status === 'active').length;
   return ROLES.filter((r) => {
     const u = ROLE_DEFS[r].unlock;
     if (u.fromYear !== undefined && year < u.fromYear) return false;
-    if (u.minSales2024 !== undefined && sales2024 < u.minSales2024) return false;
+    if (u.minGross2024 !== undefined && gross() < u.minGross2024) return false;
+    if (u.divisionGross2024 !== undefined && gross(ROLE_DIVISION[r]) < u.divisionGross2024) return false;
     if (u.minOperatingSites !== undefined && ops.length < u.minOperatingSites) return false;
     if (u.divisionSites !== undefined && ops.filter((f) => f.division === ROLE_DIVISION[r]).length < u.divisionSites) return false;
     if (u.minFte !== undefined && fte < u.minFte) return false;
