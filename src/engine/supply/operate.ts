@@ -27,6 +27,7 @@ import { marketValue } from '../world/marketPath';
 import { layerQty, lowerOfCostOrMarket, relieve } from './inventory';
 import { linePrice, seriesRatio, type LinePrice } from './prices';
 import { stepCredit } from './credit';
+import { addFyLine } from '../finance/defaults';
 
 const REPORT_HISTORY = 36;
 const INVENTORY_ACCOUNT: Record<SupplyDivision, string> = { AGRONOMY: '1210', FEED: '1220', ENERGY: '1230', RETAIL: '1240' };
@@ -418,6 +419,10 @@ export function stepSupply(ctx: TickContext): void {
     const totRev = revenueTot + serviceTot;
     stats.member += roundCents(memberRevenue);
     stats.nonmember += totRev - roundCents(memberRevenue);
+    for (const id of Object.keys(report).sort() as LineId[]) {
+      const ln = report[id]!;
+      if (ln.sold > 0) addFyLine(state.coop.equityProgram, id, ln.sold, ln.revenue, ln.cogs);
+    }
     for (const b of acc.buyers) {
       const ratio = (acc.ours[b.line] ?? 0) > 0 ? (sold[b.line] ?? 0) / acc.ours[b.line]! : 0;
       b.m.ytd[b.line] = (b.m.ytd[b.line] ?? 0) + b.qty * ratio;

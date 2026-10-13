@@ -16,6 +16,7 @@ function cloneMember(m: Member): Member {
     relationship: { ...m.relationship },
     share: { ...m.share },
     ytd: { ...m.ytd },
+    patronage: m.patronage.slice(),
   };
 }
 

@@ -24,17 +24,19 @@ describe('simulation', () => {
 
   for (const startYear of [1970, 1985, 2010]) {
     it(`runs ${startYear} for 12 years with ledger invariants every month`, () => {
-      let s = newGame({ ...DEFAULT_SETUP, startYear, startingMembers: 300, gameSeed: startYear, mapSeed: startYear, historyMode: 'drift' });
+      // A co-op that owns nothing loses its overhead every year; well capitalized, it lasts.
+      let s = newGame({ ...DEFAULT_SETUP, startYear, startingMembers: 300, gameSeed: startYear, mapSeed: startYear, historyMode: 'drift', capitalPreset: 'well' });
       for (let i = 0; i < 144; i++) {
         s = advanceMonth(s).state; // throws InvariantError on failure
       }
+      expect(s.outcome).toBeNull();
       expect(checkInvariants(s)).toEqual([]);
       expect(s.history.length).toBe(145);
     });
   }
 
   it('consolidates farms over decades toward the structural target', () => {
-    let s = newGame({ ...DEFAULT_SETUP, startingMembers: 800, gameSeed: 3 });
+    let s = newGame({ ...DEFAULT_SETUP, startingMembers: 800, gameSeed: 3, capitalPreset: 'custom', customCapital: 5_000_000_00 });
     const farms0 = s.history[0].activeFarms;
     s = run(s, 12 * 50);
     const last = s.history[s.history.length - 1];

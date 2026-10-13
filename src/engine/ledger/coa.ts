@@ -88,6 +88,7 @@ export const ACCOUNTS: Account[] = [
   a('8100', 'Patronage income - regionals', 'otherIncome', 'income', { isGroup: 'patronageIncome' }),
   a('8110', 'Patronage income - lender', 'otherIncome', 'income', { isGroup: 'patronageIncome' }),
   a('8200', 'Other income / gain on sale', 'otherIncome', 'income', { isGroup: 'otherIncome' }),
+  a('8300', 'Non-operating gains & losses', 'otherIncome', 'income', { isGroup: 'otherIncome' }),
   a('9000', 'Income tax expense', 'tax', 'income', { isGroup: 'tax' }),
 ];
 

@@ -9,7 +9,9 @@ import { formatCents } from '../core/format';
 import { roundCents, type Cents } from '../core/money';
 import { stream } from '../core/rng';
 import { post } from '../ledger/ledger';
-import { createTermLoan, liquidity, renewalCommitment } from '../finance/lender';
+import { brandLabel, createTermLoan, liquidity, renewalCommitment } from '../finance/lender';
+import { capexRestricted, covenantSet } from '../finance/covenants';
+import { balanceSheet } from '../ledger/statements';
 import type { CommandMessage } from '../sim/commands';
 import type { Facility, GameState, StaffLevel, PayPosition } from '../types';
 import { nominalCents, pathFor } from '../world/macro';
@@ -55,9 +57,26 @@ export function estimateProject(state: GameState, townId: number, components: Co
   return { cost, months: Math.max(1, months + permit), problems };
 }
 
+/** The lender's credit review: no new capital under special credit; term loans only if the pro-forma balance sheet meets covenants. */
+export function lenderReview(state: GameState, cost: Cents, loan: Cents): string | null {
+  if (capexRestricted(state)) return `${brandLabel(state.coop.lenderId)} has frozen capital spending while our loans are in special credit.`;
+  if (loan <= 0) return null;
+  const bs = balanceSheet(state.ledger, state.clock.monthIndex);
+  const c = covenantSet(state);
+  const eqRatio = bs.totalEquity / Math.max(1, bs.totalAssets + cost);
+  if (eqRatio < c.minEquityRatio) return `${brandLabel(state.coop.lenderId)} declined the term loan: owner equity would be ${(eqRatio * 100).toFixed(0)}% of assets, below the ${(c.minEquityRatio * 100).toFixed(0)}% covenant. Pay cash or build equity first.`;
+  const fixed = bs.fixedAssets.reduce((s, x) => s + x.amount, 0) + state.coop.projects.reduce((s, p) => s + Math.max(0, p.budget - p.spent), 0);
+  const term = state.coop.finance.termLoans.reduce((s, l) => s + l.balance, 0);
+  const ratio = (term + loan) / Math.max(1, fixed + cost);
+  if (ratio > c.maxTermDebtToFixed) return `${brandLabel(state.coop.lenderId)} declined the term loan: term debt would be ${(ratio * 100).toFixed(0)}% of fixed assets, above the ${(c.maxTermDebtToFixed * 100).toFixed(0)}% covenant. Finance less of the project.`;
+  return null;
+}
+
 function finance(state: GameState, cost: Cents, financePct: number, purpose: string): Result | null {
   const pct = Math.max(0, Math.min(LENDING.maxFinancePct.value, financePct));
   const loan = roundCents(cost * pct);
+  const refused = lenderReview(state, cost, loan);
+  if (refused) return err(refused);
   const cashNeeded = cost - loan;
   if (cashNeeded > liquidity(state)) {
     return err(`Not enough cash and line of credit: need ${formatCents(cashNeeded)} beyond the ${formatCents(loan)} term loan, have ${formatCents(liquidity(state))} available.`);
@@ -178,6 +197,8 @@ export function buildElevator(state: GameState, townId: number, spec: BuildSpec,
 function financeProject(state: GameState, cost: Cents, financePct: number, purpose: string): Result | null {
   const pct = Math.max(0, Math.min(LENDING.maxFinancePct.value, financePct));
   const loan = roundCents(cost * pct);
+  const refused = lenderReview(state, cost, loan);
+  if (refused) return err(refused);
   if (cost - loan > liquidity(state)) return err(`Not enough cash and line of credit to fund ${formatCents(cost - loan)} of construction.`);
   if (loan > 0) createTermLoan(state, loan, purpose);
   return null;

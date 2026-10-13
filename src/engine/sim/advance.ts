@@ -1,10 +1,14 @@
 // advanceMonth: the monthly tick (DESIGN §3.3). Steps not yet built are listed in order
 // as comments so each milestone slots its systems into the right place.
 
-import { fiscalYearOf, formatMonth, isFiscalYearEnd } from '../core/calendar';
+import { formatMonth, isFiscalYearEnd } from '../core/calendar';
 import { formatCents } from '../core/format';
 import { postOverhead } from '../corp/overhead';
-import { stepLender } from '../finance/lender';
+import { stepLender, stepLenderPatronage, stepLenderSuccession, sweep } from '../finance/lender';
+import { stepBudget } from '../finance/budget';
+import { stepCovenants } from '../finance/covenants';
+import { closeFiscalYearCycle, stepEquityCycle } from '../finance/patronage';
+import { stepRegionalAnnual, stepRegionalPurchases } from '../finance/regionals';
 import { stepDepreciation, stepFacilityCosts, stepProjects } from '../facilities/facilities';
 import { stepGrain } from '../grain/operate';
 import { stepSupply } from '../supply/operate';
@@ -12,7 +16,7 @@ import { stepCapperVolstead } from './capperVolstead';
 import { stepJoining } from '../members/joining';
 import { stepMarketplace } from './marketplace';
 import { checkInvariants } from '../ledger/invariants';
-import { closeFiscalYear, openMonth } from '../ledger/ledger';
+import { balance, openMonth } from '../ledger/ledger';
 import { demographicsMonthly } from '../members/demographics';
 import type { GameState } from '../types';
 import { cloneState } from './clone';
@@ -91,35 +95,38 @@ export function advanceMonth(state: GameState, decisions: Command[] = [], opts: 
   postOverhead(ctx);
   // 16. valuation happens inside the grain step; 17. depreciation
   stepDepreciation(ctx);
-  // 18. regional/lender patronage — M4
+  // 13b. purchases from regional co-ops
+  stepRegionalPurchases(ctx);
+  // 18. annual meeting payments, regional and lender patronage, lender succession
+  stepEquityCycle(ctx);
+  stepLenderSuccession(ctx);
+  stepRegionalAnnual(ctx);
+  stepLenderPatronage(ctx);
   // 19. treasury: loans, line interest, borrowing base, sweep
   stepLender(ctx);
   // 20. random events — M7
+  // 24. annual cycle: fiscal year close, budget
+  if (isFiscalYearEnd(ctx.mi, w.setup.fiscalYearEndMonth)) {
+    const r = closeFiscalYearCycle(ctx);
+    interrupts.push({ kind: 'fiscalYearEnd', text: `FY${r.fy}` });
+  }
+  stepBudget(ctx);
+  // 23. quarter-end covenants and the lender's reaction
+  stepCovenants(ctx);
+  if (balance(w.ledger, '1000') < 0) sweep(ctx);
   // 21–22. close + invariants
   const errors = checkInvariants(w);
   if (errors.length) {
     if (opts.strictInvariants !== false) throw new InvariantError(errors);
     interrupts.push({ kind: 'invariant', text: errors.join('; ') });
   }
-  // 23. quarter-end covenants — M4
-  // 24. annual cycle
-  if (isFiscalYearEnd(ctx.mi, w.setup.fiscalYearEndMonth)) {
-    const fy = fiscalYearOf(ctx.mi, w.setup.fiscalYearEndMonth);
-    const savings = closeFiscalYear(w, '3400');
-    for (const m of w.members.list) m.ytd = {};
-    for (const k of Object.keys(w.coop.patronageStats) as (keyof typeof w.coop.patronageStats)[]) w.coop.patronageStats[k] = { member: 0, nonmember: 0 };
-    ctx.inbox({
-      kind: 'memo', title: `Fiscal ${fy} closed`,
-      body: `The books for fiscal ${fy} are closed. Net savings of ${formatCents(savings)} were transferred to unallocated retained earnings. (Patronage distribution arrives in Milestone 4.)`,
-    });
-    interrupts.push({ kind: 'fiscalYearEnd', text: `FY${fy}` });
-  }
   // 25–27. governance, competitor strategy, leader notes — M5–M7
   // 28. scorecard + history
   const snap = snapshot(w);
   w.history.push(snap);
   if (w.inbox.length > INBOX_LIMIT) w.inbox = w.inbox.slice(w.inbox.length - INBOX_LIMIT);
-  // 29. loss conditions — M4/M5
+  // 29. loss conditions (the lender's forced action; governance in M5)
+  if (w.outcome) interrupts.push({ kind: 'gameOver', text: w.outcome.text });
   for (const item of w.inbox) if (item.monthIndex === ctx.mi && item.kind === 'alert') interrupts.push({ kind: 'alert', text: item.title });
 
   ctx.summary.unshift(`${formatMonth(ctx.mi)}: cash ${formatCents(snap.cash)}, ${snap.activeMembers} active members.`);

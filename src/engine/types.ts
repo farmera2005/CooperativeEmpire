@@ -9,7 +9,7 @@ import type { LineId, SupplyDivision } from '../data/supply';
 import type { Commodity } from '../data/grain';
 import type { Breakdown } from './core/breakdown';
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export type DivisionId = 'GRAIN' | 'AGRONOMY' | 'FEED' | 'ENERGY' | 'RETAIL' | 'CORP';
 export const DIVISIONS: DivisionId[] = ['GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'RETAIL', 'CORP'];
@@ -180,6 +180,8 @@ export interface Member {
   share: Record<string, number>;
   /** Fiscal-year-to-date volume with the co-op, by product line (bu, tons, gal...). */
   ytd: Record<string, number>;
+  /** Patronage allocated in recent fiscal years (newest last, at most 10). */
+  patronage: { fy: number; cents: Cents }[];
 }
 
 export interface MemberStore {
@@ -443,7 +445,39 @@ export interface TermLoan {
   months: number;
 }
 
+export type LenderStatus = 'standard' | 'watch' | 'waiver' | 'specialCredit' | 'forcedAction';
+
+export interface CovenantResult {
+  id: 'currentRatio' | 'equityRatio' | 'termDebtToFixed' | 'debtService';
+  label: string;
+  value: number;
+  limit: number;
+  /** 'min' covenants need value ≥ limit; 'max' need value ≤ limit. */
+  kind: 'min' | 'max';
+  ok: boolean;
+}
+
+export interface CovenantTest {
+  monthIndex: number;
+  results: CovenantResult[];
+  breached: boolean;
+  /** Member equity at the test, to judge whether a breaching co-op is recovering. */
+  equity: Cents;
+}
+
 export interface FinanceState {
+  /** Covenant standing and the lender's reaction (DESIGN §12). */
+  status: LenderStatus;
+  /** Extra spread from the lender's risk rating (points). */
+  riskSpread: number;
+  breachQuarters: number;
+  okQuarters: number;
+  lastTest: CovenantTest | null;
+  /** Co-op bank stock and allocated patronage held by lender id, by vintage year. */
+  lenderEquity: Record<string, Record<number, Cents>>;
+  /** Running sum of month-end debt for the lender's patronage year. */
+  loanSum: Cents;
+  loanMonths: number;
   lineCommitment: Cents;
   borrowingBase: Cents;
   lineAvailable: Cents;
@@ -473,6 +507,160 @@ export interface CoopState {
   supplyPolicy: Record<SupplyDivision, SupplyPolicy>;
   /** Fiscal-year-to-date sales to members and non-members by division (cents), for Capper-Volstead and patronage. */
   patronageStats: Record<DivisionId, { member: Cents; nonmember: Cents }>;
+  equityProgram: EquityProgram;
+  regional: RegionalBook;
+  budget: Budget | null;
+}
+
+// ---------- Patronage, tax, equity (DESIGN §11) ----------
+
+export type OpDivision = Exclude<DivisionId, 'CORP'>;
+export const OP_DIVISIONS: OpDivision[] = ['GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'RETAIL'];
+export type PatronageBasis = 'units' | 'sales' | 'margin';
+export type LossTreatment = 'absorbUnallocated' | 'carryForward' | 'chargeAllocated' | 'netAgainstPools';
+
+/** Shares of a pool's patronage-sourced savings (sum to 1). */
+export interface PoolSplit {
+  cash: number;
+  qualified: number;
+  nonqualified: number;
+  unallocated: number;
+}
+
+export interface PatronageProposal {
+  pooling: 'single' | 'byDivision';
+  basis: Record<OpDivision, PatronageBasis>;
+  lossTreatment: LossTreatment;
+  /** 'ALL' for single pooling, else one per division. Missing pools use 'ALL'. */
+  pools: Record<string, PoolSplit>;
+  /** Share of the DPAD / 199A(g) deduction passed through to members (0..1). */
+  passDeduction: number;
+}
+
+export type RedemptionPlan =
+  | { kind: 'estate'; discountPct: number }
+  | { kind: 'ageOfPatron'; age: number }
+  | { kind: 'revolving' }
+  | { kind: 'percentagePool' }
+  | { kind: 'baseCapital' };
+
+export interface RedemptionPolicy {
+  /** Annual budget = fixed (nominal cents) + a share of last year's net savings. */
+  budgetFixed: Cents;
+  budgetPctOfSavings: number;
+  plans: RedemptionPlan[];
+}
+
+export interface FiscalDivision {
+  division: OpDivision;
+  /** Operating savings after corporate overhead is allocated by gross revenue (cents). */
+  operating: Cents;
+  grossRevenue: Cents;
+  memberShare: number;
+  patronageSourced: Cents;
+}
+
+export interface FiscalResult {
+  fy: number;
+  closedMonth: number;
+  savingsBeforeTax: Cents;
+  estimatedTax: Cents;
+  nonPatronage: Cents;
+  divisions: FiscalDivision[];
+  /** Patronage bases by "DIVISION:basis", aligned with memberIds. */
+  bases: Record<string, number[]>;
+  memberIds: number[];
+  /** Wages paid this year (for the DPAD / 199A(g) limits) and the share of qualifying business. */
+  wages: Cents;
+  qualifyingShare: number;
+  /** Nonqualified equity redeemed during the year (deductible this year). */
+  nqRedeemed: Cents;
+  status: 'audit' | 'proposal';
+}
+
+export interface RedemptionSummary {
+  estate: Cents;
+  age: Cents;
+  revolving: Cents;
+  pool: Cents;
+  base: Cents;
+  discount: Cents;
+  nonqualified: Cents;
+  total: Cents;
+  budget: Cents;
+}
+
+export interface DistributionSummary {
+  fy: number;
+  monthIndex: number;
+  savingsBeforeTax: Cents;
+  patronageSourced: Cents;
+  nonPatronage: Cents;
+  cash: Cents;
+  qualified: Cents;
+  nonqualified: Cents;
+  unallocated: Cents;
+  /** Loss absorbed, charged against allocated equity, or carried forward. */
+  loss: Cents;
+  lossTreatment: LossTreatment;
+  carryforwardUsed: Cents;
+  tax: Cents;
+  taxable: Cents;
+  deduction: Cents;
+  deductionPassed: Cents;
+  nolUsed: Cents;
+  patrons: number;
+  taxOverCheck: number;
+  proposal: PatronageProposal;
+  restricted: boolean;
+  redemption?: RedemptionSummary;
+}
+
+export interface EquityProgram {
+  /** Standing patronage plan; the board votes the one in force when the proposal comes due. */
+  proposal: PatronageProposal;
+  redemption: RedemptionPolicy;
+  pending: FiscalResult | null;
+  /** Approved and awaiting payment (cash patronage, redemptions, tax). */
+  approved: DistributionSummary | null;
+  /** Patronage losses to recover from future patronage before allocating. */
+  lossCarryforward: Cents;
+  nol: { fy: number; amount: Cents; expires: number }[];
+  /** Nonqualified equity redeemed this fiscal year (deductible). */
+  nqRedeemedFY: Cents;
+  history: DistributionSummary[];
+  /** Fiscal-year-to-date business by product line, all customers. */
+  fyLines: Record<string, { units: number; revenue: Cents; cogs: Cents }>;
+}
+
+// ---------- Regional co-ops (DESIGN §13) ----------
+
+export interface RegionalBook {
+  /** Calendar-year purchases by regional and category (cents; grain in bushels). */
+  purchases: Record<string, Record<string, number>>;
+  /** Regional equity held, by regional and vintage year. */
+  equity: Record<string, Record<number, Cents>>;
+  last: { year: number; patronage: Record<string, Cents>; revolved: Record<string, Cents> } | null;
+}
+
+// ---------- Budget ----------
+
+export interface BudgetLine {
+  sales: Cents;
+  grossMargin: Cents;
+  serviceIncome: Cents;
+  opex: Cents;
+  interest: Cents;
+  localSavings: Cents;
+}
+
+export interface Budget {
+  fy: number;
+  approved: boolean;
+  salesGrowthPct: number;
+  costGrowthPct: number;
+  capex: Cents;
+  lines: Record<DivisionId, BudgetLine>;
 }
 
 export interface InventoryLayer {

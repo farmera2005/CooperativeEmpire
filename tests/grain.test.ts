@@ -64,7 +64,8 @@ describe('grain operations', () => {
   for (const year of [1970, 1985, 2010]) {
     it(`runs ${year} with the baseline policy for 6 years with all invariants`, () => {
       let s = newGame(setup(year, year));
-      for (let i = 0; i < 72; i++) s = advanceMonth(s, POLICIES.baseline(s)).state;
+      // Runs until the 6 years are up or the lender forces the co-op out.
+      for (let i = 0; i < 72 && !s.outcome; i++) s = advanceMonth(s, POLICIES.baseline(s)).state;
       expect(checkInvariants(s)).toEqual([]);
       expect(s.coop.facilities.length).toBeGreaterThan(0);
       const received = s.coop.grain.reports.reduce((a, r) => a + r.byCommodity.corn.receivedBu, 0);

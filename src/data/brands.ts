@@ -57,7 +57,7 @@ export const BRANDS: Brand[] = [
   b('agway', 'Agway', 'Eastway', 'regional', 1964, 2002, 'high', { supplies: ['agronomy', 'feed', 'energy', 'retail'], notes: 'Filed Chapter 11 October 2002.' }),
   b('agp', 'Ag Processing Inc (AGP)', 'Ag Crush Cooperative', 'regional', 1983, undefined, 'high', { supplies: ['grain'], notes: 'Soybean processing co-op.' }),
   // Lenders
-  b('bc-district', 'Bank for Cooperatives (district)', 'District Cooperative Bank', 'lender', 1933, 1988, 'high', { successor: 'cobank' }),
+  b('bc-district', 'Bank for Cooperatives (district)', 'District Cooperative Bank', 'lender', 1933, 1989, 'high', { successor: 'cobank' }),
   b('cobank', 'CoBank', 'National Cooperative Bank', 'lender', 1989, undefined, 'high'),
   // Fertilizer
   b('cf-industries', 'CF Industries', 'Central Fertilizer Industries', 'fertilizer', 1946, undefined, 'high', { notes: 'Co-op owned until 2005 IPO.' }),

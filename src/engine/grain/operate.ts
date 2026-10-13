@@ -26,6 +26,7 @@ import { roundCents } from '../core/money';
 import { clamp } from '../core/math';
 import { post } from '../ledger/ledger';
 import { lineRate } from '../finance/lender';
+import { addFyLine } from '../finance/defaults';
 import { grainCapacity, isHarvestMonth } from '../facilities/facilities';
 import type { TickContext } from '../sim/context';
 import type { CommodityPosition, Facility, GameState, GrainCommodityMonth, GrainMonthReport, Member } from '../types';
@@ -387,6 +388,7 @@ export function stepGrain(ctx: TickContext): void {
     const value = roundCents(bu * (F[mo.c] + ourBid[mo.c]) * 100);
     if (mo.m.kind === 'member') stats.member += value;
     else stats.nonmember += value;
+    addFyLine(state.coop.equityProgram, line, bu, value, 0);
   }
 
   // ---- 4–7. accounting by commodity ----

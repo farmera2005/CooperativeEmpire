@@ -27,6 +27,7 @@ export function ratios(state: GameState): Ratios {
   const invest = sumLines(bs.investments);
   const netFixed = sumLines(bs.fixedAssets);
   const termDebt = state.coop.finance.termLoans.reduce((a, l) => a + l.balance, 0);
+  const committed = state.coop.projects.reduce((a, p) => a + Math.max(0, p.budget - p.spent), 0);
   const localEquity = bs.totalEquity - invest;
   const from = Math.max(state.ledger.firstMonth, mi - 11);
   const ttm = incomeStatement(state.ledger, from, mi);
@@ -42,7 +43,8 @@ export function ratios(state: GameState): Ratios {
     currentRatio: cl > 0 ? ca / cl : Infinity,
     ownerEquityPct: bs.totalAssets > 0 ? bs.totalEquity / bs.totalAssets : 0,
     localLeverage: localEquity > 0 ? bs.totalLiabilities / localEquity : Infinity,
-    termDebtToNetFixed: netFixed > 0 ? termDebt / netFixed : 0,
+    // Projects under way count at their full budget: their loans are drawn up front.
+    termDebtToNetFixed: netFixed + committed > 0 ? termDebt / (netFixed + committed) : 0,
     debtServiceCoverage: service > 0 ? cashAvail / service : Infinity,
     returnOnLocalEquity: localEquity > 0 ? ttm.localSavings / localEquity : 0,
     netFixedAssets: netFixed,

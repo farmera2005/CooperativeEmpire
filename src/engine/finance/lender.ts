@@ -1,7 +1,12 @@
-// Lender (DESIGN §12, M2 scope): seasonal line with a commitment and a monthly borrowing
-// base, amortizing term loans, interest, and the cash sweep. Covenants arrive in M4.
+// Lender (DESIGN §12): seasonal line with a commitment and a monthly borrowing base,
+// amortizing term loans, interest, the cash sweep, co-op bank stock and patronage, and the
+// lender's risk spread from covenant standing (covenants.ts).
 
+import { brandsAvailable, getBrand } from '../../data/brands';
+import { COVENANTS, LENDER, lenderKind } from '../../data/finance';
 import { LENDING } from '../../data/tuning';
+import { valueAt } from '../../data/types';
+import { yearOf } from '../core/calendar';
 import { roundCents, type Cents } from '../core/money';
 import { formatCents } from '../core/format';
 import { balance, post } from '../ledger/ledger';
@@ -12,9 +17,9 @@ import { nominalCents, pathFor } from '../world/macro';
 import { marketValue } from '../world/marketPath';
 import { grainCapacity } from '../facilities/facilities';
 
-export function lineRate(state: GameState, mi = state.clock.monthIndex): number {
-  const spread = LENDING.spreadOverPrime[state.coop.lenderId]?.value ?? LENDING.spreadOverPrime['local-bank'].value;
-  return marketValue(pathFor(state), 'prime', mi) + spread;
+export function lineRate(state: GameState, mi = state.clock.monthIndex, lenderId = state.coop.lenderId): number {
+  const spread = LENDING.spreadOverPrime[lenderId]?.value ?? LENDING.spreadOverPrime['local-bank'].value;
+  return marketValue(pathFor(state), 'prime', mi) + spread + (lenderId === state.coop.lenderId ? state.coop.finance.riskSpread : 0);
 }
 
 export const memberEquity = (state: GameState): Cents => balanceSheet(state.ledger, state.clock.monthIndex).totalEquity;
@@ -73,7 +78,136 @@ export function maxCommitment(state: GameState): Cents {
 }
 
 export function emptyFinance(): FinanceState {
-  return { lineCommitment: 0, borrowingBase: 0, lineAvailable: 0, overLimit: false, termLoans: [], nextLoanId: 1, lastLineRate: 0 };
+  return {
+    status: 'standard', riskSpread: 0, breachQuarters: 0, okQuarters: 0, lastTest: null, lenderEquity: {}, loanSum: 0, loanMonths: 0,
+    lineCommitment: 0, borrowingBase: 0, lineAvailable: 0, overLimit: false, termLoans: [], nextLoanId: 1, lastLineRate: 0,
+  };
+}
+
+export const totalDebt = (state: GameState): Cents => lineDrawn(state) + state.coop.finance.termLoans.reduce((s, l) => s + l.balance, 0);
+
+export function lenderEquityHeld(state: GameState, lenderId?: string): Cents {
+  let t = 0;
+  for (const [id, v] of Object.entries(state.coop.finance.lenderEquity)) {
+    if (lenderId && id !== lenderId) continue;
+    for (const y in v) t += v[y];
+  }
+  return t;
+}
+
+/**
+ * Annual co-op bank patronage on the past year's average loans: part cash, part lender stock.
+ * The stock portion is raised when holdings are below the bank's target, and stock above
+ * the target (or held in a former lender) is retired, oldest first.
+ */
+export function stepLenderPatronage(ctx: TickContext): void {
+  const { state } = ctx;
+  const fin = state.coop.finance;
+  if (ctx.month !== LENDER.patronageMonth) return;
+  const id = state.coop.lenderId;
+  const avg = fin.loanMonths > 0 ? roundCents(fin.loanSum / fin.loanMonths) : 0;
+  fin.loanSum = 0;
+  fin.loanMonths = 0;
+  if (lenderKind(id) === 'coopBank' && avg > 0) {
+    const rate = valueAt(LENDER.patronageRate[id] ?? [], ctx.year - 1) / 100;
+    const amount = roundCents(avg * rate);
+    if (amount > 0) {
+      const target = roundCents(avg * (LENDER.equityTarget[id]?.value ?? 0));
+      const shortfall = Math.max(0, target - lenderEquityHeld(state, id));
+      const stock = Math.min(amount, Math.max(roundCents(amount * (1 - (LENDER.patronageCash[id]?.value ?? 0.5))), shortfall));
+      const cash = amount - stock;
+      const v = (fin.lenderEquity[id] ??= {});
+      v[ctx.year] = (v[ctx.year] ?? 0) + stock;
+      post(state, {
+        source: 'lender-patronage', memo: `Patronage from ${brandLabel(id)}`,
+        lines: [{ account: '1000', division: 'CORP', amount: cash }, { account: '1400', division: 'CORP', amount: stock }, { account: '8110', division: 'CORP', amount: -amount }],
+      });
+      ctx.inbox({ kind: 'memo', title: 'Lender patronage', body: `${brandLabel(id)} paid patronage of ${formatCents(amount)} on our average loan balance of ${formatCents(avg)}: ${formatCents(cash)} in cash and ${formatCents(stock)} in bank stock.` });
+    }
+  }
+  // Retire lender stock above target.
+  let retired = 0;
+  for (const lid of Object.keys(fin.lenderEquity).sort()) {
+    const target = lid === id ? roundCents(avg * (LENDER.equityTarget[lid]?.value ?? 0)) : 0;
+    let excess = lenderEquityHeld(state, lid) - target;
+    const v = fin.lenderEquity[lid];
+    for (const y of Object.keys(v).map(Number).sort((a, b) => a - b)) {
+      if (excess <= 0) break;
+      const take = Math.min(excess, v[y]);
+      v[y] -= take;
+      excess -= take;
+      retired += take;
+      if (v[y] === 0) delete v[y];
+    }
+    if (Object.keys(v).length === 0) delete fin.lenderEquity[lid];
+  }
+  if (retired > 0) post(state, { source: 'lender-equity-retired', memo: 'Lender stock retired', lines: [{ account: '1000', division: 'CORP', amount: retired }, { account: '1400', division: 'CORP', amount: -retired }] });
+}
+
+/**
+ * Convert part of the seasonal line into an amortizing term loan ("terming out" working
+ * capital): enough to bring the current ratio to `targetRatio`, limited by the line drawn
+ * and by the term-debt covenant. Returns the amount converted.
+ */
+export function termOutLine(state: GameState, targetRatio: number, maxTermToFixed: number): Cents {
+  const bs = balanceSheet(state.ledger, state.clock.monthIndex);
+  const ca = bs.currentAssets.reduce((s, x) => s + x.amount, 0);
+  const cl = bs.currentLiabilities.reduce((s, x) => s + x.amount, 0);
+  const need = Math.ceil(cl - ca / targetRatio);
+  const fixed = bs.fixedAssets.reduce((s, x) => s + x.amount, 0) + state.coop.projects.reduce((s, p) => s + Math.max(0, p.budget - p.spent), 0);
+  const term = state.coop.finance.termLoans.reduce((s, l) => s + l.balance, 0);
+  const room = Math.floor(maxTermToFixed * fixed - term);
+  const amount = Math.max(0, Math.min(need, lineDrawn(state), room));
+  if (amount < 100_000) return 0;
+  const f = state.coop.finance;
+  const rate = lineRate(state) + LENDING.termSpread.value;
+  const months = LENDING.termLoanMonths.value;
+  f.termLoans.push({ id: f.nextLoanId++, purpose: 'Working capital (termed-out line)', principal: amount, balance: amount, ratePct: rate, payment: loanPayment(amount, rate, months), startMonth: state.clock.monthIndex, months });
+  post(state, { source: 'term-out', memo: 'Convert seasonal line to a term loan', lines: [{ account: '2000', division: 'CORP', amount }, { account: '2300', division: 'CORP', amount: -amount }] });
+  return amount;
+}
+
+/** A lender brand that ends hands the relationship to its successor (Banks for Cooperatives → CoBank). */
+export function stepLenderSuccession(ctx: TickContext): void {
+  const { state } = ctx;
+  const br = getBrand(state.coop.lenderId);
+  if (!br || br.availableTo === undefined || ctx.year < br.availableTo || !br.successor) return;
+  const fin = state.coop.finance;
+  const old = state.coop.lenderId;
+  state.coop.lenderId = br.successor;
+  if (fin.lenderEquity[old]) {
+    const to = (fin.lenderEquity[br.successor] ??= {});
+    for (const [y, c] of Object.entries(fin.lenderEquity[old])) to[Number(y)] = (to[Number(y)] ?? 0) + c;
+    delete fin.lenderEquity[old];
+  }
+  ctx.inbox({ kind: 'memo', title: `Our lender is now ${brandLabel(br.successor)}`, body: `${brandLabel(old)} has been consolidated into ${brandLabel(br.successor)}. Our loans, line of credit and bank stock carry over unchanged.` });
+}
+
+export function brandLabel(id: string): string {
+  return id === 'local-bank' ? 'the bank' : getBrand(id)?.name ?? id;
+}
+
+/** Move the co-op's borrowing to another lender: fee, term loans repriced at the new lender's rate. */
+export function switchLender(state: GameState, lenderId: string): string | null {
+  const fin = state.coop.finance;
+  if (lenderId === state.coop.lenderId) return 'That is already our lender.';
+  if (fin.status !== 'standard' && fin.status !== 'watch') return 'No lender will take over our loans while we are in breach of covenants.';
+  const available = lenderId === 'local-bank' || (getBrand(lenderId) && brandsAvailable('lender', yearOf(state.clock.monthIndex)).some((b) => b.id === lenderId));
+  if (!available) return 'That lender is not available.';
+  const fee = roundCents(totalDebt(state) * LENDER.switchFee.value);
+  if (fee > 0) post(state, { source: 'lender-switch', memo: 'Loan fees for refinancing with a new lender', lines: [{ account: '7600', division: 'CORP', amount: fee }, { account: '1000', division: 'CORP', amount: -fee }] });
+  state.coop.lenderId = lenderId;
+  fin.riskSpread = fin.status === 'watch' ? COVENANTS.watchSpread.value : 0;
+  const rate = lineRate(state) + LENDING.termSpread.value;
+  for (const loan of fin.termLoans) {
+    const remaining = Math.max(12, loan.months - (state.clock.monthIndex - loan.startMonth));
+    loan.ratePct = rate;
+    loan.payment = loanPayment(loan.balance, rate, remaining);
+    loan.principal = loan.balance;
+    loan.months = remaining;
+    loan.startMonth = state.clock.monthIndex;
+  }
+  return null;
 }
 
 /** Level monthly payment for an amortizing loan. */
@@ -103,7 +237,13 @@ export function stepLender(ctx: TickContext): void {
   const fin = state.coop.finance;
   // Annual renewal of the seasonal line each September, ahead of harvest.
   if (ctx.month === LENDING.renewalMonth) {
-    const offer = renewalCommitment(state);
+    let offer = renewalCommitment(state);
+    if (fin.status === 'specialCredit' || fin.status === 'forcedAction') offer = Math.min(offer, fin.lineCommitment);
+    const [c0, c1] = COVENANTS.crisisYears;
+    if (lenderKind(state.coop.lenderId) === 'commercial' && fin.status !== 'standard' && ctx.year >= c0 && ctx.year <= c1) {
+      offer = Math.min(offer, roundCents(fin.lineCommitment * (1 - COVENANTS.crisisLineCut.value)));
+      ctx.inbox({ kind: 'alert', title: 'The bank is cutting our line', body: `With farm loans going bad across the Corn Belt, ${brandLabel(state.coop.lenderId)} is reducing exposure to borrowers on its watch list. Our seasonal line is cut to ${formatCents(offer)}.` });
+    }
     if (offer !== fin.lineCommitment) {
       ctx.inbox({ kind: 'memo', title: 'Seasonal line renewed', body: `The lender renewed the seasonal line at ${formatCents(offer)} (was ${formatCents(fin.lineCommitment)}), sized to our storage and member equity.` });
       fin.lineCommitment = offer;
@@ -139,6 +279,8 @@ export function stepLender(ctx: TickContext): void {
     });
   }
   sweep(ctx);
+  fin.loanSum += totalDebt(state);
+  fin.loanMonths += 1;
 }
 
 /** Cover negative cash from the line; repay from cash above the buffer. */

@@ -7,6 +7,8 @@ import { GOVERNANCE_SETUP, LENDING, SETUP } from '../../data/tuning';
 import { MARKETPLACE } from '../../data/grain';
 import { formatCents } from '../core/format';
 import { defaultCommitment, emptyFinance } from '../finance/lender';
+import { emptyEquityProgram, emptyRegional } from '../finance/defaults';
+import { defaultAffiliations } from '../finance/regionals';
 import { ensureHomeIndependent, generateCompetitors, generateOffers, generateSupplyCompetitors } from '../competitors/competitors';
 import { defaultSupplyPolicies, emptyPatronageStats, emptySupply } from '../supply/defaults';
 import { defaultGrainPolicy, emptyGrainBook } from '../grain/defaults';
@@ -89,12 +91,18 @@ export function startingCapital(setup: GameSetup): Cents {
   return roundCents(d2024 * pl * 100);
 }
 
-export function newGame(setup: GameSetup): GameState {
+export function newGame(setupIn: GameSetup): GameState {
+  let setup = setupIn;
   const region = REGIONS[setup.regionId];
   if (!region) throw new Error(`Unknown region ${setup.regionId}`);
   const [minM, maxM] = SETUP.membersRange;
   const members = Math.max(minM, Math.min(maxM, Math.round(setup.startingMembers)));
   const startMonth = toMonthIndex(setup.startYear, 1);
+  // A co-op bank that no longer exists in the start year is replaced by its successor.
+  const lb = getBrand(setup.lenderId);
+  if (lb && lb.availableTo !== undefined && setup.startYear >= lb.availableTo && lb.successor) setup = { ...setup, lenderId: lb.successor };
+  // A co-op without regional affiliations signs with the usual regionals for its area.
+  if (!setup.regionalAffiliations.length) setup = { ...setup, regionalAffiliations: defaultAffiliations(setup.startYear, setup.regionId) };
   const drift = makeDriftPlan(setup.gameSeed, setup.historyMode);
 
   const territory = previewTerritory({ ...setup, startingMembers: members });
@@ -120,6 +128,7 @@ export function newGame(setup: GameSetup): GameState {
       facilities: [], projects: [], assets: [], nextId: 1, grainPolicy: defaultGrainPolicy(), grain: emptyGrainBook(), offers: [],
       finance: emptyFinance(), grainStats: { marketBu: 0, offeredBu: 0, priceAdvantage: 0 },
       supply: emptySupply(), supplyPolicy: defaultSupplyPolicies(), patronageStats: emptyPatronageStats(),
+      equityProgram: emptyEquityProgram(), regional: emptyRegional(), budget: null,
     },
     competitors: [],
     inbox: [],

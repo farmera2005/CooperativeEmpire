@@ -103,5 +103,11 @@ export function checkInvariants(state: GameState): string[] {
     if (book.rebatesAccrued !== glDiv('1160', d)) errors.push(`${d} rebates ${book.rebatesAccrued} != GL ${glDiv('1160', d)}`);
   }
 
+  // 9. Investments in other co-ops tie to regional and lender equity held.
+  let inv = 0;
+  for (const v of Object.values(state.coop.regional.equity)) for (const y in v) inv += v[y];
+  for (const v of Object.values(state.coop.finance.lenderEquity)) for (const y in v) inv += v[y];
+  if (inv !== glOf('1400')) errors.push(`Regional + lender equity ${inv} != GL ${glOf('1400')}`);
+
   return errors;
 }

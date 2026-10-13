@@ -2,6 +2,7 @@
 // fixture test) whenever SCHEMA_VERSION changes.
 
 import { SCHEMA_VERSION, type GameState } from '../types';
+import { emptyEquityProgram, emptyRegional } from '../finance/defaults';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyState = any;
@@ -45,6 +46,17 @@ export const MIGRATIONS: Record<number, (s: AnyState) => AnyState> = {
     for (const o of s.coop.offers) o.kind ??= 'elevator';
     for (const c of s.competitors) for (const site of c.sites) site.division ??= 'GRAIN';
     return { ...s, schemaVersion: 3 };
+  },
+  // v3 → v4 (Milestone 4): patronage and equity program, regionals, lender standing, budget.
+  3: (s) => {
+    for (const m of s.members.list) m.patronage ??= [];
+    s.coop.equityProgram = emptyEquityProgram();
+    s.coop.regional = emptyRegional();
+    s.coop.budget = null;
+    const f = s.coop.finance;
+    Object.assign(f, { status: 'standard', riskSpread: 0, breachQuarters: 0, okQuarters: 0, lastTest: null, lenderEquity: {}, loanSum: 0, loanMonths: 0, ...f });
+    // Before v4 the fiscal year close sent net savings straight to unallocated retained earnings, so 3900 is empty.
+    return { ...s, schemaVersion: 4 };
   },
 };
 

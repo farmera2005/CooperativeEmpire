@@ -8,6 +8,7 @@ import { pathFor } from '../world/macro';
 import { marketValue } from '../world/marketPath';
 import { weatherFor } from '../world/weather';
 import type { TickContext } from './context';
+import { regionalFails } from '../finance/regionals';
 
 export function refreshMarkets(state: GameState): void {
   const path = pathFor(state);
@@ -34,6 +35,7 @@ export function stepHistory(ctx: TickContext): string[] {
     ctx.state.firedEvents.push({ id: ev.id, monthIndex: ctx.mi });
     ctx.inbox({ kind: 'history', title: ev.headline, body: ev.body, eventId: ev.id });
     fired.push(ev.id);
+    for (const ef of ev.effects) if (ef.kind === 'entity' && ef.op === 'fail') regionalFails(ctx, ef.brandId);
   }
   return fired;
 }
