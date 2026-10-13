@@ -271,7 +271,8 @@ export function stepSupply(ctx: TickContext): void {
       capacity.push({ label: 'Delivery trucks', used: gal, available: truckCap, unit: 'gal' });
       if (seriesRatio(path, 'propane', mi) > ENERGY_DEMAND.shortageRatio.value) {
         sold.PROPANE = (sold.PROPANE ?? 0) * ENERGY_DEMAND.allocation.value;
-        if (open && (acc.ours.PROPANE ?? 0) > 0) ctx.inbox({ kind: 'alert', title: 'Propane supply on allocation', body: 'Our suppliers are allocating propane. We are short of what customers need this month.' });
+        // Alert when allocation starts, not every month it lasts.
+        if (open && (acc.ours.PROPANE ?? 0) > 0 && seriesRatio(path, 'propane', mi - 1) <= ENERGY_DEMAND.shortageRatio.value) ctx.inbox({ kind: 'alert', title: 'Propane supply on allocation', body: 'Our suppliers are allocating propane. We will be short of what customers need until supplies ease.' });
       }
     }
     if (d === 'AGRONOMY' && seriesRatio(path, 'anhydrous', mi) > ENERGY_DEMAND.shortageRatio.value) {
