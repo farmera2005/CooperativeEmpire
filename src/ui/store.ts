@@ -5,7 +5,7 @@ import {
 } from '../engine/index';
 import { saveSlot } from '../persistence/saves';
 
-export type Tab = 'dashboard' | 'grain' | 'supply' | 'map' | 'markets' | 'members' | 'financials' | 'board' | 'inbox' | 'saves';
+export type Tab = 'dashboard' | 'grain' | 'supply' | 'map' | 'markets' | 'members' | 'financials' | 'equity' | 'lender' | 'board' | 'inbox' | 'saves';
 
 export interface Toast {
   id: number;

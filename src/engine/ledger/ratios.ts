@@ -2,8 +2,7 @@
 
 import type { Cents } from '../core/money';
 import type { GameState } from '../types';
-import { activityFor, balanceSheet, incomeStatement } from './statements';
-import { splitKey } from './coa';
+import { balanceSheet, incomeStatement } from './statements';
 
 export interface Ratios {
   workingCapital: Cents;
@@ -31,12 +30,11 @@ export function ratios(state: GameState): Ratios {
   const localEquity = bs.totalEquity - invest;
   const from = Math.max(state.ledger.firstMonth, mi - 11);
   const ttm = incomeStatement(state.ledger, from, mi);
-  // Term debt service over the trailing year: principal + interest on term loans.
-  const act = activityFor(state.ledger, from, mi);
-  let principalPaid = 0;
-  for (const k in act) if (splitKey(k)[0] === '2300' && act[k] > 0) principalPaid += act[k];
-  const termInterest = state.coop.finance.termLoans.reduce((a, l) => a + (l.balance * l.ratePct) / 100, 0);
-  const service = principalPaid + termInterest;
+  // Term debt service over the coming year on seasoned loans. Loans under a year old are
+  // left out, as lenders do while a new project ramps up.
+  const seasoned = state.coop.finance.termLoans.filter((l) => mi - l.startMonth >= 12);
+  const termInterest = seasoned.reduce((a, l) => a + (l.balance * l.ratePct) / 100, 0);
+  const service = seasoned.reduce((a, l) => a + l.payment * 12, 0);
   const cashAvail = ttm.netSavings + ttm.opex.depreciation + termInterest;
   return {
     workingCapital: ca - cl,

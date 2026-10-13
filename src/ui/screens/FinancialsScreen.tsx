@@ -4,7 +4,7 @@ import {
   type DivisionId, type IncomeStatement, type JournalEntry,
 } from '../../engine/index';
 import { Panel } from '../components/Panel';
-import { lineRate, maxCommitment, ratios } from '../../engine/index';
+import { budgetVsActual, ratios } from '../../engine/index';
 import { Term } from '../components/Term';
 import { money } from '../format';
 import { useStore } from '../store';
@@ -145,7 +145,7 @@ export function FinancialsScreen() {
       </div>
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <RatiosPanel />
-        <LenderPanel />
+        <BudgetPanel />
       </div>
       <p className="text-xs text-stone-500">Chart of accounts: {ACCOUNTS.length} accounts, posted by division ({DIVISIONS.join(', ')}).</p>
     </div>
@@ -186,39 +186,40 @@ function RatiosPanel() {
   );
 }
 
-function LenderPanel() {
+function BudgetPanel() {
   const game = useStore((s) => s.game)!;
   const command = useStore((s) => s.command);
-  const fin = game.coop.finance;
-  const [amt, setAmt] = useState('');
-  const drawn = game.history[game.history.length - 1]?.lineDrawn ?? 0;
+  const cmp = budgetVsActual(game);
+  const b = game.coop.budget;
+  const [sg, setSg] = useState(String(b?.salesGrowthPct ?? ''));
+  const [cg, setCg] = useState(String(b?.costGrowthPct ?? ''));
+  const [cap, setCap] = useState(String(Math.round((b?.capex ?? 0) / 100)));
+  const fy = fiscalYearOf(game.clock.monthIndex, game.setup.fiscalYearEndMonth);
+  const draft = b && b.fy > fy;
   return (
-    <Panel title="Lender">
-      <table className="data">
-        <tbody>
-          <tr><td>Seasonal line commitment</td><td className="r">{money(fin.lineCommitment)}</td></tr>
-          <tr><td>Borrowing base</td><td className="r">{money(fin.borrowingBase)}</td></tr>
-          <tr><td>Drawn</td><td className="r">{money(drawn)}</td></tr>
-          <tr><td>Available</td><td className="r">{money(fin.lineAvailable)}</td></tr>
-          <tr><td>Line rate</td><td className="r">{lineRate(game).toFixed(2)}%{fin.overLimit ? ' + penalty' : ''}</td></tr>
-        </tbody>
-      </table>
-      <div className="mt-2 flex items-center gap-2 text-sm">
-        Request commitment of $<input className="input w-32" value={amt} onChange={(e) => setAmt(e.target.value.replace(/[^\d]/g, ''))} placeholder={String(Math.round(fin.lineCommitment / 100))} />
-        <button className="btn" onClick={() => amt && command({ type: 'setLineCommitment', amount: Number(amt) * 100 })}>Request</button>
-        <span className="text-xs text-stone-500">max {money(maxCommitment(game))}</span>
-      </div>
-      <div className="mt-3 text-sm font-semibold">Term loans</div>
-      {!fin.termLoans.length ? <p className="text-sm text-stone-500">None.</p> : (
+    <Panel title={cmp ? `Budget vs actual, fiscal ${cmp.fy} (${cmp.elapsedMonths} of 12 months)` : 'Budget'}>
+      {cmp ? (
         <table className="data">
-          <thead><tr><th>Purpose</th><th className="r">Balance</th><th className="r">Rate</th><th className="r">Payment</th><th></th></tr></thead>
+          <thead><tr><th>Division</th><th className="r">Sales budget</th><th className="r">Sales to date</th><th className="r">Local savings budget</th><th className="r">To date</th></tr></thead>
           <tbody>
-            {fin.termLoans.map((l) => (
-              <tr key={l.id}><td>{l.purpose}</td><td className="r">{money(l.balance)}</td><td className="r">{l.ratePct.toFixed(2)}%</td><td className="r">{money(l.payment)}/mo</td>
-                <td><button className="btn py-0" onClick={() => command({ type: 'prepayTermLoan', loanId: l.id, amount: l.balance })}>Prepay</button></td></tr>
+            {cmp.rows.filter((r) => r.budget.sales || r.actual.sales || r.budget.opex || r.actual.opex).map((r) => (
+              <tr key={r.division}><td>{r.division}</td><td className="r">{money(r.budget.sales)}</td><td className="r">{money(r.actual.sales)}</td><td className="r">{money(r.budget.localSavings)}</td>
+                <td className={`r ${r.actual.localSavings < (r.budget.localSavings * cmp.elapsedMonths) / 12 ? 'text-rust' : ''}`}>{money(r.actual.localSavings)}</td></tr>
             ))}
+            <tr className="font-semibold"><td>Capital spending</td><td className="r">{money(cmp.capex)}</td><td className="r">{money(cmp.capexSpent)}</td><td colSpan={2}></td></tr>
           </tbody>
         </table>
+      ) : <p className="text-sm text-stone-500">No approved budget for this fiscal year. The CFO drafts next year's budget three months before year end.</p>}
+      {b && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+          <b>{draft ? `Fiscal ${b.fy} budget (${b.approved ? 'approved' : 'draft'})` : `Fiscal ${b.fy} capital budget`}:</b>
+          {draft && !b.approved && <>
+            sales growth <input className="input w-16" value={sg} onChange={(e) => setSg(e.target.value)} />%
+            cost growth <input className="input w-16" value={cg} onChange={(e) => setCg(e.target.value)} />%
+          </>}
+          capital $<input className="input w-28" value={cap} onChange={(e) => setCap(e.target.value.replace(/[^\d]/g, ''))} />
+          <button className="btn" onClick={() => command({ type: 'setBudget', ...(draft && !b.approved ? { salesGrowthPct: Number(sg), costGrowthPct: Number(cg) } : {}), capex: Number(cap) * 100 })}>Update</button>
+        </div>
       )}
     </Panel>
   );

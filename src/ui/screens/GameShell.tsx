@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { balance, formatMonth, fiscalYearOf } from '../../engine/index';
+import { balance, formatMonth, fiscalYearOf, STATUS_LABEL } from '../../engine/index';
 import { money } from '../format';
 import { useStore, type Tab } from '../store';
 import { Dashboard } from './Dashboard';
@@ -12,6 +12,8 @@ import { InboxScreen } from './InboxScreen';
 import { SavesScreen } from './SavesScreen';
 import { GrainScreen } from './GrainScreen';
 import { SupplyScreen } from './SupplyScreen';
+import { EquityScreen } from './EquityScreen';
+import { LenderScreen } from './LenderScreen';
 
 const TABS: { id: Tab; label: string; key: string }[] = [
   { id: 'dashboard', label: 'Dashboard', key: '1' },
@@ -22,8 +24,10 @@ const TABS: { id: Tab; label: string; key: string }[] = [
   { id: 'markets', label: 'Markets', key: '6' },
   { id: 'members', label: 'Members', key: '7' },
   { id: 'financials', label: 'Financials', key: '8' },
-  { id: 'board', label: 'Board Room', key: '9' },
-  { id: 'saves', label: 'Save / Load', key: '0' },
+  { id: 'equity', label: 'Equity & Patronage', key: '9' },
+  { id: 'lender', label: 'Regional & Lender', key: '0' },
+  { id: 'board', label: 'Board Room', key: 'B' },
+  { id: 'saves', label: 'Save / Load', key: 'S' },
 ];
 
 export function GameShell() {
@@ -38,7 +42,7 @@ export function GameShell() {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
       if (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA' || e.metaKey || e.ctrlKey || e.altKey) return;
-      const t = TABS.find((x) => x.key === e.key);
+      const t = TABS.find((x) => x.key === e.key.toUpperCase());
       if (t) setTab(t.id);
       else if (e.key === 'e' || e.key === 'E') endMonth();
       else if (e.key === 'a' || e.key === 'A') advanceUntil();
@@ -67,7 +71,7 @@ export function GameShell() {
           </button>
         ))}
         <div className="mt-auto p-3 text-xs text-stone-500">
-          Keys: 0–9 screens, E end month, A advance until something needs attention.
+          Keys: 0–9, B, S screens, E end month, A advance until something needs attention.
           <div className="mt-1">{autosave}</div>
         </div>
       </nav>
@@ -79,7 +83,8 @@ export function GameShell() {
           </div>
           <div className="num text-sm"><span className="text-stone-500">Cash</span> <b>{money(cash)}</b></div>
           <div className="num text-sm"><span className="text-stone-500">Line drawn</span> <b>{money(line)}</b> <span className="text-stone-500">of {money(Math.min(game.coop.finance.lineCommitment, game.coop.finance.borrowingBase || game.coop.finance.lineCommitment))}</span>
-            {game.coop.finance.overLimit && <span className="ml-2 rounded bg-rust px-1.5 text-xs text-white">OVER LIMIT</span>}</div>
+            {game.coop.finance.overLimit && <span className="ml-2 rounded bg-rust px-1.5 text-xs text-white">OVER LIMIT</span>}
+            {game.coop.finance.status !== 'standard' && <button className="ml-2 rounded bg-rust px-1.5 text-xs text-white" onClick={() => setTab('lender')}>{STATUS_LABEL[game.coop.finance.status].toUpperCase()}</button>}</div>
           <div className="ml-auto flex gap-2">
             <button className="btn" onClick={advanceUntil} title="Run months until news, a fiscal year end, or a decision needs you (A)">Advance until attention</button>
             <button className="btn btn-primary" onClick={endMonth} title="End the month (E)">End month ▸</button>
@@ -94,6 +99,8 @@ export function GameShell() {
           {tab === 'markets' && <MarketsScreen />}
           {tab === 'members' && <MembersScreen />}
           {tab === 'financials' && <FinancialsScreen />}
+          {tab === 'equity' && <EquityScreen />}
+          {tab === 'lender' && <LenderScreen />}
           {tab === 'board' && <BoardScreen />}
           {tab === 'saves' && <SavesScreen />}
         </main>

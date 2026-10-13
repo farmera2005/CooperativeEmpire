@@ -33,3 +33,13 @@ export { liquidity, borrowingBase, lineDrawn, lineRate, maxCommitment } from './
 export { competitorName } from './competitors/competitors';
 export { shipCapacities, GRAIN_LINE } from './grain/operate';
 export { grainCostIndex, localBasis, bestTruckSale, railSale } from './grain/prices';
+export { equityOverview, previewDistribution, memberStatement, covenantHeadroom } from './finance/selectors';
+export type { EquityOverview, DistributionPreview, MemberStatement } from './finance/selectors';
+export { validateProposal, poolLabel, BASES_FOR, lineDivision } from './finance/patronage';
+export { productionDeductionRate } from './finance/tax';
+export { defaultProposal } from './finance/defaults';
+export { STATUS_LABEL, covenantSet } from './finance/covenants';
+export { budgetVsActual, capexThisYear } from './finance/budget';
+export type { BudgetComparison } from './finance/budget';
+export { regionalEquityHeld, affiliationFor, programOf, CATEGORIES } from './finance/regionals';
+export { lenderEquityHeld, totalDebt, brandLabel } from './finance/lender';

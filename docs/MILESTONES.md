@@ -37,7 +37,7 @@ Each milestone ends with a commit, a push, and a short **"what to playtest"** no
 Internal checkpoints (commit each): M3a Agronomy → M3b Feed → M3c Energy → M3d Retail → M3e cross-division effects (bundling, shared costs, overhead allocation, Capper-Volstead tracking).
 - **Playtest:** open each division; fill decisions vs 2008 collapse; spring application crunch; propane 2013–14; station traffic.
 
-## M4 — Co-op finance
+## M4 — Co-op finance ✅ complete
 - Fiscal year close, audit, patronage proposal builder (pools, bases, cash/qualified/nonqualified/unallocated, 20% rule), Subchapter T tax with DPAD and 199A(g), loss treatments.
 - Equity subledger by vintage, member patronage statements, five redemption plans + combinations.
 - Full lender: BC → CoBank transition, lender equity and patronage, term loans, borrowing base, covenants and breach path; commercial bank alternative.

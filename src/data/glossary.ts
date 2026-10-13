@@ -37,6 +37,17 @@ export const GLOSSARY: GlossaryEntry[] = [
   { id: 'toll-milling', term: 'Toll milling', text: 'Grinding and mixing feed for an integrator who owns the ingredients. High volume, thin fee per ton, and one customer who can leave.' },
   { id: 'share-of-wallet', term: 'Share of wallet', text: 'The share of a farm\'s purchases (or grain) that comes to the co-op rather than to competitors. Price, distance, service, credit, loyalty and doing other business with us all move it.' },
   { id: 'fiscal-year', term: 'Fiscal year', text: 'The co-op\'s accounting year, labeled by the calendar year in which it ends. Many Corn Belt locals end their year on August 31, before harvest.' },
+  { id: 'revolving', term: 'Revolving fund', text: 'Redeeming allocated equity oldest year first, so each year\'s retained patronage is paid back after a set period (the revolving period).' },
+  { id: 'estate-redemption', term: 'Estate redemption', text: 'Paying out a deceased member\'s equity to the estate, often first in line and sometimes at a discount for early payment.' },
+  { id: 'base-capital', term: 'Base capital plan', text: 'Each member is expected to hold equity in proportion to their recent business; over-invested members are paid down first.' },
+  { id: 'patronage-pool', term: 'Patronage pool', text: 'A group of business (all of it, or one division) whose savings are allocated together, on one basis: bushels, dollars of sales, or margin.' },
+  { id: 'dpad', term: 'DPAD / 199A(g)', text: 'Deductions for domestic production (2005–2017) and agricultural co-op production (2018 on). A co-op may keep the deduction or pass it through to members with their patronage.' },
+  { id: 'nol', term: 'Net operating loss', text: 'A tax loss carried forward to offset future taxable income, for a limited number of years (from 2018, indefinitely but only against 80% of income).' },
+  { id: 'covenant', term: 'Loan covenant', text: 'A financial test in the loan agreement (current ratio, equity ratio, term debt to fixed assets, debt service coverage). Breaches lead to waivers, higher rates and, if they persist, special credit.' },
+  { id: 'special-credit', term: 'Special credit', text: 'The lender\'s workout group for troubled borrowers. It restricts patronage cash, redemptions and capital spending until the co-op recovers, or forces a sale.' },
+  { id: 'term-out', term: 'Terming out', text: 'Converting part of a seasonal line of credit into an amortizing term loan to restore working capital.' },
+  { id: 'lender-equity', term: 'Co-op bank stock', text: 'Banks for Cooperatives and CoBank are owned by their borrowers, who hold stock built from retained patronage. Stock above the bank\'s target is retired.' },
+  { id: 'unfunded-obligation', term: 'Unfunded redemption obligation', text: 'Allocated equity held by members who no longer do business with the co-op, plus vintages older than the target revolving period: what members expect back with no plan to pay it.' },
   { id: 'drift', term: 'History with drift', text: 'Historical forces arrive in their eras, but timing shifts by up to about two years and magnitudes vary, so hindsight is not a cheat code.' },
 ];
 
