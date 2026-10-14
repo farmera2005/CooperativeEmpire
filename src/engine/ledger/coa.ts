@@ -83,6 +83,7 @@ export const ACCOUNTS: Account[] = [
   a('7640', 'Property taxes', 'expense', 'income', { isGroup: 'otherOpex' }),
   a('7650', 'Rent & leases', 'expense', 'income', { isGroup: 'otherOpex' }),
   a('7660', 'Environmental remediation', 'expense', 'income', { isGroup: 'otherOpex' }),
+  a('7665', 'Regulatory compliance & fines', 'expense', 'income', { isGroup: 'otherOpex' }),
   a('7670', 'Due diligence & transaction costs', 'expense', 'income', { isGroup: 'otherOpex' }),
   a('7680', 'Vehicle & delivery expense', 'expense', 'income', { isGroup: 'otherOpex' }),
   a('7695', 'Safety incidents & claims', 'expense', 'income', { isGroup: 'otherOpex' }),

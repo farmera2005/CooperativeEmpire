@@ -1,6 +1,9 @@
 // advanceMonth: the monthly tick (DESIGN §3.3). Steps not yet built are listed in order
 // as comments so each milestone slots its systems into the right place.
 
+import { stepTech } from '../world/tech';
+import { stepRegulation } from '../world/regulation';
+import { stepChoices, stepHistoryChoices, stepRandomEvents } from '../world/events';
 import { formatMonth, isFiscalYearEnd } from '../core/calendar';
 import { formatCents } from '../core/format';
 import { postOverhead } from '../corp/overhead';
@@ -37,7 +40,7 @@ export const RETAIN_DETAIL_YEARS = 2;
 const INBOX_LIMIT = 400;
 
 export interface Interrupt {
-  kind: 'history' | 'fiscalYearEnd' | 'invariant' | 'gameOver' | 'alert';
+  kind: 'history' | 'fiscalYearEnd' | 'invariant' | 'gameOver' | 'alert' | 'decision';
   text: string;
 }
 
@@ -83,8 +86,12 @@ export function advanceMonth(state: GameState, decisions: Command[] = [], opts: 
   refreshMarkets(w);
   stepWeather(ctx);
   // 5. scheduled historical events
-  for (const id of stepHistory(ctx)) interrupts.push({ kind: 'history', text: id });
-  // 6. tech/regulation availability — M7
+  const fired = stepHistory(ctx);
+  for (const id of fired) interrupts.push({ kind: 'history', text: id });
+  stepHistoryChoices(ctx, fired);
+  // 6. technology coming into service; regulations, compliance costs and fines
+  stepTech(ctx);
+  stepRegulation(ctx);
   // 7. facilities: construction, marketplace
   stepProjects(ctx);
   stepMarketplace(ctx);
@@ -112,7 +119,9 @@ export function advanceMonth(state: GameState, decisions: Command[] = [], opts: 
   stepLenderPatronage(ctx);
   // 19. treasury: loans, line interest, borrowing base, sweep
   stepLender(ctx);
-  // 20. random events — M7
+  // 20. random events; decisions past their deadline take the default
+  stepRandomEvents(ctx);
+  stepChoices(ctx);
   // 24. annual cycle: fiscal year close, budget
   if (isFiscalYearEnd(ctx.mi, w.setup.fiscalYearEndMonth)) {
     const r = closeFiscalYearCycle(ctx);
@@ -145,6 +154,7 @@ export function advanceMonth(state: GameState, decisions: Command[] = [], opts: 
   // 29. loss conditions (the lender's forced action; governance in M5)
   if (w.outcome) interrupts.push({ kind: 'gameOver', text: w.outcome.text });
   for (const item of w.inbox) if (item.monthIndex === ctx.mi && item.kind === 'alert') interrupts.push({ kind: 'alert', text: item.title });
+  for (const item of w.inbox) if (item.monthIndex === ctx.mi && item.choice && !item.choice.chosen) interrupts.push({ kind: 'decision', text: item.body });
 
   ctx.summary.unshift(`${formatMonth(ctx.mi)}: cash ${formatCents(snap.cash)}, ${snap.activeMembers} active members.`);
   return {
@@ -170,7 +180,7 @@ export function advanceUntilAttention(state: GameState, cfg: InterruptConfig, ma
     const r = advanceMonth(s);
     out.push(r);
     s = r.state;
-    if (r.interrupts.some((x) => x.kind === 'invariant' || x.kind === 'gameOver' || (x.kind === 'history' && cfg.history) || (x.kind === 'fiscalYearEnd' && cfg.fiscalYearEnd) || (x.kind === 'alert' && cfg.alerts))) break;
+    if (r.interrupts.some((x) => x.kind === 'invariant' || x.kind === 'gameOver' || (x.kind === 'history' && cfg.history) || (x.kind === 'fiscalYearEnd' && cfg.fiscalYearEnd) || (x.kind === 'alert' && cfg.alerts) || x.kind === 'decision')) break;
     if (s.outcome) break;
   }
   return out;

@@ -1,5 +1,7 @@
 // Customer credit (DESIGN §9.2): receivables by age, collections, finance charges, bad debt.
 
+import { flagOn } from '../world/events';
+import { CHOICE_EFFECTS } from '../../data/events';
 import { CREDIT } from '../../data/supply';
 import { roundCents, type Cents } from '../core/money';
 import { post } from '../ledger/ledger';
@@ -27,13 +29,16 @@ export function stepCredit(ctx: TickContext, division: DivisionId, book: SupplyB
   const { state, month } = ctx;
   const ar = book.ar;
   const r = CREDIT.collectRate.value[policy.credit];
+  // Farm-crisis credit policy (a 1984 decision).
+  const restructure = flagOn(state, 'creditRestructure');
+  const pastDueCollect = restructure ? CHOICE_EFFECTS.restructureCollect.value : 1;
   // Collections, oldest first at lower rates.
   const collect = (bal: Cents, rate: number) => roundCents(bal * rate);
   const cCur = collect(ar.current, r);
   const ag = CREDIT.agingCollect.value;
-  const c30 = collect(ar.past30, r * ag.past30);
-  const c60 = collect(ar.past60, r * ag.past60);
-  const c90 = collect(ar.past90, r * ag.past90);
+  const c30 = collect(ar.past30, r * ag.past30 * pastDueCollect);
+  const c60 = collect(ar.past60, r * ag.past60 * pastDueCollect);
+  const c90 = collect(ar.past90, r * ag.past90 * pastDueCollect);
   const harvestDue = month >= 10 && month <= 12;
   const cHar = harvestDue ? collect(ar.harvest, CREDIT.harvestCollect.value) : 0;
   const collected = cCur + c30 + c60 + c90 + cHar;
@@ -55,7 +60,7 @@ export function stepCredit(ctx: TickContext, division: DivisionId, book: SupplyB
   const fc = roundCents((pastDue * (prime + CREDIT.financeChargeSpread.value)) / 100 / 12);
   next.past30 += fc;
   // Write off a slice of the oldest accounts.
-  const writeOff = roundCents(next.past90 * CREDIT.writeOffMonthly.value);
+  const writeOff = roundCents(next.past90 * CREDIT.writeOffMonthly.value * (restructure ? CHOICE_EFFECTS.restructureWriteOff.value : 1));
   next.past90 -= writeOff;
   book.ar = next;
   const lines = [];
@@ -66,7 +71,7 @@ export function stepCredit(ctx: TickContext, division: DivisionId, book: SupplyB
   book.allowance -= writeOff;
 
   // Allowance target and bad debt expense.
-  const stress = farmStress(ctx);
+  const stress = farmStress(ctx) * (flagOn(state, 'creditTight') ? CHOICE_EFFECTS.tightenStress.value : 1);
   const rate = CREDIT.lossRate.value[policy.credit] * (1 + CREDIT.stressMultiplier.value * stress);
   const target = roundCents(next.past90 * CREDIT.allowancePast90.value + next.past60 * CREDIT.allowancePast60.value + (next.current + next.past30 + next.harvest) * rate);
   const expense = target - book.allowance;

@@ -1,6 +1,7 @@
 // Facilities: capacities, replacement cost, fixed-asset register, capital projects,
 // depreciation, condition, and monthly operating costs (DESIGN §8).
 
+import { techFactor } from '../world/tech';
 import { COMPONENTS, KIND_BASE_FTE, KIND_DIVISION, LOADOUT_COMPONENTS, LOADOUT_RANK, STORAGE_COMPONENTS, midCost, type ComponentId, type FacilityKind, type LoadoutType } from '../../data/facilities';
 import { CROSS_DIVISION, SEASONAL_OVERTIME, SITE_UTILITIES, SUPPLY_WAGES, type SupplyDivision } from '../../data/supply';
 import { COMMODITIES, FACILITY_COSTS, STAFF } from '../../data/grain';
@@ -98,7 +99,7 @@ export function stepDepreciation(ctx: TickContext): void {
     if (a.lifeMonths <= 0 || a.accumDep >= a.cost) continue;
     const dep = Math.min(a.cost - a.accumDep, Math.max(1, Math.round(a.cost / a.lifeMonths)));
     a.accumDep += dep;
-    const d = divOf.get(a.facilityId) ?? 'GRAIN';
+    const d = divOf.get(a.facilityId) ?? (a.facilityId < 0 ? 'CORP' : 'GRAIN');
     byDiv.set(d, (byDiv.get(d) ?? 0) + dep);
   }
   const lines: JournalLine[] = [];
@@ -208,6 +209,7 @@ export function stepFacilityCosts(ctx: TickContext): void {
         const util = SITE_UTILITIES.value[f.kind] ?? 0;
         add('7400', nominalCents(path, mi, (util * (shared ? 1 - CROSS_DIVISION.sharedSiteSaving.value : 1)) / 12));
       }
+      if (f.kind === 'elevator') wages = roundCents(wages * techFactor(state, 'grainLabor'));
       add('7000', wages);
       add('7010', roundCents(wages * STAFF.benefitsRate.value));
     }

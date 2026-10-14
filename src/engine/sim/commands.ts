@@ -1,6 +1,9 @@
 // Player commands (DESIGN §18.2). Each is applied by applyCommand, purely and
 // deterministically. The list grows milestone by milestone.
 
+import { adoptTech } from '../world/tech';
+import { comply } from '../world/regulation';
+import { chooseOption } from '../world/events';
 import { formatCents } from '../core/format';
 import {
   buildElevator, buildFacility, buyOffer, closeFacility, dueDiligence, renovateFacility, setFacilityStatus, setStaffing, upgradeFacility,
@@ -75,7 +78,10 @@ export type Command =
   | { type: 'respondDeal'; dealId: number; accept: boolean }
   | { type: 'dealDiligence'; dealId: number }
   | { type: 'submitDeal'; dealId: number; terms: DealTerms }
-  | { type: 'abandonDeal'; dealId: number };
+  | { type: 'abandonDeal'; dealId: number }
+  | { type: 'adoptTech'; techId: string }
+  | { type: 'comply'; ruleId: string; facilityId: number }
+  | { type: 'chooseOption'; inboxId: number; optionId: string };
 
 export interface CommandMessage {
   level: 'info' | 'warning' | 'error';
@@ -233,6 +239,9 @@ function run(s: GameState, cmd: Command): CommandMessage[] {
     case 'giveRaise': return giveRaise(s, cmd.leaderId);
     case 'proposeMerger': return proposeMerger(s, cmd.partnerId);
     case 'proposeJv': return proposeJv(s, cmd.partnerId, cmd.division);
+    case 'adoptTech': return adoptTech(s, cmd.techId);
+    case 'comply': return comply(s, cmd.ruleId, cmd.facilityId);
+    case 'chooseOption': return chooseOption(s, cmd.inboxId, cmd.optionId);
     case 'proposeDivisionSale': return proposeDivisionSale(s, cmd.division);
     case 'respondDeal': return respondDeal(s, cmd.dealId, cmd.accept);
     case 'dealDiligence': return dealDiligence(s, cmd.dealId);

@@ -404,6 +404,17 @@ export interface GovernanceState {
 
 // ---------- Inbox / events ----------
 
+export interface InboxChoice {
+  options: { id: string; label: string; detail: string }[];
+  defaultId: string;
+  /** Month by which we must answer; the default applies after it. */
+  deadline: number;
+  /** Which handler applies the answer. */
+  handler: string;
+  data?: Record<string, number>;
+  chosen?: string;
+}
+
 export interface InboxItem {
   id: number;
   monthIndex: number;
@@ -412,6 +423,8 @@ export interface InboxItem {
   body: string;
   read: boolean;
   eventId?: string;
+  /** Decisions the GM must make (DESIGN §17.1–17.2). */
+  choice?: InboxChoice;
 }
 
 export interface FiredEvent {
@@ -1069,6 +1082,8 @@ export interface Deal {
 
 export interface JointVenture {
   id: number;
+  /** An investment in a local ethanol plant rather than a combined division. */
+  ethanol?: boolean;
   name: string;
   partnerName: string;
   division: OpDivision;
@@ -1079,6 +1094,23 @@ export interface JointVenture {
   scale: Cents;
   formedMonth: number;
   earningsYtd: Cents;
+}
+
+// ---------- Technology and regulation (DESIGN §17.3–17.4) ----------
+
+export interface TechState {
+  /** Adopted technologies: month completed and the sites covered (site-scoped techs). */
+  adopted: Record<string, { month: number; sites: number[] }>;
+  pending: { id: string; completeMonth: number; sites: number[] }[];
+}
+
+export interface RegulationState {
+  /** Rules in force, by id → month they took effect. */
+  active: Record<string, number>;
+  /** "ruleId:facilityId" → compliant. */
+  compliant: Record<string, boolean>;
+  /** Sites shut for non-compliance ("ruleId:facilityId"). */
+  shut: Record<string, boolean>;
 }
 
 // ---------- Game ----------
@@ -1100,6 +1132,12 @@ export interface GameState {
   jvs: JointVenture[];
   /** Months of merger integration remaining (service suffers while systems combine). */
   integrationUntil: number | null;
+  tech: TechState;
+  regulation: RegulationState;
+  /** Temporary conditions from decisions, by flag → month it ends. */
+  flags: Record<string, number>;
+  /** Recent random events that struck us. */
+  eventLog: { monthIndex: number; id: string; facilityId: number; cost: Cents }[];
   competitors: Competitor[];
   inbox: InboxItem[];
   nextInboxId: number;

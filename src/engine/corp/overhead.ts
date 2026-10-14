@@ -1,5 +1,6 @@
 // Corporate overhead posted monthly: GM pay, office, board meetings, audit, interest on cash.
 
+import { techFactor } from '../world/tech';
 import { OVERHEAD } from '../../data/tuning';
 import { fiscalPeriod } from '../core/calendar';
 import { roundCents } from '../core/money';
@@ -14,7 +15,8 @@ export function postOverhead(ctx: TickContext): void {
   const gmAnnual2024 = OVERHEAD.gmSalaryBase.value + OVERHEAD.gmSalaryPerMember.value * members;
   const salary = nominalCents(path, mi, gmAnnual2024 / 12);
   const benefits = roundCents(salary * OVERHEAD.benefitsRate.value);
-  const office = nominalCents(path, mi, OVERHEAD.officeMonthlyBase.value + OVERHEAD.officeMonthlyPerMember.value * members);
+  // Computers and, later, AI tools trim office work.
+  const office = nominalCents(path, mi, (OVERHEAD.officeMonthlyBase.value + OVERHEAD.officeMonthlyPerMember.value * members) * techFactor(state, 'officeCost'));
   const board = nominalCents(path, mi, OVERHEAD.directorPerDiem.value * state.governance.directors.length);
   const lines = [
     { account: '7000', division: 'CORP' as const, amount: salary },

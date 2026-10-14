@@ -1,6 +1,8 @@
 // Board proposals (DESIGN §14.3): which GM actions need a board vote, and each proposal
 // type's evaluator, which produces the merit vector directors react to.
 
+import { toMonthIndex } from '../core/calendar';
+import { techById, techCost } from '../world/tech';
 import { KIND_DIVISION, KIND_LABEL } from '../../data/facilities';
 import { programOf } from '../finance/regionals';
 import { CREDIT } from '../../data/supply';
@@ -39,6 +41,10 @@ export function capitalCost(s: GameState, cmd: Command): Cents | null {
       const f = s.coop.facilities.find((x) => x.id === cmd.facilityId);
       return f ? renovationCost(s, f) : null;
     }
+    case 'adoptTech': {
+      const t = techById(cmd.techId);
+      return t ? techCost(s, t) : null;
+    }
     default: return null;
   }
 }
@@ -52,7 +58,8 @@ export function boardGate(s: GameState, cmd: Command): { type: ProposalType; tit
     case 'buildElevator':
     case 'buildFacility':
     case 'upgradeFacility':
-    case 'renovateFacility': {
+    case 'renovateFacility':
+    case 'adoptTech': {
       const cost = capitalCost(s, cmd);
       if (cost === null || cost < nominalCents(pathFor(s), s.clock.monthIndex, s.governance.bylaws.capitalApproval)) return null;
       return { type: 'capitalProject', title: capitalTitle(s, cmd, cost) };
@@ -88,6 +95,7 @@ export function boardGate(s: GameState, cmd: Command): { type: ProposalType; tit
       case 'buildFacility': return `Build ${/^[aeiou]/i.test(KIND_LABEL[c.kind]) ? 'an' : 'a'} ${KIND_LABEL[c.kind].toLowerCase()} at ${town(c.townId)} (${m})`;
       case 'upgradeFacility': return `Expand ${st.coop.facilities.find((x) => x.id === c.facilityId)?.name} (${m})`;
       case 'renovateFacility': return `Renovate ${st.coop.facilities.find((x) => x.id === c.facilityId)?.name} (${m})`;
+      case 'adoptTech': return `Adopt ${techById(c.techId)?.name ?? 'technology'} (${m})`;
       default: return 'Capital project';
     }
   }
@@ -166,6 +174,10 @@ export function evaluate(s: GameState, item: AgendaItem): MeritVector {
             strategic += cap.storageBu > 0 && f.grain.seasonTurnedAway > 0 ? 0.3 : 0;
           } else strategic += 0.15;
         }
+      } else if (cmd.type === 'adoptTech') {
+        // Directors see proven technology as keeping up; first adopters are a gamble.
+        const t = techById(cmd.techId);
+        strategic += t && s.clock.monthIndex - toMonthIndex(t.firstYear, 1) > 60 ? 0.35 : 0.15;
       }
       if (division && division !== 'GRAIN') {
         const ts = trailing(s, division);

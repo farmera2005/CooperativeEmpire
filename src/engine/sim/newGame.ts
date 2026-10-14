@@ -1,5 +1,7 @@
 // New game setup and the founding sequence (DESIGN §3).
 
+import { emptyTech } from '../world/tech';
+import { emptyRegulation } from '../world/regulation';
 import { brandsAvailable, getBrand } from '../../data/brands';
 import { COOP_NAME_PATTERNS } from '../../data/names';
 import { REGIONS } from '../../data/regions/eccb';
@@ -135,6 +137,10 @@ export function newGame(setupIn: GameSetup): GameState {
     deals: [],
     jvs: [],
     integrationUntil: null,
+    tech: emptyTech(),
+    regulation: emptyRegulation(),
+    flags: {},
+    eventLog: [],
     competitors: [],
     inbox: [],
     nextInboxId: 1,

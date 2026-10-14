@@ -1,8 +1,11 @@
 // Scripted policies for the headless balance runner. Each returns the commands a player
 // following that policy would issue this month. They grow with each milestone.
 
+import { REGULATIONS, TECHNOLOGIES } from '../../data/events';
+import { affectedSites, complianceCost, isCompliant, ruleActive } from '../world/regulation';
+import { techCost, uncoveredSites } from '../world/tech';
 import { COMMODITIES } from '../../data/grain';
-import { monthOf } from '../core/calendar';
+import { monthOf, yearOf } from '../core/calendar';
 import { grainCapacity, type Components } from '../facilities/facilities';
 import { COMPONENTS, TYPICAL_SITE, type ComponentId, type FacilityKind } from '../../data/facilities';
 import { liquidity, memberEquity } from '../finance/lender';
@@ -135,6 +138,25 @@ function scripted(style: Style): Policy {
       // Only a well-capitalized co-op humors a director who wants more redemptions; the extra lapses with the demand.
       const fixed = red && eqRatio >= style.minEquityRatio + 0.1 ? red.target : 0;
       if (ep.redemption.budgetPctOfSavings !== pct || ep.redemption.budgetFixed !== fixed) cmds.push({ type: 'setRedemptionPolicy', policy: { ...ep.redemption, budgetPctOfSavings: pct, budgetFixed: fixed } });
+    }
+    if (style.manageEquity) {
+      // Meet new rules before the deadline, one site a month, while cash allows.
+      let room = liquidity(state) * 0.5;
+      for (const r of REGULATIONS) {
+        if (!ruleActive(state, r.id) || r.compliancePerSite <= 0) continue;
+        const f = affectedSites(state, r).find((x) => !isCompliant(state, r, x));
+        const cost = complianceCost(state, r);
+        if (f && cost <= room) {
+          cmds.push({ type: 'comply', ruleId: r.id, facilityId: f.id });
+          room -= cost;
+          break;
+        }
+      }
+      // Adopt proven, inexpensive technology a few years after it appears.
+      const year = yearOf(state.clock.monthIndex);
+      const assets = bs.totalAssets;
+      const tech = TECHNOLOGIES.find((t) => year >= t.firstYear + 4 && (t.kinds ? uncoveredSites(state, t).length > 0 : !state.tech.adopted[t.id] && !state.tech.pending.some((p) => p.id === t.id)) && techCost(state, t) <= Math.min(room, assets * 0.02));
+      if (tech) cmds.push({ type: 'adoptTech', techId: tech.id });
     }
     return cmds;
   };

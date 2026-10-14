@@ -2,6 +2,7 @@
 // stages: (proposed →) study → terms (optional diligence) → our board → members (mergers
 // and buyouts, both sides) → closing → integration. Closing posts a consolidation entry.
 
+import { ETHANOL_RETURN, ETHANOL_RETURN_FALLBACK } from '../../data/events';
 import { DEALS } from '../../data/competition';
 import type { SupplyDivision } from '../../data/supply';
 import { fiscalYearOf, formatMonth, isFiscalYearEnd, yearOf } from '../core/calendar';
@@ -479,8 +480,11 @@ function stepJointVentures(ctx: TickContext): void {
   if (!state.jvs.length) return;
   const rng = ctx.rng('deals.jv');
   state.jvs = state.jvs.map((jv) => {
-    const monthly = (jv.scale * DEALS.jvReturn.value * (1 + DEALS.jvSynergy.value)) / 12;
-    const earnings = roundCents(monthly * jv.sharePct * clamp(1 + rng.normal(0, 0.5), -1, 3));
+    // An ethanol stake earns with the crush margin; a division JV with its plants.
+    const monthly = jv.ethanol
+      ? (jv.scale * (ETHANOL_RETURN.value[yearOf(mi)] ?? ETHANOL_RETURN_FALLBACK)) / 12 / jv.sharePct
+      : (jv.scale * DEALS.jvReturn.value * (1 + DEALS.jvSynergy.value)) / 12;
+    const earnings = Math.max(-jv.investment, roundCents(monthly * jv.sharePct * clamp(1 + rng.normal(0, 0.5), -1, 3)));
     let x = { ...jv, investment: jv.investment + earnings, earningsYtd: jv.earningsYtd + earnings };
     if (earnings) post(state, { source: 'jv-earnings', memo: `Share of ${jv.name} earnings`, lines: [{ account: '1450', division: jv.division, amount: earnings }, { account: '8210', division: jv.division, amount: -earnings }] });
     if (isFiscalYearEnd(mi, state.setup.fiscalYearEndMonth)) {

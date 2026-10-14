@@ -1,6 +1,8 @@
 // Save schema migrations. Each entry upgrades a save from version N to N+1. Add one (with a
 // fixture test) whenever SCHEMA_VERSION changes.
 
+import { emptyTech } from '../world/tech';
+import { emptyRegulation } from '../world/regulation';
 import { SCHEMA_VERSION, type GameState } from '../types';
 import { emptyEquityProgram, emptyRegional } from '../finance/defaults';
 import { emptyBoardActivity } from '../governance/board';
@@ -84,6 +86,10 @@ export const MIGRATIONS: Record<number, (s: AnyState) => AnyState> = {
     s.deals ??= [];
     s.jvs ??= [];
     s.integrationUntil ??= null;
+    s.tech ??= emptyTech();
+    s.regulation ??= emptyRegulation();
+    s.flags ??= {};
+    s.eventLog ??= [];
     return { ...s, schemaVersion: 7 };
   },
 };

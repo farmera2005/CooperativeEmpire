@@ -10,6 +10,7 @@
 //   6. hedges rebalanced, inventory and DP liability marked to market, margin deposits
 //   7. fees, bond, report and margin breakdown
 
+import { techFactor } from '../world/tech';
 import {
   BU_PER_CAR, COMMODITIES, DRYING, FARM_HAUL_PER_MILE, FARM_YIELD_SD, FARMER_MARKETING, FEED_CORN_PER_HEAD, FEES,
   FACILITY_COSTS, HARVEST_CALENDAR, HEDGING, MAX_HAUL_MILES, ON_FARM_LARGE_BONUS, ON_FARM_SELL_SCHEDULE, ON_FARM_STORAGE,
@@ -128,7 +129,7 @@ export function stepGrain(ctx: TickContext): void {
   const idx = grainCostIndex(path, mi);
   const weather = state.world.weather;
   // People: the grain manager's merchandising and operations, and the crews' service.
-  const merch = effect(state, 'grain.basis') * idx;
+  const merch = (effect(state, 'grain.basis') + techFactor(state, 'basis')) * idx;
   const throughput = (1 + effect(state, 'grain.throughput')) * (1 - (state.people.workforce.GRAIN?.vacancy ?? 0));
   const crewPenalty = staffServicePenalty(state, 'GRAIN');
   const grainLead = holder(state, 'GRAIN');
@@ -513,7 +514,7 @@ export function stepGrain(ctx: TickContext): void {
         { account: '5000', division: 'GRAIN', amount: cogs + freight }, { account: '1200', division: 'GRAIN', amount: -cogs },
       ] });
       // Handling shrink on what moved through the house.
-      const lossBu = Math.min(p.ownedBu, shipped * SHRINK.handlingLoss.value);
+      const lossBu = Math.min(p.ownedBu, shipped * SHRINK.handlingLoss.value * techFactor(state, 'shrink'));
       const lossV = p.ownedBu > 0 ? roundCents((p.book * lossBu) / p.ownedBu) : 0;
       p.ownedBu -= lossBu;
       p.book -= lossV;

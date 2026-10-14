@@ -2,6 +2,7 @@
 // departures and misconduct; the workforce by division (turnover, vacancies, morale);
 // training & safety spending; workplace incidents.
 
+import { techFactor } from '../world/tech';
 import { STAFF } from '../../data/grain';
 import { INCIDENTS, LABOR_MARKET, MISCONDUCT, PEOPLE, ROLE_DEFS, SKILLS, STAFFING, TRAINING } from '../../data/people';
 import { valueAt } from '../../data/types';
@@ -180,7 +181,7 @@ function workforce(ctx: TickContext): void {
 
   // Incidents, site by site.
   const harvest = isHarvestMonth(mi);
-  const safety = 1 + effect(state, 'safety.incidents');
+  const safety = (1 + effect(state, 'safety.incidents')) * techFactor(state, 'incidents');
   const rate = valueAt(INCIDENTS.ratePerFte, ctx.year);
   for (const f of ops) {
     const morale = out[f.division]?.morale ?? 60;
@@ -220,6 +221,6 @@ export function stepPeople(ctx: TickContext): void {
   const vacant = p.needed.filter((r) => !holder(state, r)).length;
   state.governance.politicalCapital = Math.max(0, state.governance.politicalCapital - Math.round(vacant * PEOPLE.vacancyCapitalDrain.value));
   // Marketing: member relations nudge satisfaction.
-  const drift = effect(state, 'members.satisfaction');
+  const drift = effect(state, 'members.satisfaction') + techFactor(state, 'satisfaction');
   if (drift !== 0) for (const m of state.members.list) if (m.status === 'active' && m.kind === 'member') m.satisfaction = clamp(m.satisfaction + drift, 0, 100);
 }

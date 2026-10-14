@@ -6,6 +6,9 @@
 // Order per division: share of wallet → demand and sales by line → capacity limits →
 // purchases, inventory relief, LCM → prepay/prebuy → credit → report.
 
+import { techFactor } from '../world/tech';
+import { flagOn } from '../world/events';
+import { CHOICE_EFFECTS } from '../../data/events';
 import type { ComponentId, FacilityKind } from '../../data/facilities';
 import { DRYING } from '../../data/grain';
 import { REGIONS } from '../../data/regions/eccb';
@@ -159,7 +162,7 @@ export function stepSupply(ctx: TickContext): void {
     const ourAdv = -cfg.posturePct.value[pol.posture];
     const lateMem = book.lateMemory;
     // People: the division manager's selling and the crews' service.
-    const peopleU = effect(state, 'supply.share', d) - staffServicePenalty(state, d);
+    const peopleU = effect(state, 'supply.share', d) + (d === 'AGRONOMY' ? techFactor(state, 'supplyShare') : 0) - staffServicePenalty(state, d);
     const creditU = CREDIT.utility.value[pol.credit];
     const dist = state.world.distances;
 
@@ -229,7 +232,7 @@ export function stepSupply(ctx: TickContext): void {
     let lateShare = 0;
     if (d === 'AGRONOMY' && (acc.ours.APPLICATION ?? 0) > 0) {
       const rigs = cap(facs, 'applicator');
-      const perDay = valueAt(AGRONOMY_DEMAND.acresPerRigDay, year) * (1 + effect(state, 'agronomy.application')) * (1 - (state.people.workforce.AGRONOMY?.vacancy ?? 0));
+      const perDay = valueAt(AGRONOMY_DEMAND.acresPerRigDay, year) * (1 + effect(state, 'agronomy.application')) * techFactor(state, 'application') * (1 - (state.people.workforce.AGRONOMY?.vacancy ?? 0));
       const days = weather.fieldDays.reduce((a, b) => a + b, 0);
       const capAcres = rigs * perDay * days;
       const booked = acc.ours.APPLICATION!;
@@ -269,13 +272,15 @@ export function stepSupply(ctx: TickContext): void {
     if (d === 'ENERGY') {
       const trucks = cap(facs, 'fuel-truck');
       // Short of CDL drivers in a tight labor market, trucks sit.
-      const truckCap = trucks * valueAt(ENERGY_DEMAND.truckGalPerMonth, year) * (1 + effect(state, 'energy.delivery')) * (1 - (state.people.workforce.ENERGY?.vacancy ?? 0));
+      const truckCap = trucks * valueAt(ENERGY_DEMAND.truckGalPerMonth, year) * (1 + effect(state, 'energy.delivery')) * techFactor(state, 'delivery') * (1 - (state.people.workforce.ENERGY?.vacancy ?? 0));
       const gal = (['FUEL_DIESEL', 'FUEL_GAS', 'PROPANE'] as LineId[]).reduce((a, k) => a + (sold[k] ?? 0), 0);
       const ratio = gal > truckCap && gal > 0 ? truckCap / gal : 1;
       for (const k of ['FUEL_DIESEL', 'FUEL_GAS', 'PROPANE'] as LineId[]) sold[k] = (sold[k] ?? 0) * ratio;
       capacity.push({ label: 'Delivery trucks', used: gal, available: truckCap, unit: 'gal' });
       if (seriesRatio(path, 'propane', mi) > ENERGY_DEMAND.shortageRatio.value) {
-        sold.PROPANE = (sold.PROPANE ?? 0) * ENERGY_DEMAND.allocation.value;
+        // Our regional's allocation program (a 1973 decision) restores part of the shortfall.
+        const relief = flagOn(state, 'fuelProgram') ? CHOICE_EFFECTS.fuelProgramRelief.value : 0;
+        sold.PROPANE = (sold.PROPANE ?? 0) * (ENERGY_DEMAND.allocation.value + (1 - ENERGY_DEMAND.allocation.value) * relief);
         // Alert when allocation starts, not every month it lasts.
         if (open && (acc.ours.PROPANE ?? 0) > 0 && seriesRatio(path, 'propane', mi - 1) <= ENERGY_DEMAND.shortageRatio.value) ctx.inbox({ kind: 'alert', title: 'Propane supply on allocation', body: 'Our suppliers are allocating propane. We will be short of what customers need until supplies ease.' });
       }
