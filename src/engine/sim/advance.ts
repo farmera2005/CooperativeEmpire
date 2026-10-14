@@ -12,6 +12,8 @@ import { stepRegionalAnnual, stepRegionalPurchases } from '../finance/regionals'
 import { holdBoardMeeting } from '../governance/votes';
 import { stepPeople } from '../people/staff';
 import { stepNotes } from '../people/notes';
+import { stepCompetitors } from '../competitors/ai';
+import { stepDeals } from '../deals/deals';
 import { stepBoardRelations } from '../governance/review';
 import { stepAnnualMeeting, stepMemberDemocracy } from '../governance/elections';
 import { stepDepreciation, stepFacilityCosts, stepProjects } from '../facilities/facilities';
@@ -117,6 +119,9 @@ export function advanceMonth(state: GameState, decisions: Command[] = [], opts: 
     interrupts.push({ kind: 'fiscalYearEnd', text: `FY${r.fy}` });
   }
   stepBudget(ctx);
+  // 26. competitors move; deals advance (closings post entries, so before invariants)
+  stepCompetitors(ctx);
+  stepDeals(ctx);
   // 25. governance: board meeting, directors' goals and the GM review, annual meeting, petitions
   holdBoardMeeting(ctx);
   stepBoardRelations(ctx);
@@ -131,7 +136,7 @@ export function advanceMonth(state: GameState, decisions: Command[] = [], opts: 
     if (opts.strictInvariants !== false) throw new InvariantError(errors);
     interrupts.push({ kind: 'invariant', text: errors.join('; ') });
   }
-  // 26. competitor strategy — M7. 27. leaders' notes
+  // 26. competitor strategy, deals. 27. leaders' notes
   stepNotes(ctx);
   // 28. scorecard + history
   const snap = snapshot(w);

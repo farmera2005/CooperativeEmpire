@@ -79,6 +79,13 @@ export const MIGRATIONS: Record<number, (s: AnyState) => AnyState> = {
     s.people ??= emptyPeople();
     return { ...s, schemaVersion: 6 };
   },
+  // v6 → v7 (Milestone 7): deals, joint ventures, events with choices, technology, regulation.
+  6: (s) => {
+    s.deals ??= [];
+    s.jvs ??= [];
+    s.integrationUntil ??= null;
+    return { ...s, schemaVersion: 7 };
+  },
 };
 
 export interface SaveFile {

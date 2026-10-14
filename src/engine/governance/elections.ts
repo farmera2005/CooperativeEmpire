@@ -273,3 +273,22 @@ function holdMemberVote(ctx: TickContext, mv: MemberVote, rng: Rng): void {
     ctx.inbox({ kind: passed ? 'alert' : 'memo', title: passed ? 'Members recall a director' : 'Recall fails', body: `${mv.title}: ${Math.round(yesShare * 100)}% yes on ${Math.round(turnout * 100)}% turnout.${passed ? ' The members elected a critic of management to the seat.' : ''} Average member satisfaction: ${Math.round(averageSatisfaction(state))}.` });
   }
 }
+
+/**
+ * A member vote on a structural question (merger, sale of the co-op). `appeal` shifts every
+ * member's lean; satisfied members follow the board. Needs `threshold` of votes cast and quorum.
+ */
+export function memberReferendum(s: GameState, rng: Rng, appeal: number, threshold: number): { yesShare: number; turnout: number; passed: boolean } {
+  let yes = 0;
+  let cast = 0;
+  let eligible = 0;
+  for (const m of voters(s, null)) {
+    const t = Math.min(0.9, turnoutOf(m) * 1.5);
+    eligible += m.weight;
+    cast += m.weight * t;
+    yes += m.weight * t * sigmoid(3 * (appeal + (m.satisfaction - 50) / 100));
+  }
+  const yesShare = clamp((cast > 0 ? yes / cast : 0) + rng.normal(0, 0.03), 0, 1);
+  const turnout = eligible > 0 ? cast / eligible : 0;
+  return { yesShare, turnout, passed: turnout >= s.governance.bylaws.quorumPct && yesShare >= threshold };
+}

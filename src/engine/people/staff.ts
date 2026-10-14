@@ -16,6 +16,7 @@ import type { TickContext } from '../sim/context';
 import type { DivisionId, Facility, GameState, Leader, WorkforceDivision } from '../types';
 import { nominalCents } from '../world/macro';
 import { deliverSearches } from './hiring';
+import { integrationPenalty } from '../deals/deals';
 import { DIVISION_ROLE, effect, holder, narrow, roleDivision, rolesNeeded } from './leaders';
 
 export const tightness = (s: GameState): number => valueAt(LABOR_MARKET, Math.floor(s.clock.monthIndex / 12));
@@ -38,7 +39,7 @@ export function vacancyShare(s: GameState, f: Facility): number {
 export function staffServicePenalty(s: GameState, d: DivisionId): number {
   const w = s.people.workforce[d];
   // Relative to a normal year's turnover, so a typical crew costs nothing extra.
-  return w ? w.vacancy + STAFFING.turnoverService.value * Math.max(-0.05, w.turnover - STAFFING.baseTurnover.value) : 0;
+  return (w ? w.vacancy + STAFFING.turnoverService.value * Math.max(-0.05, w.turnover - STAFFING.baseTurnover.value) : 0) + integrationPenalty(s);
 }
 
 function leaderMonth(ctx: TickContext, l: Leader): Leader | null {

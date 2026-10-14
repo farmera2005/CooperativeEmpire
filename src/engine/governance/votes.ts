@@ -13,6 +13,7 @@ import { runCommand, type Command } from '../sim/commands';
 import type { AgendaItem, Director, DirectorVote, GameState, MeritVector, VoteRecord } from '../types';
 import { defaultProposal } from '../finance/defaults';
 import { evaluate, PROPOSAL_LABEL } from './proposals';
+import { dealBoardApproved, dealBoardRejected } from '../deals/deals';
 import { stream } from '../core/rng';
 
 export type Faction = 'growth' | 'conservative' | 'swing';
@@ -166,6 +167,8 @@ function execute(ctx: TickContext, item: AgendaItem): string {
     case 'budget':
       if (state.coop.budget) state.coop.budget.approved = true;
       return '';
+    case 'deal':
+      return dealBoardApproved(ctx, (item.command as { dealId: number }).dealId);
     case 'bylawRecommendation':
       if (!item.bylaw) return '';
       state.governance.memberVotes = [...state.governance.memberVotes, { id: item.id, kind: 'bylaw', title: item.title, bylaw: item.bylaw, meetingMonth: ctx.mi + 2, supermajority: true }];
@@ -182,6 +185,10 @@ function execute(ctx: TickContext, item: AgendaItem): string {
 function onRejected(ctx: TickContext, item: AgendaItem): AgendaItem | null {
   const { state } = ctx;
   const attempts = item.attempts + 1;
+  if (item.type === 'deal') {
+    dealBoardRejected(ctx, (item.command as { dealId: number }).dealId);
+    return null;
+  }
   if (item.type === 'patronage') {
     if (attempts >= 2) {
       state.coop.equityProgram.proposal = defaultProposal();

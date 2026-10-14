@@ -10,7 +10,7 @@ import type { Commodity } from '../data/grain';
 import type { Breakdown } from './core/breakdown';
 import type { Role, Skill, TraitId } from '../data/people';
 
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 export type DivisionId = 'GRAIN' | 'AGRONOMY' | 'FEED' | 'ENERGY' | 'RETAIL' | 'CORP';
 export const DIVISIONS: DivisionId[] = ['GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'RETAIL', 'CORP'];
@@ -275,7 +275,7 @@ export interface Bylaws {
 
 export type ProposalType =
   | 'capitalProject' | 'facilityClosure' | 'patronage' | 'redemptionPolicy' | 'budget' | 'affiliationChange'
-  | 'lenderChange' | 'borrowing' | 'riskPolicy' | 'creditPolicy' | 'bylawRecommendation';
+  | 'lenderChange' | 'borrowing' | 'riskPolicy' | 'creditPolicy' | 'bylawRecommendation' | 'deal';
 
 export type BylawChange =
   | { field: 'boardSize'; value: number }
@@ -899,6 +899,12 @@ export interface Competitor {
   ownerAge: number;
   /** Season bushels handled (for reports). */
   volumeYtd: number;
+  /** Simplified financial health 0–100 (D-012); set when competitor AI first runs. */
+  strength?: number;
+  /** A price war in progress: posture bump to remove when it ends. */
+  war?: { until: number; bump: number };
+  /** Last strategic move, for the competitor list. */
+  lastMove?: string;
 }
 
 // ---------- History snapshots ----------
@@ -1007,6 +1013,74 @@ export interface PeopleState {
   internalListed: Partial<Record<Role, number>>;
 }
 
+// ---------- Deals (DESIGN §14.6) ----------
+
+export type DealKind = 'merger' | 'divisionSale' | 'jv' | 'buyout';
+export type DealStage = 'proposed' | 'study' | 'terms' | 'board' | 'members' | 'closing' | 'integration' | 'closed' | 'dead';
+
+export interface DealPartner {
+  /** Strength 0–100 (true value; shown only after diligence). */
+  strength: number;
+  sites: number;
+  /** Fair value of the partner's plants, debt, net working capital, allocated equity (cents). */
+  fairValue: Cents;
+  debt: Cents;
+  workingCapital: Cents;
+  allocatedEquity: Cents;
+  members: number;
+}
+
+export interface DealTerms {
+  /** Name of the combined co-op (mergers). */
+  name: string;
+  /** Board seats for the partner's directors (mergers). */
+  partnerSeats: number;
+  /** Price (division sales, buyouts) in cents. */
+  price?: Cents;
+}
+
+export interface MemberVoteResult {
+  yesShare: number;
+  turnout: number;
+  passed: boolean;
+}
+
+export interface Deal {
+  id: number;
+  kind: DealKind;
+  /** Competitor id of the partner or buyer; null for an outside buyer. */
+  partnerId: number | null;
+  partnerName: string;
+  division?: OpDivision;
+  incoming: boolean;
+  stage: DealStage;
+  /** Month the current stage's work is done. */
+  stageUntil: number;
+  startedMonth: number;
+  /** What we believe about the partner (estimates until diligence) and the truth. */
+  estimate: DealPartner;
+  truth: DealPartner;
+  diligence: boolean;
+  terms: DealTerms | null;
+  ourMembers?: MemberVoteResult;
+  theirMembers?: MemberVoteResult;
+  log: string[];
+}
+
+export interface JointVenture {
+  id: number;
+  name: string;
+  partnerName: string;
+  division: OpDivision;
+  sharePct: number;
+  /** Book value of our investment (account 1450). */
+  investment: Cents;
+  /** Combined plants' replacement value at formation (cents, nominal then). */
+  scale: Cents;
+  formedMonth: number;
+  earningsYtd: Cents;
+}
+
 // ---------- Game ----------
 
 export interface GameState {
@@ -1022,6 +1096,10 @@ export interface GameState {
   governance: GovernanceState;
   coop: CoopState;
   people: PeopleState;
+  deals: Deal[];
+  jvs: JointVenture[];
+  /** Months of merger integration remaining (service suffers while systems combine). */
+  integrationUntil: number | null;
   competitors: Competitor[];
   inbox: InboxItem[];
   nextInboxId: number;

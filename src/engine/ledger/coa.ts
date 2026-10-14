@@ -39,6 +39,7 @@ export const ACCOUNTS: Account[] = [
   a('1320', 'Open grain contracts - gains', 'asset', 'operating', { bsGroup: 'currentAssets' }),
   a('1330', 'Prepaid expenses', 'asset', 'operating', { bsGroup: 'currentAssets' }),
   a('1400', 'Investments in other cooperatives', 'asset', 'investing', { bsGroup: 'investments' }),
+  a('1450', 'Investment in joint ventures', 'asset', 'investing', { bsGroup: 'investments' }),
   a('1500', 'Land', 'asset', 'investing', { bsGroup: 'fixedAssets' }),
   a('1510', 'Buildings & structures', 'asset', 'investing', { bsGroup: 'fixedAssets' }),
   a('1520', 'Machinery & equipment', 'asset', 'investing', { bsGroup: 'fixedAssets' }),
@@ -90,6 +91,7 @@ export const ACCOUNTS: Account[] = [
   a('8100', 'Patronage income - regionals', 'otherIncome', 'income', { isGroup: 'patronageIncome' }),
   a('8110', 'Patronage income - lender', 'otherIncome', 'income', { isGroup: 'patronageIncome' }),
   a('8200', 'Other income / gain on sale', 'otherIncome', 'income', { isGroup: 'otherIncome' }),
+  a('8210', 'Equity in joint venture earnings', 'otherIncome', 'income', { isGroup: 'otherIncome' }),
   a('8300', 'Non-operating gains & losses', 'otherIncome', 'income', { isGroup: 'otherIncome' }),
   a('9000', 'Income tax expense', 'tax', 'income', { isGroup: 'tax' }),
 ];

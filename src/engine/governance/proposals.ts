@@ -8,7 +8,7 @@ import { formatCents } from '../core/format';
 import { clamp } from '../core/math';
 import type { Cents } from '../core/money';
 import { estimateProject, renovationCost, specComponents } from '../facilities/actions';
-import { grainCapacity } from '../facilities/facilities';
+import { grainCapacity, netBookValue } from '../facilities/facilities';
 import { covenantSet } from '../finance/covenants';
 import { lineRate, liquidity, memberEquity } from '../finance/lender';
 import { equityOverview, previewDistribution } from '../finance/selectors';
@@ -21,7 +21,7 @@ import { nominalCents, pathFor } from '../world/macro';
 
 export const PROPOSAL_LABEL: Record<ProposalType, string> = {
   capitalProject: 'Capital project', facilityClosure: 'Facility closure', patronage: 'Patronage distribution', redemptionPolicy: 'Redemption policy',
-  budget: 'Annual budget', affiliationChange: 'Regional affiliation', lenderChange: 'Change of lender', borrowing: 'Borrowing',
+  budget: 'Annual budget', deal: 'Merger, sale or joint venture', affiliationChange: 'Regional affiliation', lenderChange: 'Change of lender', borrowing: 'Borrowing',
   riskPolicy: 'Grain risk policy', creditPolicy: 'Customer credit policy', bylawRecommendation: 'Bylaw amendment',
 };
 
@@ -302,6 +302,42 @@ export function evaluate(s: GameState, item: AgendaItem): MeritVector {
       v.memberCashEffect = 0.2;
       v.riskScore = clamp(0.3 + stress, 0, 1);
       v.controversy = 0.3;
+      break;
+    }
+    case 'deal': {
+      const d = s.deals.find((x) => x.id === (item.command as { dealId?: number } | undefined)?.dealId);
+      if (!d) break;
+      const e = d.estimate;
+      const ours = s.coop.facilities.filter((f) => f.status !== 'closed');
+      if (d.kind === 'merger') {
+        const near = s.competitors.find((c) => c.id === d.partnerId)?.sites.some((x) => ours.some((f) => (s.world.distances[f.townId]?.[x.townId] ?? 99) <= 20)) ?? false;
+        v.trueMerit = clamp((e.strength - 45) / 50 + (near ? 0.2 : 0) - (e.debt > e.fairValue * 0.6 ? 0.3 : 0) - (d.diligence ? 0 : 0.15), -1, 1);
+        v.headlineMerit = 0.2;
+        v.growth = 1;
+        v.controversy = 0.6;
+        v.notes.push(`${d.partnerName}: ${e.sites} site(s), plants ${formatCents(e.fairValue)}, debt ${formatCents(e.debt)}${d.diligence ? '' : ' (estimates; no diligence)'}`);
+      } else if (d.kind === 'jv') {
+        v.trueMerit = clamp(0.25 + (e.strength - 50) / 100, -1, 1);
+        v.headlineMerit = 0.1;
+        v.controversy = 0.4;
+        if (d.division) v.divisionEffects[d.division] = -0.5;
+      } else if (d.kind === 'divisionSale') {
+        const ts = trailing(s, d.division!);
+        const book = s.coop.facilities.filter((f) => f.division === d.division && f.status !== 'closed').reduce((a, f) => a + netBookValue(s, f.id), 0) + d.truth.workingCapital;
+        v.trueMerit = clamp(((d.terms?.price ?? 0) / Math.max(1, book) - 1) + (ts.localSavings < 0 ? 0.35 : -0.3), -1, 1);
+        v.headlineMerit = -0.3;
+        v.growth = -1;
+        v.controversy = 0.6;
+        if (d.division) v.divisionEffects[d.division] = -1;
+        v.notes.push(`Price ${formatCents(d.terms?.price ?? 0)} vs book ${formatCents(book)}; the division ${ts.localSavings < 0 ? 'lost' : 'made'} ${formatCents(Math.abs(ts.localSavings))} last year`);
+      } else {
+        const premium = (d.terms?.price ?? 0) / Math.max(1, balanceSheet(s.ledger, s.clock.monthIndex).totalEquity);
+        v.trueMerit = clamp(premium - 1.1 + (s.coop.finance.status !== 'standard' ? 0.4 : -0.2), -1, 1);
+        v.headlineMerit = -0.5;
+        v.growth = -1;
+        v.controversy = 0.9;
+        v.notes.push(`Offer is ${Math.round(premium * 100)}% of member equity`);
+      }
       break;
     }
     case 'bylawRecommendation': {

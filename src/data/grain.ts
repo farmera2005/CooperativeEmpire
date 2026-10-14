@@ -28,13 +28,15 @@ export const GRAIN_COST_INDEX: AnnualPoint[] = [
   { year: 2024, value: 1.0, confidence: 'low' },
 ];
 
-export type DestinationKind = 'processor' | 'riverTerminal' | 'exportRail';
+export type DestinationKind = 'processor' | 'riverTerminal' | 'exportRail' | 'ethanol';
 
 /** Destination basis vs nearby futures (2024 $/bu), annual average. */
 export const DEST_BASIS: Record<DestinationKind, Record<Commodity, number>> = {
   processor: { corn: 0.0, soybeans: -0.05, wheat: -0.15 },
   riverTerminal: { corn: -0.1, soybeans: -0.08, wheat: -0.15 },
   exportRail: { corn: 0.7, soybeans: 0.8, wheat: 0.6 },
+  /** Ethanol plants (M7) bid a premium for corn at the plant; see ETHANOL in competition.ts. */
+  ethanol: { corn: 0.12, soybeans: -9, wheat: -9 },
 };
 export const DEST_BASIS_CONFIDENCE = s('see table', 'low', 'Interior processor, Illinois River terminal and rail-export/feeder destination basis, 2024 $/bu');
 

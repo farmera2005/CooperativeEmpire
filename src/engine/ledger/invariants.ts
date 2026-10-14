@@ -108,6 +108,8 @@ export function checkInvariants(state: GameState): string[] {
   for (const v of Object.values(state.coop.regional.equity)) for (const y in v) inv += v[y];
   for (const v of Object.values(state.coop.finance.lenderEquity)) for (const y in v) inv += v[y];
   if (inv !== glOf('1400')) errors.push(`Regional + lender equity ${inv} != GL ${glOf('1400')}`);
+  const jv = state.jvs.reduce((a, x) => a + x.investment, 0);
+  if (jv !== glOf('1450')) errors.push(`Joint ventures ${jv} != GL ${glOf('1450')}`);
 
   return errors;
 }

@@ -16,7 +16,8 @@ import { boardGate } from '../governance/proposals';
 import { addAgendaItem } from '../governance/votes';
 import type { Role } from '../../data/people';
 import { checkReferences, coach, fire, giveRaise, hire, interview, listInternal, poach, setBonusPlan, startSearch } from '../people/hiring';
-import type { BylawChange, TrainingLevel, GameState, GrainPolicy, PatronageProposal, PayPosition, RedemptionPolicy, StaffLevel, SupplyPolicy } from '../types';
+import { abandonDeal, dealDiligence, proposeDivisionSale, proposeJv, proposeMerger, respondDeal, submitDeal } from '../deals/deals';
+import type { BylawChange, DealTerms, OpDivision, TrainingLevel, GameState, GrainPolicy, PatronageProposal, PayPosition, RedemptionPolicy, StaffLevel, SupplyPolicy } from '../types';
 import type { RegionalCategory } from '../../data/finance';
 import { validateProposal } from '../finance/patronage';
 import { setAffiliation } from '../finance/regionals';
@@ -67,7 +68,14 @@ export type Command =
   | { type: 'coach'; leaderId: number }
   | { type: 'setBonusPlan'; leaderId: number; on: boolean }
   | { type: 'giveRaise'; leaderId: number }
-  | { type: 'setTraining'; level: TrainingLevel };
+  | { type: 'setTraining'; level: TrainingLevel }
+  | { type: 'proposeMerger'; partnerId: number }
+  | { type: 'proposeJv'; partnerId: number; division: OpDivision }
+  | { type: 'proposeDivisionSale'; division: OpDivision }
+  | { type: 'respondDeal'; dealId: number; accept: boolean }
+  | { type: 'dealDiligence'; dealId: number }
+  | { type: 'submitDeal'; dealId: number; terms: DealTerms }
+  | { type: 'abandonDeal'; dealId: number };
 
 export interface CommandMessage {
   level: 'info' | 'warning' | 'error';
@@ -223,6 +231,13 @@ function run(s: GameState, cmd: Command): CommandMessage[] {
     case 'coach': return coach(s, cmd.leaderId);
     case 'setBonusPlan': return setBonusPlan(s, cmd.leaderId, cmd.on);
     case 'giveRaise': return giveRaise(s, cmd.leaderId);
+    case 'proposeMerger': return proposeMerger(s, cmd.partnerId);
+    case 'proposeJv': return proposeJv(s, cmd.partnerId, cmd.division);
+    case 'proposeDivisionSale': return proposeDivisionSale(s, cmd.division);
+    case 'respondDeal': return respondDeal(s, cmd.dealId, cmd.accept);
+    case 'dealDiligence': return dealDiligence(s, cmd.dealId);
+    case 'submitDeal': return submitDeal(s, cmd.dealId, cmd.terms);
+    case 'abandonDeal': return abandonDeal(s, cmd.dealId);
     case 'setTraining':
       s.people.training = cmd.level;
       return [{ level: 'info', text: `Training & safety budget set to ${cmd.level}.` }];

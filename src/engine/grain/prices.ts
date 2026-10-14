@@ -1,6 +1,7 @@
 // Grain prices for a month: futures, destination basis, the local market bid, our bid,
 // carry, and freight. Everything the farmer and the merchandiser compare.
 
+import { ETHANOL } from '../../data/competition';
 import {
   BASIS_SEASON, DEST_BASIS, GRAIN_COST_INDEX, HEDGING, NORMAL_MARGIN, POSTURE_BID, RAIL_FREIGHT, TRUCK_FREIGHT,
   type Commodity, type DestinationKind,
@@ -30,6 +31,9 @@ export function destinationAccepts(d: Destination, c: Commodity): boolean {
 
 /** Truck miles from a town to an off-map destination: to the map edge it sits beyond, plus beyond. */
 export function milesToDestination(world: Pick<WorldState, 'width' | 'height'>, town: Pick<Town, 'x' | 'y'> | null, d: Destination): number {
+  // Plants on the map (ethanol): road miles from the town.
+  const onMap = d.x >= 0 && d.x <= world.width && d.y >= 0 && d.y <= world.height;
+  if (onMap) return town ? Math.hypot(town.x - d.x, town.y - d.y) * ETHANOL.roadFactor : Math.min(world.width, world.height) / 2;
   if (!town) return d.milesFromEdge + Math.min(world.width, world.height) / 2;
   let inside = 0;
   if (d.x < 0) inside = town.x;
@@ -60,7 +64,7 @@ export interface SaleOption {
 export function bestTruckSale(state: GameState, c: Commodity, mi: number, idx: number, town: Town | null): SaleOption | null {
   let best: SaleOption | null = null;
   for (const d of state.world.destinations) {
-    if (d.kind !== 'processor' && d.kind !== 'riverTerminal') continue;
+    if (d.kind !== 'processor' && d.kind !== 'riverTerminal' && d.kind !== 'ethanol') continue;
     if (!destinationAccepts(d, c)) continue;
     const gross = destinationBasis(state, d.kind, c, mi, idx);
     const freight = truckFreight(milesToDestination(state.world, town, d), idx);
