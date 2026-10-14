@@ -65,7 +65,10 @@ export function stepCompetitors(ctx: TickContext): void {
     }
     // Two weak neighbouring co-ops merge with each other.
     if (c.kind === 'coop' && st < ai.mergeBelow.value && rng.chance(ai.mergeProb.value)) {
+      // Only co-ops in the same business combine: posture is $/bu for grain but percent of
+      // price for farm supply, so one competitor must not span both.
       const partner = active.find((x) => x !== c && x.status === 'active' && x.kind === 'coop' && (x.strength ?? 50) < ai.mergeBelow.value + 10
+        && isGrain(x) === isGrain(c) && (x.sites[0].division ?? 'GRAIN') === (c.sites[0].division ?? 'GRAIN')
         && x.sites.some((a) => c.sites.some((b) => milesBetween(state, a.townId, b.townId) <= ai.mergeMiles)));
       if (partner) {
         c.sites = [...c.sites, ...partner.sites.map((site, i) => ({ ...site, id: c.sites.length + i + 1 }))];
