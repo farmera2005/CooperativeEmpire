@@ -103,8 +103,8 @@ export function stepCompetitors(ctx: TickContext): void {
     }
   }
   if (ctx.month === 12) {
-    shuttleBuildOut(ctx, rng);
-    ethanolBuildOut(ctx, rng);
+    shuttleBuildOut(ctx, ctx.rng('competitors.shuttle'));
+    ethanolBuildOut(ctx, ctx.rng('competitors.ethanol'));
   }
 }
 
