@@ -58,7 +58,7 @@ Internal checkpoints (commit each): M3a Agronomy → M3b Feed → M3c Energy →
 - Leader monthly notes with skill-dependent accuracy. People screen.
 - **Playtest:** hire a Gunslinger vs a Disciplined Hedger; run lean staffing through harvest.
 
-## M7 — World in motion
+## M7 — World in motion ✅ complete
 - Competitor AI (invest, price war, fail, merge, approach us), nationals per history (shuttle loaders, ethanol plants, big boxes).
 - Mergers/acquisitions/JVs/division sales full state machine.
 - Historical events expanded with rule/entity effects and choices; random events; technology tree; regulations (UST, ELD, VFD, nutrient rules, etc.).

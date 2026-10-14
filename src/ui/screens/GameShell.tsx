@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { balance, formatMonth, fiscalYearOf, STATUS_LABEL } from '../../engine/index';
+import { balance, formatMonth, fiscalYearOf, openDecisions, STATUS_LABEL } from '../../engine/index';
 import { money } from '../format';
 import { useStore, type Tab } from '../store';
 import { Dashboard } from './Dashboard';
@@ -15,6 +15,8 @@ import { SupplyScreen } from './SupplyScreen';
 import { EquityScreen } from './EquityScreen';
 import { LenderScreen } from './LenderScreen';
 import { PeopleScreen } from './PeopleScreen';
+import { DealsScreen } from './DealsScreen';
+import { OperationsScreen } from './OperationsScreen';
 
 const TABS: { id: Tab; label: string; key: string }[] = [
   { id: 'dashboard', label: 'Dashboard', key: '1' },
@@ -27,6 +29,8 @@ const TABS: { id: Tab; label: string; key: string }[] = [
   { id: 'financials', label: 'Financials', key: '8' },
   { id: 'equity', label: 'Equity & Patronage', key: '9' },
   { id: 'lender', label: 'Regional & Lender', key: '0' },
+  { id: 'operations', label: 'Operations & Tech', key: 'O' },
+  { id: 'deals', label: 'Deals & Competitors', key: 'D' },
   { id: 'people', label: 'People', key: 'P' },
   { id: 'board', label: 'Board Room', key: 'B' },
   { id: 'saves', label: 'Save / Load', key: 'S' },
@@ -54,6 +58,7 @@ export function GameShell() {
   }, [setTab, endMonth, advanceUntil]);
 
   const unread = game.inbox.filter((i) => !i.read).length;
+  const decisions = openDecisions(game).length;
   const cash = balance(game.ledger, '1000');
   const line = -balance(game.ledger, '2000');
   const fy = fiscalYearOf(game.clock.monthIndex, game.setup.fiscalYearEndMonth);
@@ -69,11 +74,11 @@ export function GameShell() {
           <button key={t.id} onClick={() => setTab(t.id)} aria-current={tab === t.id}
             className={`flex items-center justify-between px-3 py-2 text-left text-sm hover:bg-[#e0d8bf] ${tab === t.id ? 'bg-[#d9cfae] font-semibold' : ''}`}>
             <span>{t.label}</span>
-            <span className="text-xs text-stone-500">{t.id === 'inbox' && unread ? <b className="rounded bg-rust px-1.5 text-white">{unread}</b> : t.key}</span>
+            <span className="text-xs text-stone-500">{t.id === 'inbox' && (unread || decisions) ? <b className="rounded bg-rust px-1.5 text-white">{decisions ? `${decisions}!` : unread}</b> : t.key}</span>
           </button>
         ))}
         <div className="mt-auto p-3 text-xs text-stone-500">
-          Keys: 0–9, P, B, S screens, E end month, A advance until something needs attention.
+          Keys: 0–9, O, D, P, B, S screens, E end month, A advance until something needs attention.
           <div className="mt-1">{autosave}</div>
         </div>
       </nav>
@@ -104,6 +109,8 @@ export function GameShell() {
           {tab === 'financials' && <FinancialsScreen />}
           {tab === 'equity' && <EquityScreen />}
           {tab === 'lender' && <LenderScreen />}
+          {tab === 'operations' && <OperationsScreen />}
+          {tab === 'deals' && <DealsScreen />}
           {tab === 'people' && <PeopleScreen />}
           {tab === 'board' && <BoardScreen />}
           {tab === 'saves' && <SavesScreen />}

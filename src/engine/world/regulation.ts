@@ -35,7 +35,8 @@ export function isCompliant(s: GameState, r: RegulationDef, f: Facility): boolea
   if (r.compliancePerSite <= 0) return true;
   const on = s.regulation.active[r.id];
   if (on === undefined) return true;
-  return !!s.regulation.compliant[key(r, f)] || f.builtYear > yearOf(on) || f.acquiredMonth > on && f.builtYear >= yearOf(on);
+  // A plant built once the rule is on the books is built to it.
+  return !!s.regulation.compliant[key(r, f)] || f.builtYear >= (r.fromYear ?? yearOf(on));
 }
 
 export const complianceCost = (s: GameState, r: RegulationDef) => nominalCents(pathFor(s), s.clock.monthIndex, r.compliancePerSite);

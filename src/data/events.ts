@@ -138,6 +138,7 @@ export interface ChoiceOption {
 
 export interface HistoryChoice {
   eventId: string;
+  title: string;
   question: string;
   options: ChoiceOption[];
   defaultId: string;
@@ -145,21 +146,21 @@ export interface HistoryChoice {
 
 export const HISTORY_CHOICES: HistoryChoice[] = [
   {
-    eventId: 'oil-embargo-1973', question: 'Fuel is being allocated. How do we keep our energy customers supplied?', defaultId: 'spot',
+    eventId: 'oil-embargo-1973', title: 'Decision: fuel supply during the embargo', question: 'Fuel is being allocated. How do we keep our energy customers supplied?', defaultId: 'spot',
     options: [
       { id: 'program', label: 'Join our regional\'s allocation program', detail: 'A fee of about $20,000 (2024 $) buys priority supply: propane and diesel allocation eases while shortages last.' },
       { id: 'spot', label: 'Buy what we can on the spot market', detail: 'No fee; we live with the federal allocation like everyone else.' },
     ],
   },
   {
-    eventId: 'farm-crisis-1984', question: 'Members are falling behind on their accounts. What is our policy?', defaultId: 'tighten',
+    eventId: 'farm-crisis-1984', title: 'Decision: credit policy in the farm crisis', question: 'Members are falling behind on their accounts. What is our policy?', defaultId: 'tighten',
     options: [
       { id: 'restructure', label: 'Restructure members\' debts', detail: 'Turn past-due accounts into notes. Bad debt is spread out, members are grateful, but cash is tied up.' },
       { id: 'tighten', label: 'Tighten credit and collect', detail: 'Protects the balance sheet; members in trouble will remember.' },
     ],
   },
   {
-    eventId: 'ethanol-boom-2006', question: 'Local investors are raising money for an ethanol plant and want the co-op in.', defaultId: 'decline',
+    eventId: 'ethanol-boom-2006', title: 'Decision: invest in a local ethanol plant?', question: 'Local investors are raising money for an ethanol plant and want the co-op in.', defaultId: 'decline',
     options: [
       { id: 'invest', label: 'Invest $1 million (2024 $) for a minority stake', detail: 'Returns follow the ethanol margin: rich in the boom, poor in the 2012 drought and 2020.' },
       { id: 'decline', label: 'Stay out', detail: 'Keep our capital for our own plants.' },

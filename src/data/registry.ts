@@ -1,6 +1,8 @@
 // Everything in the data layer, for the data-review generator.
 
 import * as brands from './brands';
+import * as competition from './competition';
+import * as events from './events';
 import * as facilities from './facilities';
 import * as finance from './finance';
 import * as governance from './governance';
@@ -25,5 +27,7 @@ export const DATA_REGISTRY: Record<string, Record<string, unknown>> = {
   'finance.ts': finance as unknown as Record<string, unknown>,
   'governance.ts': governance as unknown as Record<string, unknown>,
   'people.ts': people as unknown as Record<string, unknown>,
+  'competition.ts': competition as unknown as Record<string, unknown>,
+  'events.ts': events as unknown as Record<string, unknown>,
   'regions/eccb.ts': eccb as unknown as Record<string, unknown>,
 };

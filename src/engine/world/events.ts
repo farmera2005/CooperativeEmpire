@@ -39,7 +39,7 @@ export function stepHistoryChoices(ctx: TickContext, fired: string[]): void {
     const q = HISTORY_CHOICES.find((c) => c.eventId === id);
     if (!q) continue;
     if (id === 'oil-embargo-1973' && !ctx.state.coop.facilities.some((f) => f.division === 'ENERGY' && f.status !== 'closed')) continue;
-    addChoice(ctx.state, { kind: 'memo', title: 'Decision needed', body: q.question }, { options: q.options, defaultId: q.defaultId, handler: id });
+    addChoice(ctx.state, { kind: 'memo', title: q.title, body: q.question }, { options: q.options, defaultId: q.defaultId, handler: id });
   }
 }
 
