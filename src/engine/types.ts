@@ -10,7 +10,7 @@ import type { Commodity } from '../data/grain';
 import type { Breakdown } from './core/breakdown';
 import type { Role, Skill, TraitId } from '../data/people';
 
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 export type DivisionId = 'GRAIN' | 'AGRONOMY' | 'FEED' | 'ENERGY' | 'RETAIL' | 'CORP';
 export const DIVISIONS: DivisionId[] = ['GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'RETAIL', 'CORP'];
@@ -1096,6 +1096,39 @@ export interface JointVenture {
   earningsYtd: Cents;
 }
 
+// ---------- Annual reports (DESIGN §18) ----------
+
+/** The year's results, recorded at fiscal year end; patronage is joined from the equity history. */
+export interface AnnualReport {
+  fy: number;
+  closedMonth: number;
+  coopName: string;
+  sales: Cents;
+  grossRevenue: Cents;
+  totalOpex: Cents;
+  interestNet: Cents;
+  patronageIncome: Cents;
+  savingsBeforeTax: Cents;
+  divisions: { division: OpDivision; sales: Cents; grossRevenue: Cents; localSavings: Cents }[];
+  totalAssets: Cents;
+  totalEquity: Cents;
+  totalDebt: Cents;
+  workingCapital: Cents;
+  currentRatio: number;
+  ownerEquityPct: number;
+  activeMembers: number;
+  activeFarms: number;
+  avgSatisfaction: number;
+  grainBu: number;
+  facilities: number;
+  lenderStatus: string;
+  boardConfidence: number;
+  chair: string;
+  directors: string[];
+  highlights: string[];
+  news: string[];
+}
+
 // ---------- Technology and regulation (DESIGN §17.3–17.4) ----------
 
 export interface TechState {
@@ -1136,6 +1169,8 @@ export interface GameState {
   regulation: RegulationState;
   /** Temporary conditions from decisions, by flag → month it ends. */
   flags: Record<string, number>;
+  /** Annual reports, one per closed fiscal year. */
+  reports: AnnualReport[];
   /** Recent random events that struck us. */
   eventLog: { monthIndex: number; id: string; facilityId: number; cost: Cents }[];
   competitors: Competitor[];

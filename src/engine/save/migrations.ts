@@ -92,6 +92,11 @@ export const MIGRATIONS: Record<number, (s: AnyState) => AnyState> = {
     s.eventLog ??= [];
     return { ...s, schemaVersion: 7 };
   },
+  // v7 → v8 (Milestone 8): annual reports.
+  7: (s) => {
+    s.reports ??= [];
+    return { ...s, schemaVersion: 8 };
+  },
 };
 
 export interface SaveFile {

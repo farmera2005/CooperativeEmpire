@@ -66,7 +66,8 @@ export const SHUTTLE_TRAIN_BU = s(400_000, 'medium', '110 cars');
 export const SHUTTLE_PENALTY = s(25_000, 'low');
 
 /** A typical country elevator's handling margin (2024 $/bu): local bid = best truck destination − this. */
-export const NORMAL_MARGIN: Record<Commodity, number> = { corn: 0.15, soybeans: 0.15, wheat: 0.19 };
+/** Country elevator buy–sell spread built into the local bid (2024 $/bu); mid-range of the 15–30¢ typical of country houses (D-088). */
+export const NORMAL_MARGIN: Record<Commodity, number> = { corn: 0.18, soybeans: 0.18, wheat: 0.22 };
 /** Bid adjustment by pricing posture (2024 $/bu). Aggressive bids more. */
 export const POSTURE_BID = s({ aggressive: 0.04, market: 0, premium: -0.04 }, 'low');
 
@@ -213,6 +214,8 @@ export const HEDGING = {
   inversionSlope: s(3, 'low'),
   /** Hold grain when expected monthly storage return exceeds this (2024 $/bu) by carry appetite. */
   carryAppetiteThreshold: s({ low: 0.01, normal: 0, high: -0.01 }, 'low'),
+  /** Below this share of the line left undrawn, owned grain is sold rather than stored (D-089). */
+  creditTightShare: s(0.15, 'low'),
   /** Withdraw excess margin when the account exceeds requirement × trigger, down to × target. */
   marginExcessTrigger: s(1.25, 'low'),
   marginExcessTarget: s(1.1, 'low'),

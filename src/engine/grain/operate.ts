@@ -29,7 +29,7 @@ import { hash128 } from '../core/rng';
 import { roundCents } from '../core/money';
 import { clamp } from '../core/math';
 import { post } from '../ledger/ledger';
-import { lineRate } from '../finance/lender';
+import { borrowingBase, lineDrawn, lineRate } from '../finance/lender';
 import { addFyLine } from '../finance/defaults';
 import { effect, holder } from '../people/leaders';
 import { staffServicePenalty } from '../people/staff';
@@ -285,7 +285,11 @@ export function stepGrain(ctx: TickContext): void {
     const cap = grainCapacity(f.components);
     const space = cap.storageBu + cap.pileBu;
     const shipCaps = shipCapacities(state, f, mi);
-    // Monthly merchandising plan: how much owned grain to move.
+    // Monthly merchandising plan: how much owned grain to move. A merchandiser short of credit
+    // (little room left on the line, or over it) sells rather than storing for carry (D-089).
+    const fin = state.coop.finance;
+    const limit = Math.min(fin.lineCommitment, borrowingBase(state));
+    const creditTight = fin.overLimit || limit - lineDrawn(state) < limit * HEDGING.creditTightShare.value;
     const plan = zero();
     for (const c of COMMODITIES) {
       const p = g.pos[c];
@@ -296,7 +300,7 @@ export function stepGrain(ctx: TickContext): void {
       const holdGain = carry[c] + basisAppreciationNext(c, mi, idx) - (value * lineRate(state)) / 100 / 12;
       const thresh = HEDGING.carryAppetiteThreshold.value[pol.carryAppetite] * idx;
       const preHarvest = c === 'wheat' ? month === 5 || month === 6 : month === 8 || month === 9;
-      if (holdGain < thresh || preHarvest) plan[c] = ownedHere;
+      if (holdGain < thresh || preHarvest || creditTight) plan[c] = ownedHere;
     }
     shipPlan.set(f.id, plan);
     const remainingShip = { rail: shipCaps.railBu, truck: shipCaps.truckBu };

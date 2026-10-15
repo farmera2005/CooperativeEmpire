@@ -141,6 +141,7 @@ export function newGame(setupIn: GameSetup): GameState {
     regulation: emptyRegulation(),
     flags: {},
     eventLog: [],
+    reports: [],
     competitors: [],
     inbox: [],
     nextInboxId: 1,

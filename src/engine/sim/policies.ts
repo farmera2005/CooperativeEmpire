@@ -1,6 +1,7 @@
 // Scripted policies for the headless balance runner. Each returns the commands a player
 // following that policy would issue this month. They grow with each milestone.
 
+import { marketValue } from '../world/marketPath';
 import { nominalCents } from '../world/macro';
 import { totalAcres } from '../members/generate';
 import { forecastDealVote } from '../deals/vote';
@@ -82,7 +83,12 @@ function scripted(style: Style): Policy {
       const overhead = nominalCents(pathFor(state), state.clock.monthIndex, 3 * BOT_OVERHEAD_2024);
       const draw = (townId: number) => state.members.list.reduce((a, m) => a + (m.status === 'active' && (state.world.distances[townId]?.[m.townId] ?? Infinity) <= 15 ? totalAcres(m) * 150 * 0.35 * m.weight : 0), 0);
       const score = (o: (typeof affordable)[number]) => Math.min(grainCapacity(o.components).storageBu, 0.5 * draw(o.townId)) / (trueCost(o) + overhead);
-      const pick = style.manageEquity ? [...affordable].sort((a, b) => score(b) - score(a) || a.id - b.id)[0] : affordable[0];
+      // The lender's line (about five times equity) must carry a reasonable fill of grain; buying
+      // swaps cash for plant, so equity is unchanged. With nothing that fits, a co-op with no
+      // house still buys its best option.
+      const fits = affordable.filter((o) => grainCapacity(o.components).storageBu * 0.4 * marketValue(pathFor(state), 'corn', state.clock.monthIndex) * 100 <= Math.max(0, equity) * 5);
+      const pool = fits.length || owned.length ? fits : affordable;
+      const pick = style.manageEquity ? [...pool].sort((a, b) => score(b) - score(a) || a.id - b.id)[0] : affordable[0];
       if (pick) {
         if (style.diligence && !pick.diligenceDone) cmds.push({ type: 'dueDiligence', offerId: pick.id });
         else cmds.push({ type: 'buyFacility', offerId: pick.id, financePct: style.financePct });

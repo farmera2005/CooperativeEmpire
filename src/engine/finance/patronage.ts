@@ -10,6 +10,7 @@
 //        nonqualified (3300) equity by vintage, and unallocated retained earnings (3400).
 //   F+4  annual meeting: cash patronage, redemptions and income tax are paid.
 
+import { recordAnnualReport } from '../reports/annual';
 import { addGrievance } from '../members/grievances';
 import { PATRONAGE } from '../../data/finance';
 import { QUALIFIED_MIN_CASH_PCT } from '../../data/law';
@@ -315,6 +316,8 @@ export function closeFiscalYearCycle(ctx: TickContext): FiscalResult {
     post(state, { source: 'tax-accrual', memo: `Estimated income tax, fiscal ${fy}`, lines: [{ account: '9000', division: 'CORP', amount: est }, { account: '2170', division: 'CORP', amount: -est }] });
   }
   result.estimatedTax = est;
+  // Record the year for the annual report before the income accounts close.
+  recordAnnualReport(ctx, fy);
   closeFiscalYear(state, '3900');
   ep.pending = result;
   ep.nqRedeemedFY = 0;
