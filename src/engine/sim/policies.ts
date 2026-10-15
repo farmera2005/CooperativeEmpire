@@ -29,7 +29,6 @@ const BOT_HOUSE_FIXED_2024 = 60_000;
 const BOT_DEAR_PRIME = 11;
 /** Bushels of space per bushel-per-hour of receiving before the pit outruns the bins. */
 const BOT_STORAGE_HOURS_PER_PIT = 40;
-const LEAN_IN_HARD_TIMES = false;
 
 export type PolicyId = 'baseline' | 'reckless' | 'conservative' | 'idle';
 
@@ -198,11 +197,6 @@ function scripted(style: Style): Policy {
       if (ep.redemption.budgetPctOfSavings !== pct || ep.redemption.budgetFixed !== fixed) cmds.push({ type: 'setRedemptionPolicy', policy: { ...ep.redemption, budgetPctOfSavings: pct, budgetFixed: fixed } });
     }
     if (style.manageEquity) cmds.push(...consolidate(state, healthy));
-    // Hard times: run crews lean until a profitable year with the lender satisfied (D-095).
-    if (LEAN_IN_HARD_TIMES && style.manageEquity && monthOf(state.clock.monthIndex) === 9) {
-      const level = healthy ? 'standard' : 'lean';
-      for (const f of state.coop.facilities) if (f.status === 'operating' && f.staffing.level !== level) cmds.push({ type: 'setStaffing', facilityId: f.id, level, pay: f.staffing.pay });
-    }
     if (style.manageEquity) {
       // Meet new rules before the deadline, one site a month, while cash allows.
       let room = liquidity(state) * 0.5;

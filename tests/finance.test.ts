@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { advanceMonth, applyCommand, checkInvariants, DEFAULT_SETUP, newGame, type GameState } from '../src/engine/index';
+import { advanceMonth, applyCommand, balanceSheet, checkInvariants, DEFAULT_SETUP, newGame, type GameState } from '../src/engine/index';
 import { TYPICAL_SITE } from '../src/data/facilities';
 import { computeTax, federalTax } from '../src/engine/finance/tax';
 import { planDistribution, validateProposal } from '../src/engine/finance/patronage';
 import { defaultProposal } from '../src/engine/finance/defaults';
 import { lenderReview } from '../src/engine/facilities/actions';
+import { lineRate } from '../src/engine/finance/lender';
+import { marketValue } from '../src/engine/world/marketPath';
+import { pathFor } from '../src/engine/world/macro';
+import { LENDING } from '../src/data/tuning';
 import { balance, post } from '../src/engine/ledger/ledger';
 import { migrate } from '../src/engine/save/migrations';
 import { cloneState } from '../src/engine/sim/clone';
@@ -161,6 +165,27 @@ describe('lender', () => {
     expect(s.coop.finance.lastTest?.breached).toBe(true);
     expect(['watch', 'waiver']).toContain(s.coop.finance.status);
     expect(s.coop.finance.riskSpread).toBeGreaterThan(0);
+  });
+
+  it('prices co-op bank lending at average cost, trailing the 1981 spike and the 1985 decline', () => {
+    const base = (s: GameState, id: string) => lineRate(s, s.clock.monthIndex, id) - LENDING.spreadOverPrime[id].value - s.coop.finance.riskSpread;
+    for (const [year, below] of [[1981, true], [1986, false]] as const) {
+      const s = newGame({ ...DEFAULT_SETUP, startYear: year, startingMembers: 200 });
+      const prime = marketValue(pathFor(s), 'prime', s.clock.monthIndex);
+      expect(base(s, 'bc-district') < prime, String(year)).toBe(below);
+    }
+  });
+
+  it('sends a thin co-op straight to special credit in the 2008 credit crunch', () => {
+    let s = runTo(coop(2007, 6, { lenderId: 'cobank' }), 2008, 7);
+    expect(s.coop.finance.status).toBe('standard');
+    const w = cloneState(s);
+    // Write equity down to about 15% of assets.
+    const bs = balanceSheet(w.ledger, w.clock.monthIndex);
+    const drain = Math.round((bs.totalEquity - 0.15 * bs.totalAssets) / 0.85);
+    post(w, { source: 'test', memo: 'Write-off', lines: [{ account: '8300', division: 'CORP', amount: drain }, { account: '1000', division: 'CORP', amount: -drain }] });
+    s = run(w, 1);
+    expect(['specialCredit', 'forcedAction']).toContain(s.coop.finance.status);
   });
 
   it('pays co-op bank patronage in cash and stock each March', () => {

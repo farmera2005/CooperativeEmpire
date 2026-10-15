@@ -4,6 +4,7 @@ import { POLICIES } from '../src/engine/sim/policies';
 import { migrate } from '../src/engine/save/migrations';
 import { cloneState } from '../src/engine/sim/clone';
 import { grainCapacity } from '../src/engine/facilities/facilities';
+import { govOccupancy } from '../src/engine/grain/operate';
 
 const setup = (startYear: number, seed = 1) => ({ ...DEFAULT_SETUP, startYear, startingMembers: 400, gameSeed: seed, mapSeed: seed });
 
@@ -115,6 +116,24 @@ describe('grain operations', () => {
     const a = run(withElevator(1972, 9), 18, POLICIES.baseline);
     const b = run(withElevator(1972, 9), 18, POLICIES.baseline);
     expect(hashValue(a)).toBe(hashValue(b));
+  });
+});
+
+describe('government grain storage', () => {
+  it('follows the federal stocks: heavy in the mid-1980s, gone by the late 1990s', () => {
+    expect(govOccupancy(1975)).toBe(0);
+    expect(govOccupancy(1983)).toBeGreaterThan(0.2);
+    expect(govOccupancy(1987)).toBeGreaterThan(govOccupancy(1990));
+    expect(govOccupancy(2005)).toBe(0);
+  });
+
+  it('pays storage on government grain each month while it fills part of the house', () => {
+    const s = run(withElevator(1983), 2);
+    const fees = s.ledger.months[s.ledger.months.length - 1].entries!.filter((e) => e.source === 'gov-storage');
+    expect(fees.length).toBeGreaterThan(0);
+    expect(checkInvariants(s)).toEqual([]);
+    const later = run(withElevator(2005), 2);
+    expect(later.ledger.months[later.ledger.months.length - 1].entries!.some((e) => e.source === 'gov-storage')).toBe(false);
   });
 });
 
