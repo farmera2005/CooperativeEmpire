@@ -71,16 +71,16 @@ Internal checkpoints (commit each): M3a Agronomy → M3b Feed → M3c Energy →
 - Accessibility and keyboard navigation; performance check at 5,000 members × 60 years.
 - **Playtest:** a full 1970–2025 campaign.
 
-**M8 status (50 seeds, 55 years each):**
+**M8 status (50 seeds, 55 years each; drift history unless noted; after D-095–D-100):**
 
 | Run | Survived | Median net savings | Target |
 |---|---|---|---|
-| Baseline from 1970 | 30/50 (60%) | 3.3% | ≥ 80% survival: **not met** |
-| Baseline from 1985 | 40/50 (80%) | 4.0% | met |
-| Baseline from 2010 | 41/50 (82%) | 4.2% | survival met; savings slightly above 4% |
-| Reckless from 1970 | 1/50 | 1.1% | fails in the 1980s: met (most failures 1977–85) |
-| Reckless from 2000 | 30/50 | 1.8% | fails around 2008: **not met** (failures spread 2008–2054) |
+| Baseline from 1970 | 44/50 (88%) | 3.5% | ≥ 80% survival: met (was 60%) |
+| Baseline from 1985 | 47/50 (94%) | 4.1% | survival met; savings slightly above 4% |
+| Baseline from 2010 | 45/50 (90%) | 4.2% | survival met; savings slightly above 4% |
+| Reckless from 1970 | 0/50 | 1.2% | fails in the 1980s: met (42 of 50 fail 1976–92) |
+| Reckless from 2000 | 23/50 | 1.8% | 8 of 27 failures in 2008–10, 11 in 2008–14; the rest spread to 2053 |
+| Reckless from 2000, strict history | 24/50 | 1.7% | fails around 2008: met (12 of 26 failures in 2008–10, the largest cluster; was spread 2008–2054) |
 
-Engine errors: 0 in every run. Open balance work: 1970-start single-house co-ops through the
-1980s (fired or liquidated 1978–1995), a sharper 2008 test for reckless hedging and leverage,
-and trimming 2010-era savings back under 4%.
+Engine errors: 0 in every run. Open balance work: trimming 1985- and 2010-era savings back
+under 4%, and the reckless co-ops that ride out 2008 and fail decades later.
