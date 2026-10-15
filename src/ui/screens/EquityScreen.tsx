@@ -3,7 +3,7 @@ import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAx
 import { REDEMPTION } from '../../data/finance';
 import { DIVISION_LABEL } from '../../data/supply';
 import {
-  balance, BASES_FOR, equityOverview, fiscalYearOf, formatMonth, MONTH_NAMES, memberStatement, OP_DIVISIONS, poolLabel, previewDistribution, productionDeductionRate,
+  balance, BASES_FOR, equityOverview, expectedRefundRate, fiscalYearOf, formatMonth, MONTH_NAMES, memberStatement, OP_DIVISIONS, poolLabel, previewDistribution, productionDeductionRate,
   validateProposal, type LossTreatment, type PatronageBasis, type PatronageProposal, type PoolSplit, type RedemptionPlan, type RedemptionPolicy,
 } from '../../engine/index';
 import { Panel, Stat } from '../components/Panel';
@@ -27,13 +27,14 @@ export function EquityScreen() {
   const unallocated = -balance(game.ledger, '3400');
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
         <Stat label={<Term id="allocated-equity">Allocated equity</Term>} value={money(ov.totalAllocated, { compact: true })} sub={`${num(ov.holders)} holders`} />
         <Stat label={<Term id="membership-stock">Membership stock</Term>} value={money(ov.commonStock, { compact: true })} />
         <Stat label={<Term id="unallocated">Unallocated reserves</Term>} value={money(unallocated, { compact: true })} tone={unallocated < 0 ? 'bad' : 'neutral'} />
         <Stat label={<Term id="revolving">Revolving period</Term>} value={`${ov.revolvingPeriod} yr`} sub={`target ${ov.targetPeriod} yr`} tone={ov.revolvingPeriod > ov.targetPeriod ? 'bad' : 'neutral'} />
         <Stat label={<Term id="unfunded-obligation">Unfunded obligation</Term>} value={money(ov.unfunded, { compact: true })} sub={`${pct(ov.inactiveShare, 0)} held by inactive members`} tone={ov.inactiveShare > 0.4 ? 'bad' : 'neutral'} />
         <Stat label="Next redemption budget" value={money(ov.redemptionBudget, { compact: true })} sub={game.coop.finance.status === 'specialCredit' ? 'frozen by the lender' : undefined} />
+        <Stat label="Refund members expect" value={pct(expectedRefundRate(game), 1)} sub="of purchases, valuing cash fully and retained equity at 40%; it draws their business" tone={expectedRefundRate(game) > 0 ? 'good' : 'neutral'} />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <CyclePanel />

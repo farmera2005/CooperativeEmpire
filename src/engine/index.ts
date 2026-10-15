@@ -57,3 +57,4 @@ export { affectedSites, complianceCost, deadlineOf, isCompliant } from './world/
 export { flagOn, openDecisions } from './world/events';
 export { forecastDealVote } from './deals/vote';
 export type { DealVoteForecast } from './deals/vote';
+export { expectedRefundRate } from './finance/selectors';
