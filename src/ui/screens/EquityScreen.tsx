@@ -34,7 +34,7 @@ export function EquityScreen() {
         <Stat label={<Term id="revolving">Revolving period</Term>} value={`${ov.revolvingPeriod} yr`} sub={`target ${ov.targetPeriod} yr`} tone={ov.revolvingPeriod > ov.targetPeriod ? 'bad' : 'neutral'} />
         <Stat label={<Term id="unfunded-obligation">Unfunded obligation</Term>} value={money(ov.unfunded, { compact: true })} sub={`${pct(ov.inactiveShare, 0)} held by inactive members`} tone={ov.inactiveShare > 0.4 ? 'bad' : 'neutral'} />
         <Stat label="Next redemption budget" value={money(ov.redemptionBudget, { compact: true })} sub={game.coop.finance.status === 'specialCredit' ? 'frozen by the lender' : undefined} />
-        <Stat label="Refund members expect" value={pct(expectedRefundRate(game), 1)} sub="of purchases, valuing cash fully and retained equity at 40%; it draws their business" tone={expectedRefundRate(game) > 0 ? 'good' : 'neutral'} />
+        <Stat label={<Term id="expected-refund">Refund members expect</Term>} value={pct(expectedRefundRate(game), 1)} sub="of purchases, valuing cash fully and retained equity at 40%; it draws their business" tone={expectedRefundRate(game) > 0 ? 'good' : 'neutral'} />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <CyclePanel />

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { DIVISION_LABEL } from '../../data/supply';
 import { distributionFor, formatMonth, scorecard, STATUS_LABEL, type AnnualReport, type ScoreMeasure } from '../../engine/index';
+import { Term } from '../components/Term';
 import { Panel, Stat } from '../components/Panel';
 import { money, num, pct } from '../format';
 import { useStore } from '../store';
@@ -180,8 +181,8 @@ function ReportView({ r }: { r: AnnualReport }) {
           <dl className="mt-1 grid grid-cols-2 gap-y-1 text-sm">
             <dt>Total assets</dt><dd className="num text-right">{money(r.totalAssets)}</dd>
             <dt>Debt</dt><dd className="num text-right">{money(r.totalDebt)}</dd>
-            <dt>Working capital</dt><dd className="num text-right">{money(r.workingCapital)}</dd>
-            <dt>Current ratio</dt><dd className="num text-right">{Number.isFinite(r.currentRatio) ? r.currentRatio.toFixed(2) : '—'}</dd>
+            <dt><Term id="working-capital">Working capital</Term></dt><dd className="num text-right">{money(r.workingCapital)}</dd>
+            <dt><Term id="current-ratio">Current ratio</Term></dt><dd className="num text-right">{Number.isFinite(r.currentRatio) ? r.currentRatio.toFixed(2) : '—'}</dd>
             <dt>Grain handled</dt><dd className="num text-right">{num(Math.round(r.grainBu))} bu</dd>
             <dt>Locations</dt><dd className="num text-right">{r.facilities}</dd>
           </dl>

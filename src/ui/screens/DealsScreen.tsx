@@ -4,6 +4,7 @@ import {
   type Competitor, type Deal, type DealStage, type DealTerms, type OpDivision,
 } from '../../engine/index';
 import { DEALS } from '../../data/competition';
+import { Term } from '../components/Term';
 import { Panel, Stat } from '../components/Panel';
 import { money, pct } from '../format';
 import { useStore } from '../store';
@@ -32,7 +33,7 @@ export function DealsScreen() {
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Deals in progress" value={open.length} sub={open.some((d) => d.incoming && d.stage === 'proposed') ? 'an approach awaits our answer' : undefined} tone={open.some((d) => d.incoming && d.stage === 'proposed') ? 'bad' : 'neutral'} />
         <Stat label="Joint ventures" value={game.jvs.length} sub={game.jvs.length ? money(game.jvs.reduce((a, j) => a + j.investment, 0)) + ' invested' : undefined} />
-        <Stat label="Integration" value={integrating ? 'Under way' : 'None'} sub={integrating && game.integrationUntil !== null ? `systems combined by ${formatMonth(game.integrationUntil)}` : undefined} tone={integrating ? 'bad' : 'neutral'} />
+        <Stat label={<Term id="integration">Integration</Term>} value={integrating ? 'Under way' : 'None'} sub={integrating && game.integrationUntil !== null ? `systems combined by ${formatMonth(game.integrationUntil)}` : undefined} tone={integrating ? 'bad' : 'neutral'} />
         <Stat label="Active competitors" value={active.length} sub={`${active.filter((c) => c.kind === 'coop').length} cooperatives`} />
       </div>
 
@@ -65,7 +66,7 @@ export function DealsScreen() {
           ) : <p className="text-sm text-stone-500">We have no farm-supply divisions to sell.</p>}
           <p className="mt-2 text-xs text-stone-500">Advisers find a buyer and bring a price. The board and then the members must approve; the gain or loss is booked at closing.</p>
         </Panel>
-        <Panel title="Joint ventures">
+        <Panel title={<Term id="joint-venture">Joint ventures</Term>}>
           {game.jvs.length ? (
             <table className="w-full text-sm">
               <thead className="text-left text-xs uppercase text-stone-500"><tr><th>Venture</th><th>Our share</th><th className="text-right">Investment</th><th className="text-right">Earnings this year</th></tr></thead>
@@ -163,7 +164,7 @@ function DealCard({ d }: { d: Deal }) {
         )}
         {d.stage === 'terms' && (
           <>
-            {!d.diligence && d.kind !== 'divisionSale' && d.kind !== 'buyout' && <button className="btn" onClick={() => command({ type: 'dealDiligence', dealId: d.id })}>Commission due diligence</button>}
+            {!d.diligence && d.kind !== 'divisionSale' && d.kind !== 'buyout' && <button className="btn" onClick={() => command({ type: 'dealDiligence', dealId: d.id })}><Term id="due-diligence">Commission due diligence</Term></button>}
             {d.kind === 'merger' && (
               <>
                 <label className="text-sm">Combined name <input className="input ml-1 w-64" value={terms.name} onChange={(ev) => setTerms({ ...terms, name: ev.target.value })} /></label>
@@ -200,7 +201,7 @@ function VoteForecast({ d, terms }: { d: Deal; terms: DealTerms }) {
     <div className="mt-3 rounded bg-[#f6f1e1] p-3 text-sm">
       <div className="flex flex-wrap gap-x-6 gap-y-1">
         <span>Our members, if the vote were today: <b className={ok ? 'text-field' : 'text-rust'}>{pct(f.expectedYes, 0)} yes</b> <span className="text-stone-500">({pct(f.threshold, 0)} needed, turnout about {pct(f.turnout, 0)})</span></span>
-        {f.theirExpectedYes !== undefined && <span>{d.partnerName}'s members: <b className={theirsOk ? 'text-field' : 'text-rust'}>{pct(f.theirExpectedYes, 0)} yes</b> <span className="text-stone-500">(⅔ needed)</span></span>}
+        {f.theirExpectedYes !== undefined && <span>{d.partnerName}'s members: <b className={theirsOk ? 'text-field' : 'text-rust'}>{pct(f.theirExpectedYes, 0)} yes</b> <span className="text-stone-500">(<Term id="supermajority">⅔ needed</Term>)</span></span>}
       </div>
       <ul className="mt-1 grid gap-x-6 text-xs text-stone-600 md:grid-cols-2">
         {f.factors.map((x) => <li key={x.key} className="flex justify-between gap-2"><span>{x.label}</span><span className={`num ${x.value < 0 ? 'text-rust' : 'text-field'}`}>{x.value > 0 ? '+' : ''}{x.value.toFixed(2)}</span></li>)}

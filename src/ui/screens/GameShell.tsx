@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { balance, formatMonth, fiscalYearOf, openDecisions, STATUS_LABEL } from '../../engine/index';
 import { money } from '../format';
 import { useStore, type Tab } from '../store';
+import { GUIDE, guideProgress } from '../guide';
 import { Dashboard } from './Dashboard';
 import { MapScreen } from './MapScreen';
 import { MarketsScreen } from './MarketsScreen';
@@ -18,6 +19,7 @@ import { PeopleScreen } from './PeopleScreen';
 import { DealsScreen } from './DealsScreen';
 import { OperationsScreen } from './OperationsScreen';
 import { ReportsScreen } from './ReportsScreen';
+import { GlossaryScreen } from './GlossaryScreen';
 
 const TABS: { id: Tab; label: string; key: string }[] = [
   { id: 'dashboard', label: 'Dashboard', key: '1' },
@@ -35,6 +37,7 @@ const TABS: { id: Tab; label: string; key: string }[] = [
   { id: 'people', label: 'People', key: 'P' },
   { id: 'reports', label: 'Reports & Scorecard', key: 'R' },
   { id: 'board', label: 'Board Room', key: 'B' },
+  { id: 'glossary', label: 'Glossary', key: 'G' },
   { id: 'saves', label: 'Save / Load', key: 'S' },
 ];
 
@@ -45,6 +48,8 @@ export function GameShell() {
   const endMonth = useStore((s) => s.endMonth);
   const advanceUntil = useStore((s) => s.advanceUntilAttention);
   const autosave = useStore((s) => s.autosaveStatus);
+  const guideOn = useStore((s) => s.guide);
+  const setGuide = useStore((s) => s.setGuide);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -80,8 +85,9 @@ export function GameShell() {
           </button>
         ))}
         <div className="mt-auto p-3 text-xs text-stone-500">
-          Keys: 0–9, O, D, P, R, B, S screens, E end month, A advance until something needs attention.
+          Keys: 0–9, O, D, P, R, B, G, S screens, E end month, A advance until something needs attention.
           <div className="mt-1">{autosave}</div>
+          {!guideOn && <button className="mt-1 underline" onClick={() => setGuide(true)}>Show the first-year guide</button>}
         </div>
       </nav>
       <div className="flex min-w-0 flex-1 flex-col">
@@ -100,6 +106,7 @@ export function GameShell() {
           </div>
         </header>
         {game.outcome && <GameOver />}
+        <GuidePanel />
         <main className="min-h-0 flex-1 overflow-auto p-4">
           {tab === 'dashboard' && <Dashboard />}
           {tab === 'inbox' && <InboxScreen />}
@@ -116,6 +123,7 @@ export function GameShell() {
           {tab === 'people' && <PeopleScreen />}
           {tab === 'reports' && <ReportsScreen />}
           {tab === 'board' && <BoardScreen />}
+          {tab === 'glossary' && <GlossaryScreen />}
           {tab === 'saves' && <SavesScreen />}
         </main>
       </div>
@@ -139,5 +147,29 @@ function GameOver() {
         <span className="self-center text-xs text-stone-500">The books stay open for review; months can no longer be played.</span>
       </div>
     </div>
+  );
+}
+
+function GuidePanel() {
+  const game = useStore((s) => s.game)!;
+  const on = useStore((s) => s.guide);
+  const visited = useStore((s) => s.visited);
+  const setGuide = useStore((s) => s.setGuide);
+  const setTab = useStore((s) => s.setTab);
+  if (!on) return null;
+  const { step, index } = guideProgress(game, visited);
+  return (
+    <aside aria-label="Guide" className="flex items-start gap-3 border-b border-stone-300 bg-[#eef3e8] px-4 py-2 text-sm">
+      {step ? (
+        <>
+          <span className="mt-0.5 shrink-0 rounded bg-field px-1.5 text-xs text-white">{index + 1}/{GUIDE.length}</span>
+          <div className="min-w-0 flex-1"><b>{step.title}.</b> {step.text}</div>
+          <button className="btn shrink-0 text-xs" onClick={() => setTab(step.tab)}>Show me</button>
+        </>
+      ) : (
+        <div className="flex-1"><b>Your first year is done.</b> You know your way around. Good luck with the next fifty.</div>
+      )}
+      <button className="shrink-0 text-xs underline" onClick={() => setGuide(false)}>Hide guide</button>
+    </aside>
   );
 }

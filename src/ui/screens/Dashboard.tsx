@@ -1,8 +1,9 @@
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { MARKET_SERIES, type SeriesId } from '../../data/markets';
 import { COMMODITIES } from '../../data/grain';
-import { scenarioGoals, balanceSheet, capperVolsteadRatio, fiscalYearOf, fiscalYearStart, formatMonthShort, incomeStatement, ratios, type DivisionId, type GameState } from '../../engine/index';
+import { scenarioGoals, balanceSheet, capperVolsteadRatio, fiscalYearOf, fiscalYearStart, formatMonthShort, incomeStatement, ratios, satisfactionWhy, type DivisionId, type GameState } from '../../engine/index';
 import { DIVISION_LABEL } from '../../data/supply';
+import { Why } from '../components/Why';
 import { Panel, Stat } from '../components/Panel';
 import { Term } from '../components/Term';
 import { money, num, pct } from '../format';
@@ -59,12 +60,12 @@ export function Dashboard() {
         <Stat label={<><Term id="net-savings">Net savings</Term>, FYTD</>} value={money(ytd.netSavings, { compact: true })} tone={ytd.netSavings >= 0 ? 'good' : 'bad'} />
         <Stat label="Active members" value={num(last.activeMembers)} sub={`${num(first.activeMembers)} at founding`} />
         <Stat label="Farms in territory" value={num(last.activeFarms)} sub={`avg ${num(last.totalAcres / Math.max(1, last.activeFarms))} acres`} />
-        <Stat label="Member satisfaction" value={num(last.avgSatisfaction)} sub="0–100" />
+        <Stat label="Member satisfaction" value={num(last.avgSatisfaction)} sub={<>0–100 · <Why b={() => satisfactionWhy(game)} /></>} />
       </div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <Stat label="Grain margin + services, FYTD" value={money(grainYtd.grossRevenue, { compact: true })} sub={`${num(game.history.slice(-12).reduce((a, h) => a + h.grainBu, 0))} bu received, last 12 mo`} />
         <Stat label="Grain share of territory" value={`${(last.grainShare * 100).toFixed(1)}%`} sub="this month" />
-        <Stat label="Working capital" value={money(rt.workingCapital, { compact: true })} tone={rt.workingCapital < 0 ? 'bad' : 'neutral'} sub={`current ratio ${Number.isFinite(rt.currentRatio) ? rt.currentRatio.toFixed(2) : '—'}`} />
+        <Stat label={<Term id="working-capital">Working capital</Term>} value={money(rt.workingCapital, { compact: true })} tone={rt.workingCapital < 0 ? 'bad' : 'neutral'} sub={`current ratio ${Number.isFinite(rt.currentRatio) ? rt.currentRatio.toFixed(2) : '—'}`} />
         <Stat label="Term debt" value={money(rt.termDebt, { compact: true })} sub={`${(rt.termDebtToNetFixed * 100).toFixed(0)}% of net fixed assets`} />
         <Stat label="Line of credit" value={money(last.lineDrawn, { compact: true })} sub={`available ${money(game.coop.finance.lineAvailable, { compact: true })}`} tone={game.coop.finance.overLimit ? 'bad' : 'neutral'} />
         <Stat label="Facilities" value={num(game.coop.facilities.filter((f) => f.status !== 'closed').length)} sub={`${game.coop.projects.length} project(s) under way`} />

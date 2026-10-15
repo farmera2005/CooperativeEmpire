@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { advanceMonth, applyCommand, checkInvariants, DEFAULT_SETUP, newGame, scorecard, toMonthIndex, type GameState } from '../src/engine/index';
+import { advanceMonth, applyCommand, checkInvariants, confidenceWhy, DEFAULT_SETUP, newGame, satisfactionWhy, scorecard, toMonthIndex, type GameState } from '../src/engine/index';
 import { migrate } from '../src/engine/save/migrations';
 import { SCHEMA_VERSION } from '../src/engine/types';
 
@@ -35,6 +35,16 @@ describe('annual reports and scorecard (M8)', () => {
     expect(['A', 'B', 'C', 'D', 'F']).toContain(sc.grade);
     expect(sc.overall).toBeGreaterThanOrEqual(0);
     expect(sc.overall).toBeLessThanOrEqual(100);
+  });
+
+  it('explains board confidence and member satisfaction', () => {
+    const s = runTo(coop(1990, 5), 1992, 1);
+    const c = confidenceWhy(s);
+    expect(c.value).toBe(s.governance.boardConfidence);
+    expect(c.components!.length).toBeGreaterThanOrEqual(3);
+    const m = satisfactionWhy(s);
+    expect(Number.isFinite(m.value)).toBe(true);
+    for (const k of m.components!) expect(Object.is(k.value, -0)).toBe(false);
   });
 
   it('migrates a v7 save by adding an empty report list', () => {

@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import {
-  averageSatisfaction, bylawTitle, factionOf, forecastItem, formatMonth, formatMonthShort, PROPOSAL_LABEL, yearOf,
+  averageSatisfaction, bylawTitle, confidenceWhy, factionOf, forecastItem, formatMonth, formatMonthShort, PROPOSAL_LABEL, yearOf,
   type AgendaItem, type BylawChange, type Director, type GameState, type PetIssue,
 } from '../../engine/index';
 import { BYLAWS_DEFAULT, POLITICAL_CAPITAL } from '../../data/governance';
+import { Why } from '../components/Why';
 import { Panel, Stat } from '../components/Panel';
 import { pct } from '../format';
 import { useStore } from '../store';
@@ -33,7 +34,7 @@ export function BoardScreen() {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-6 gap-3">
-        <Stat label="Board confidence" value={Math.round(gov.boardConfidence)} tone={gov.boardConfidence < 35 ? 'bad' : gov.boardConfidence > 60 ? 'good' : 'neutral'} sub={gov.pip ? 'On a performance improvement plan' : 'in you as general manager'} />
+        <Stat label="Board confidence" value={Math.round(gov.boardConfidence)} tone={gov.boardConfidence < 35 ? 'bad' : gov.boardConfidence > 60 ? 'good' : 'neutral'} sub={<>{gov.pip ? 'On a performance improvement plan' : 'in you as general manager'} · <Why b={() => confidenceWhy(game)} /></>} />
         <Stat label="Political capital" value={`${gov.politicalCapital}/${POLITICAL_CAPITAL.max}`} sub={`+${POLITICAL_CAPITAL.monthly} a month; ${POLITICAL_CAPITAL.lobbyCost} per lobbying call`} />
         <Stat label="Votes, last 12 months" value={`${recent.filter((v) => v.passed).length}–${recent.filter((v) => !v.passed).length}`} sub="won–lost" />
         <Stat label="Last review" value={last ? last.score : '—'} sub={last ? `fiscal ${last.fy}` : 'after the first full year'} />

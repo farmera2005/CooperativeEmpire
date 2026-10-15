@@ -25,6 +25,7 @@ export function NewGameScreen() {
   const setScreen = useStore((s) => s.setScreen);
   const [setup, setSetup] = useState<GameSetup>(() => ({ ...DEFAULT_SETUP, mapSeed: randomSeed(), gameSeed: randomSeed() }));
   const [customDollars, setCustomDollars] = useState('');
+  const [guide, setGuide] = useState(true);
   const [nameSeed, setNameSeed] = useState(1);
   const up = (p: Partial<GameSetup>) => setSetup((s) => ({ ...s, ...p }));
 
@@ -56,7 +57,7 @@ export function NewGameScreen() {
   const go = () => start({
     ...setup, lenderId, homeTownId, coopName: setup.coopName.trim() || suggestions[0],
     ...(setup.capitalPreset === 'custom' ? { customCapital: capital } : {}),
-  });
+  }, guide);
 
   return (
     <main className="mx-auto max-w-6xl p-6">
@@ -129,6 +130,10 @@ export function NewGameScreen() {
               </div>
             </label>
           </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={guide} onChange={(e) => setGuide(e.target.checked)} />
+            Guide me through the first year
+          </label>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={setup.fictionalizeBrands} onChange={(e) => up({ fictionalizeBrands: e.target.checked })} />
             Use fictional names for all real companies and brands

@@ -5,7 +5,7 @@ import {
 } from '../engine/index';
 import { saveSlot } from '../persistence/saves';
 
-export type Tab = 'dashboard' | 'deals' | 'operations' | 'reports' | 'grain' | 'supply' | 'map' | 'markets' | 'members' | 'financials' | 'equity' | 'lender' | 'people' | 'board' | 'inbox' | 'saves';
+export type Tab = 'dashboard' | 'deals' | 'operations' | 'reports' | 'glossary' | 'grain' | 'supply' | 'map' | 'markets' | 'members' | 'financials' | 'equity' | 'lender' | 'people' | 'board' | 'inbox' | 'saves';
 
 export interface Toast {
   id: number;
@@ -22,10 +22,14 @@ interface UiState {
   error: string | null;
   autosaveStatus: string;
   toasts: Toast[];
+  /** Guided first year: on, and screens the player has opened. */
+  guide: boolean;
+  visited: Tab[];
+  setGuide(on: boolean): void;
   dismissToast(id: number): void;
   setScreen(s: Screen): void;
   setTab(t: Tab): void;
-  start(setup: GameSetup): void;
+  start(setup: GameSetup, guide?: boolean): void;
   startScenario(id: string): void;
   load(state: GameState): void;
   /** Apply a command; returns true if it succeeded. Messages appear as toasts. */
@@ -60,13 +64,16 @@ export const useStore = create<UiState>((set, get) => ({
   error: null,
   autosaveStatus: '',
   toasts: [],
+  guide: false,
+  visited: [],
+  setGuide: (on) => set({ guide: on }),
   dismissToast: (id) => set({ toasts: get().toasts.filter((x) => x.id !== id) }),
   setScreen: (screen) => set({ screen }),
-  setTab: (tab) => set({ tab }),
-  start: (setup) => {
+  setTab: (tab) => set({ tab, visited: get().visited.includes(tab) ? get().visited : [...get().visited, tab] }),
+  start: (setup, guide = false) => {
     try {
       const game = newGame(setup);
-      set({ game, screen: 'game', tab: 'inbox', summaries: [] });
+      set({ game, screen: 'game', tab: 'inbox', summaries: [], guide, visited: ['inbox'] });
       scheduleAutosave(get, set);
     } catch (e) {
       set({ error: (e as Error).message });

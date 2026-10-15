@@ -3,6 +3,7 @@ import {
   affectedSites, complianceCost, deadlineOf, formatMonth, isCompliant, nominalCents, pathFor, techCost, uncoveredSites, yearOf,
   type GameState,
 } from '../../engine/index';
+import { Term } from '../components/Term';
 import { Panel, Stat } from '../components/Panel';
 import { money } from '../format';
 import { useStore } from '../store';
@@ -58,7 +59,7 @@ export function OperationsScreen() {
         <Stat label="Losses from events, 12 months" value={money(game.eventLog.filter((e) => mi - e.monthIndex < 12).reduce((a, e) => a + e.cost, 0))} sub="after insurance" />
       </div>
 
-      <Panel title="Regulatory compliance">
+      <Panel title={<Term id="compliance">Regulatory compliance</Term>}>
         {rows.length ? (
           <table className="w-full text-sm">
             <thead className="text-left text-xs uppercase text-stone-500"><tr><th className="py-1">Rule</th><th>Site</th><th>Deadline</th><th>Status</th><th className="text-right">Cost to comply</th><th /></tr></thead>

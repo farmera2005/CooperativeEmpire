@@ -63,3 +63,4 @@ export type { Scorecard, ScoreMeasure } from './reports/scorecard';
 export { distributionFor } from './reports/annual';
 export { newScenario, scenarioGoals } from './sim/scenarios';
 export type { GoalStatus } from './sim/scenarios';
+export { confidenceWhy, satisfactionWhy } from './governance/why';
