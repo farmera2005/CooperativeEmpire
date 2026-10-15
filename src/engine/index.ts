@@ -58,3 +58,6 @@ export { flagOn, openDecisions } from './world/events';
 export { forecastDealVote } from './deals/vote';
 export type { DealVoteForecast } from './deals/vote';
 export { expectedRefundRate } from './finance/selectors';
+export { scorecard } from './reports/scorecard';
+export type { Scorecard, ScoreMeasure } from './reports/scorecard';
+export { distributionFor } from './reports/annual';

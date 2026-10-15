@@ -40,7 +40,7 @@ export function recordAnnualReport(ctx: TickContext, fy: number): AnnualReport {
     boardConfidence: state.governance.boardConfidence,
     chair: name(state.governance.directors.find((d) => d.office === 'chair')?.memberId ?? -1),
     directors: state.governance.directors.map((d) => name(d.memberId)),
-    highlights: inYear.filter((i) => i.kind !== 'history' && HIGHLIGHT.test(i.title)).map((i) => i.title).slice(0, 12),
+    highlights: inYear.filter((i) => (i.kind === 'memo' || i.kind === 'alert') && HIGHLIGHT.test(i.title)).map((i) => i.title).slice(0, 12),
     news: inYear.filter((i) => i.kind === 'history').map((i) => i.title).slice(0, 8),
   };
   state.reports = [...state.reports, report];

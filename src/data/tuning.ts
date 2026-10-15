@@ -37,6 +37,11 @@ export const GOVERNANCE_SETUP = {
   directorMaxAge: 72,
 };
 
+/** Scorecard weights (DESIGN §18): what a sound local co-op is judged on. */
+export const SCORECARD = {
+  weights: s({ savings: 3, equity: 3, returns: 2, satisfaction: 2, share: 1, growth: 1, lender: 2, safety: 1, board: 1 }, 'low', 'Design judgement'),
+};
+
 /** How repeated grievances combine (D-085). */
 export const GRIEVANCES = {
   maxSeverity: s(4, 'low', 'Cap on one grievance kind per member'),

@@ -17,6 +17,7 @@ import { LenderScreen } from './LenderScreen';
 import { PeopleScreen } from './PeopleScreen';
 import { DealsScreen } from './DealsScreen';
 import { OperationsScreen } from './OperationsScreen';
+import { ReportsScreen } from './ReportsScreen';
 
 const TABS: { id: Tab; label: string; key: string }[] = [
   { id: 'dashboard', label: 'Dashboard', key: '1' },
@@ -32,6 +33,7 @@ const TABS: { id: Tab; label: string; key: string }[] = [
   { id: 'operations', label: 'Operations & Tech', key: 'O' },
   { id: 'deals', label: 'Deals & Competitors', key: 'D' },
   { id: 'people', label: 'People', key: 'P' },
+  { id: 'reports', label: 'Reports & Scorecard', key: 'R' },
   { id: 'board', label: 'Board Room', key: 'B' },
   { id: 'saves', label: 'Save / Load', key: 'S' },
 ];
@@ -78,7 +80,7 @@ export function GameShell() {
           </button>
         ))}
         <div className="mt-auto p-3 text-xs text-stone-500">
-          Keys: 0–9, O, D, P, B, S screens, E end month, A advance until something needs attention.
+          Keys: 0–9, O, D, P, R, B, S screens, E end month, A advance until something needs attention.
           <div className="mt-1">{autosave}</div>
         </div>
       </nav>
@@ -112,6 +114,7 @@ export function GameShell() {
           {tab === 'operations' && <OperationsScreen />}
           {tab === 'deals' && <DealsScreen />}
           {tab === 'people' && <PeopleScreen />}
+          {tab === 'reports' && <ReportsScreen />}
           {tab === 'board' && <BoardScreen />}
           {tab === 'saves' && <SavesScreen />}
         </main>
