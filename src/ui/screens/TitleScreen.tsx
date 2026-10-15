@@ -1,12 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import { importSave, listSlots, loadSlot, type SlotMeta } from '../../persistence/saves';
 import { useStore } from '../store';
+import { SCENARIOS } from '../../data/scenarios';
 
 export function TitleScreen() {
   const setScreen = useStore((s) => s.setScreen);
   const load = useStore((s) => s.load);
   const [slots, setSlots] = useState<SlotMeta[]>([]);
   const [err, setErr] = useState('');
+  const startScenario = useStore((s) => s.startScenario);
+  const [busy, setBusy] = useState<string | null>(null);
+  // Generating the co-op's history takes a moment; let the label paint first.
+  const play = (id: string) => {
+    setBusy(id);
+    setTimeout(() => startScenario(id), 30);
+  };
   const fileRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     listSlots().then(setSlots).catch(() => setSlots([]));
@@ -39,6 +47,20 @@ export function TitleScreen() {
         }} />
       </div>
       {err && <div className="text-rust">{err}</div>}
+      <section aria-labelledby="scenarios-h">
+        <h2 id="scenarios-h" className="headline text-xl font-bold">Scenarios</h2>
+        <p className="text-sm text-stone-600">Take over an established co-op at a turning point, with goals to meet.</p>
+        <div className="mt-2 grid gap-3 md:grid-cols-3">
+          {SCENARIOS.map((sc) => (
+            <button key={sc.id} className="panel p-3 text-left hover:bg-[#f6f1e1] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky" disabled={busy !== null} onClick={() => play(sc.id)}>
+              <div className="text-xs uppercase tracking-wide text-field">{sc.year}</div>
+              <div className="headline text-lg font-bold">{sc.title}</div>
+              <div className="mt-1 text-sm text-stone-600">{sc.teaser}</div>
+              <div className="mt-2 text-xs text-stone-500">{busy === sc.id ? 'Writing the co-op\'s history…' : `Goals judged in ${sc.deadlineYear}`}</div>
+            </button>
+          ))}
+        </div>
+      </section>
       {slots.length > 0 && (
         <section className="panel">
           <h2 className="panel-title">Saved games</h2>

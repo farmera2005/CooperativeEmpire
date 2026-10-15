@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import {
-  advanceMonth, advanceUntilAttention, applyCommand, DEFAULT_INTERRUPTS, newGame,
+  advanceMonth, advanceUntilAttention, applyCommand, DEFAULT_INTERRUPTS, newGame, newScenario,
   type Command, type GameSetup, type GameState, type MonthSummary,
 } from '../engine/index';
 import { saveSlot } from '../persistence/saves';
@@ -26,6 +26,7 @@ interface UiState {
   setScreen(s: Screen): void;
   setTab(t: Tab): void;
   start(setup: GameSetup): void;
+  startScenario(id: string): void;
   load(state: GameState): void;
   /** Apply a command; returns true if it succeeded. Messages appear as toasts. */
   command(cmd: Command): boolean;
@@ -65,6 +66,15 @@ export const useStore = create<UiState>((set, get) => ({
   start: (setup) => {
     try {
       const game = newGame(setup);
+      set({ game, screen: 'game', tab: 'inbox', summaries: [] });
+      scheduleAutosave(get, set);
+    } catch (e) {
+      set({ error: (e as Error).message });
+    }
+  },
+  startScenario: (id) => {
+    try {
+      const game = newScenario(id);
       set({ game, screen: 'game', tab: 'inbox', summaries: [] });
       scheduleAutosave(get, set);
     } catch (e) {

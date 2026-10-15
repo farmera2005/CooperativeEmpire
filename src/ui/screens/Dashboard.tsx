@@ -1,7 +1,7 @@
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { MARKET_SERIES, type SeriesId } from '../../data/markets';
 import { COMMODITIES } from '../../data/grain';
-import { balanceSheet, capperVolsteadRatio, fiscalYearOf, fiscalYearStart, formatMonthShort, incomeStatement, ratios, type DivisionId, type GameState } from '../../engine/index';
+import { scenarioGoals, balanceSheet, capperVolsteadRatio, fiscalYearOf, fiscalYearStart, formatMonthShort, incomeStatement, ratios, type DivisionId, type GameState } from '../../engine/index';
 import { DIVISION_LABEL } from '../../data/supply';
 import { Panel, Stat } from '../components/Panel';
 import { Term } from '../components/Term';
@@ -29,8 +29,21 @@ export function Dashboard() {
   const alerts = alertsFor(game);
   const grainYtd = incomeStatement(game.ledger, fyStart, mi, 'GRAIN');
   const rt = ratios(game);
+  const sc = scenarioGoals(game);
   return (
     <div className="space-y-4">
+      {sc && (
+        <Panel title={`Scenario: ${sc.def.title}`} right={<span className="text-xs text-stone-500">{sc.judged ? 'Judged' : `Judged in January ${sc.def.deadlineYear}`}</span>}>
+          <ul className="space-y-1 text-sm">
+            {sc.goals.map((g) => (
+              <li key={g.label} className="flex justify-between gap-4">
+                <span><span aria-hidden className={g.met ? 'text-field' : 'text-stone-400'}>{g.met ? '✓' : '○'}</span> {g.label}</span>
+                <span className="text-stone-500">{g.met ? 'on track' : 'not yet'} · {g.detail}</span>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
       {alerts.length > 0 && (
         <div className="space-y-1">
           {alerts.map((a) => (
@@ -87,8 +100,8 @@ export function Dashboard() {
                 <XAxis dataKey="m" fontSize={11} minTickGap={40} />
                 <YAxis fontSize={11} tickFormatter={(v: number) => `$${Math.round(v / 1000)}K`} />
                 <Tooltip formatter={(v) => `$${Math.round(Number(v)).toLocaleString()}`} />
-                <Line type="monotone" dataKey="cash" stroke="#3b6e8f" dot={false} name="Cash" />
-                <Line type="monotone" dataKey="equity" stroke="#3f5f2a" dot={false} name="Equity" />
+                <Line type="monotone" dataKey="cash" stroke="#3b6e8f" dot={false} name="Cash" isAnimationActive={false} />
+                <Line type="monotone" dataKey="equity" stroke="#3f5f2a" dot={false} name="Equity" isAnimationActive={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>

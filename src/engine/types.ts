@@ -37,6 +37,8 @@ export interface GameSetup {
   lenderId: string;
   regionalAffiliations: { regionalId: string; lines: ('grain' | 'agronomy' | 'feed' | 'energy' | 'retail')[] }[];
   homeTownId?: number;
+  /** Set when the game began as a scenario (DESIGN §19). */
+  scenarioId?: string;
 }
 
 // ---------- World ----------

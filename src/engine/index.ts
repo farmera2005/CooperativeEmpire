@@ -61,3 +61,5 @@ export { expectedRefundRate } from './finance/selectors';
 export { scorecard } from './reports/scorecard';
 export type { Scorecard, ScoreMeasure } from './reports/scorecard';
 export { distributionFor } from './reports/annual';
+export { newScenario, scenarioGoals } from './sim/scenarios';
+export type { GoalStatus } from './sim/scenarios';

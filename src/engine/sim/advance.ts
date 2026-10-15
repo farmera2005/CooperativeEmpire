@@ -1,6 +1,7 @@
 // advanceMonth: the monthly tick (DESIGN §3.3). Steps not yet built are listed in order
 // as comments so each milestone slots its systems into the right place.
 
+import { stepScenario } from './scenarios';
 import { stepTech } from '../world/tech';
 import { stepRegulation } from '../world/regulation';
 import { stepChoices, stepHistoryChoices, stepRandomEvents } from '../world/events';
@@ -153,6 +154,7 @@ export function advanceMonth(state: GameState, decisions: Command[] = [], opts: 
   if (w.inbox.length > INBOX_LIMIT) w.inbox = w.inbox.slice(w.inbox.length - INBOX_LIMIT);
   // 29. loss conditions (the lender's forced action; governance in M5)
   if (w.outcome) interrupts.push({ kind: 'gameOver', text: w.outcome.text });
+  stepScenario(ctx);
   for (const item of w.inbox) if (item.monthIndex === ctx.mi && item.kind === 'alert') interrupts.push({ kind: 'alert', text: item.title });
   for (const item of w.inbox) if (item.monthIndex === ctx.mi && item.choice && !item.choice.chosen) interrupts.push({ kind: 'decision', text: item.body });
 
