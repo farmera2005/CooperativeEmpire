@@ -51,18 +51,25 @@ export const GRIEVANCES = {
 };
 
 export const OVERHEAD = {
-  /** GM salary: base + per member, 2024 $. */
-  gmSalaryBase: s(85_000, 'low'),
-  gmSalaryPerMember: s(35, 'low'),
+  /**
+   * GM salary: base + per member + per location, 2024 $. A one-house co-op's manager also runs
+   * the elevator; a multi-location GM is paid for the job's scope (D-098).
+   */
+  gmSalaryBase: s(60_000, 'low'),
+  gmSalaryPerMember: s(30, 'low'),
+  gmSalaryPerLocation: s(10_000, 'low'),
   /** Benefits and payroll taxes as share of salary. */
   benefitsRate: s(0.28, 'low'),
   /** Office and admin expense per month, 2024 $ (base + per member). */
-  officeMonthlyBase: s(3000, 'low'),
+  officeMonthlyBase: s(1500, 'low'),
+  /** Office and admin per location per month, 2024 $. */
+  officeMonthlyPerLocation: s(600, 'low'),
   officeMonthlyPerMember: s(2, 'low'),
   /** Board per diem per director per monthly meeting, 2024 $. */
   directorPerDiem: s(250, 'low'),
   /** Annual audit fee (2024 $) base + per $1M of assets. */
-  auditFeeBase: s(25_000, 'low'),
+  auditFeeBase: s(8_000, 'low'),
+  auditFeePerMillionAssets: s(1_500, 'low', 'Small co-op audits ran a few thousand dollars; fees scale with the balance sheet'),
   /** Interest earned on cash: T-bill rate minus this spread (percentage points). */
   cashYieldSpread: s(1.0, 'low'),
 };
@@ -154,6 +161,8 @@ export const LENDING = {
     cobank: s(0.25, 'low'),
     'local-bank': s(1.0, 'low'),
   } as Record<string, { value: number; confidence: 'high' | 'medium' | 'low'; note?: string }>,
+  /** Co-op bank average-cost pricing: the rate follows prime averaged over this many months (D-097). */
+  coopBankAveragingMonths: 36,
   /** Extra spread on term loans over the line rate. */
   termSpread: s(0.5, 'low'),
   termLoanMonths: s(120, 'low', '10-year amortization for facility loans'),

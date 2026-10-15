@@ -118,6 +118,36 @@ export const FARMER_MARKETING = {
   monthlySellRate: s(0.14, 'low'),
 };
 
+/**
+ * Government grain in country elevators (D-095): CCC-owned stocks and, from 1977, the
+ * Farmer-Owned Reserve, stored in licensed warehouses under federal storage agreements. The
+ * share of each house's space it fills follows the size of government stocks: low after the
+ * 1972 Soviet sales, rising from 1977, peaking with the 1982–83 surplus and again in 1985–87,
+ * gone after the 1996 FAIR Act. The rate is about 26.5¢/bu/yr in the 1980s (UGSA).
+ */
+export const GOV_STORAGE = {
+  occupancy: [
+    { year: 1970, value: 0.08, confidence: 'low' as const, source: 'Shape of CCC grain inventories and FOR enrollment, USDA' },
+    { year: 1972, value: 0.03, confidence: 'low' as const },
+    { year: 1974, value: 0, confidence: 'low' as const },
+    { year: 1976, value: 0, confidence: 'low' as const },
+    { year: 1977, value: 0.06, confidence: 'low' as const },
+    { year: 1979, value: 0.15, confidence: 'low' as const },
+    { year: 1980, value: 0.12, confidence: 'low' as const },
+    { year: 1982, value: 0.25, confidence: 'low' as const },
+    { year: 1983, value: 0.28, confidence: 'low' as const },
+    { year: 1984, value: 0.15, confidence: 'low' as const },
+    { year: 1986, value: 0.33, confidence: 'low' as const },
+    { year: 1987, value: 0.33, confidence: 'low' as const },
+    { year: 1988, value: 0.2, confidence: 'low' as const },
+    { year: 1990, value: 0.08, confidence: 'low' as const },
+    { year: 1993, value: 0.04, confidence: 'low' as const },
+    { year: 1996, value: 0, confidence: 'low' as const },
+  ],
+  /** Storage paid per bushel per year (2024 $; scaled by the grain cost index ≈ 26.5¢ in the 1980s). */
+  ratePerYear: s(0.46, 'low', 'Uniform Grain Storage Agreement rate ~26.5¢/bu/yr, 1980s'),
+};
+
 export const FEES = {
   /** Storage (2024 $/bu/month) charged on open storage. */
   storagePerMonth: s(0.03, 'low'),

@@ -7,16 +7,18 @@ import { roundCents } from '../core/money';
 import { balance, post } from '../ledger/ledger';
 import type { TickContext } from '../sim/context';
 import { marketValue } from '../world/marketPath';
-import { nominalCents } from '../world/macro';
+import { nominalCents, priceLevel } from '../world/macro';
+import { balanceSheet } from '../ledger/statements';
 
 export function postOverhead(ctx: TickContext): void {
   const { state, path, mi } = ctx;
   const members = state.members.list.filter((m) => m.kind === 'member' && m.status === 'active').length;
-  const gmAnnual2024 = OVERHEAD.gmSalaryBase.value + OVERHEAD.gmSalaryPerMember.value * members;
+  const locations = state.coop.facilities.filter((f) => f.status !== 'closed').length;
+  const gmAnnual2024 = OVERHEAD.gmSalaryBase.value + OVERHEAD.gmSalaryPerMember.value * members + OVERHEAD.gmSalaryPerLocation.value * locations;
   const salary = nominalCents(path, mi, gmAnnual2024 / 12);
   const benefits = roundCents(salary * OVERHEAD.benefitsRate.value);
   // Computers and, later, AI tools trim office work.
-  const office = nominalCents(path, mi, (OVERHEAD.officeMonthlyBase.value + OVERHEAD.officeMonthlyPerMember.value * members) * techFactor(state, 'officeCost'));
+  const office = nominalCents(path, mi, (OVERHEAD.officeMonthlyBase.value + OVERHEAD.officeMonthlyPerMember.value * members + OVERHEAD.officeMonthlyPerLocation.value * locations) * techFactor(state, 'officeCost'));
   const board = nominalCents(path, mi, OVERHEAD.directorPerDiem.value * state.governance.directors.length);
   const lines = [
     { account: '7000', division: 'CORP' as const, amount: salary },
@@ -26,7 +28,7 @@ export function postOverhead(ctx: TickContext): void {
   ];
   // Annual audit fee, billed the third month after fiscal year end.
   if (fiscalPeriod(mi, state.setup.fiscalYearEndMonth) === 3 && mi - state.coop.foundedMonth > 3) {
-    lines.push({ account: '7600', division: 'CORP', amount: nominalCents(path, mi, OVERHEAD.auditFeeBase.value) });
+    lines.push({ account: '7600', division: 'CORP', amount: nominalCents(path, mi, OVERHEAD.auditFeeBase.value + (OVERHEAD.auditFeePerMillionAssets.value * balanceSheet(state.ledger, mi).totalAssets) / 100 / priceLevel(path, mi) / 1e6) });
   }
   const total = lines.reduce((s, l) => s + l.amount, 0);
   post(state, { source: 'overhead', memo: 'Corporate payroll, office, board and professional fees', lines: [...lines, { account: '1000', division: 'CORP', amount: -total }] });

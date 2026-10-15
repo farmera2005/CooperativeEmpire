@@ -91,16 +91,22 @@ export function stepCovenants(ctx: TickContext): void {
     // Distress: debt service not covered, or equity below covenant and still shrinking.
     const dsc = test.results.find((x) => x.id === 'debtService')!;
     const eqr = test.results.find((x) => x.id === 'equityRatio')!;
-    const distress = dsc.value < 1 || (!eqr.ok && (!prev || test.equity < prev.equity));
-    if (fin.status === 'standard') {
+    const [k0, k1] = COVENANTS.crunchYears;
+    const crunch = ctx.year >= k0 && ctx.year <= k1 && eqr.value < COVENANTS.crunchDistressEquity.value;
+    const distress = dsc.value < 1 || (!eqr.ok && (!prev || test.equity < prev.equity)) || crunch;
+    if (fin.status === 'standard' && crunch) {
+      move('specialCredit', 'Credit crunch: loans moved to special credit', `Credit markets have frozen and our equity is thin (${failed}). ${lender} moved our loans straight to its special credit group. Cash patronage is limited to the legal minimum, redemptions stop, capital projects need consent, and a consultant bills us monthly. If we are still this thin at the next year end, the lender will act.`);
+    } else if (fin.status === 'standard') {
       move('watch', 'Loan covenant breached: lender watch list', `${lender} reports that we are out of compliance: ${failed}. We are on the watch list and pay ${COVENANTS.watchSpread.value} points more on the line. If we are still out of compliance at next year end we will need a formal waiver.`);
+    } else if (fin.status === 'watch' && crunch) {
+      move('specialCredit', 'Credit crunch: loans moved to special credit', `With credit markets frozen and our equity thin (${failed}), ${lender} skipped the waiver and moved our loans to its special credit group. Cash patronage is limited to the legal minimum, redemptions stop, capital projects need consent, and a consultant bills us monthly.`);
     } else if (fin.status === 'watch' && fin.breachQuarters >= COVENANTS.quartersToEscalate) {
       const fee = roundCents(fin.lineCommitment * COVENANTS.waiverFee.value);
       if (fee > 0) post(state, { source: 'covenant-waiver', memo: 'Covenant waiver fee', lines: [{ account: '7600', division: 'CORP', amount: fee }, { account: '1000', division: 'CORP', amount: -fee }] });
       move('waiver', 'Covenant waiver granted, at a price', `We remain out of compliance (${failed}). ${lender} granted a waiver for a fee of ${formatCents(fee)} and raised our spread to ${COVENANTS.waiverSpread.value} points. If we don't get back into compliance, the loan goes to special credit.`);
     } else if (fin.status === 'waiver' && fin.breachQuarters >= COVENANTS.quartersToEscalate) {
       move('specialCredit', 'Loans transferred to special credit', `${lender} has moved our loans to its special credit group (${failed}). Until we recover: cash patronage is limited to the legal minimum, equity redemptions stop, new capital projects need the lender's consent (refused for now), the line will not grow, and a lender-appointed consultant bills us monthly.`);
-    } else if (fin.status === 'specialCredit' && fin.breachQuarters >= COVENANTS.quartersToForce && distress) {
+    } else if (fin.status === 'specialCredit' && (fin.breachQuarters >= COVENANTS.quartersToForce || crunch) && distress) {
       move('forcedAction', 'The lender forces action', `${lender} has lost patience. It is calling the loans and requiring the board to sell or merge the cooperative.`);
       state.outcome = { kind: 'liquidated', monthIndex: ctx.mi, text: `After a year in special credit without recovering covenant compliance, ${lender} called the loans and forced the board to sell the cooperative's assets. Your tenure as general manager is over.` };
     }

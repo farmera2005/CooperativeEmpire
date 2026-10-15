@@ -10,6 +10,7 @@
 //   6. hedges rebalanced, inventory and DP liability marked to market, margin deposits
 //   7. fees, bond, report and margin breakdown
 
+import { GOV_STORAGE } from '../../data/grain';
 import { addGrievance } from '../members/grievances';
 import { GRIEVANCES } from '../../data/tuning';
 import { expectedRefundRate } from '../finance/selectors';
@@ -48,6 +49,9 @@ const YIELD_SERIES: Record<Commodity, SeriesId> = { corn: 'yieldCorn', soybeans:
 const REPORT_HISTORY = 36;
 const SUPPLY_KEYS = ['AGRONOMY', 'FEED', 'ENERGY'];
 const HOURS_PER_WEEK = 24 * 7;
+
+/** Share of a licensed house filled with government grain this year. */
+export const govOccupancy = (year: number): number => valueAt(GOV_STORAGE.occupancy, year);
 
 export function emptyPosition(): CommodityPosition {
   return { ownedBu: 0, book: 0, dpBu: 0, dpLiability: 0, openStorageBu: 0, shortBu: 0, lastFutures: 0 };
@@ -283,7 +287,8 @@ export function stepGrain(ctx: TickContext): void {
   for (const f of operating) {
     const fl = flows.get(f.id)!;
     const cap = grainCapacity(f.components);
-    const space = cap.storageBu + cap.pileBu;
+    // Government grain under storage agreement takes its share of the house (D-095).
+    const space = cap.storageBu * (1 - govOccupancy(year)) + cap.pileBu;
     const shipCaps = shipCapacities(state, f, mi);
     // Monthly merchandising plan: how much owned grain to move. A merchandiser short of credit
     // (little room left on the line, or over it) sells rather than storing for carry (D-089).
@@ -666,6 +671,17 @@ export function stepGrain(ctx: TickContext): void {
   }
 
   const maxWait = Math.max(0, ...[...flows.values()].map((fl) => fl.maxWait));
+  // Storage paid on government grain held under federal agreement (D-095).
+  const occ = govOccupancy(year);
+  if (occ > 0) {
+    for (const f of operating) {
+      const fee = roundCents((grainCapacity(f.components).storageBu * occ * GOV_STORAGE.ratePerYear.value * idx * 100) / 12);
+      if (fee <= 0) continue;
+      post(state, { source: 'gov-storage', memo: `Government grain storage, ${f.name}`, lines: [{ account: '1000', division: 'GRAIN', amount: fee }, { account: '6000', division: 'GRAIN', amount: -fee }] });
+      comp.storage += fee;
+    }
+  }
+
   // Matches the ledger: sales − (book cost of grain sold + freight − hedge results − revaluation − shrink).
   const gm = comp.sales - comp.cogs - comp.freight + comp.hedge + comp.revalue + comp.shrink;
   const breakdown: Breakdown = bd('grain.margin', 'Grain gross margin + service income', 0, [
@@ -676,7 +692,7 @@ export function stepGrain(ctx: TickContext): void {
     bd('revalue', 'Inventory & DP marked to market', comp.revalue, undefined, 'Change in value of owned grain at the local bid; offsets hedge results when hedged', 'cents'),
     bd('shrink', 'Shrink gain / loss', comp.shrink, undefined, undefined, 'cents'),
     bd('drying', 'Drying charges', comp.drying, undefined, undefined, 'cents'),
-    bd('storage', 'Storage & DP service charges', comp.storage, undefined, undefined, 'cents'),
+    bd('storage', 'Storage, DP and government storage income', comp.storage, undefined, undefined, 'cents'),
   ], 'Cost of grain sold includes the change in inventory value, so the margin shows up as grain moves and as basis and carry improve.', 'cents');
   breakdown.value = gm + comp.drying + comp.storage;
   const rep: GrainMonthReport = { monthIndex: mi, byCommodity: report, maxWaitHours: maxWait, grossMargin: breakdown, marginCall };

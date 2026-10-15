@@ -131,6 +131,14 @@ export const COVENANTS = {
   /** A commercial bank cuts the line this much at renewal in farm-crisis years when the co-op is on watch or worse. */
   crisisLineCut: s(0.3, 'low'),
   crisisYears: [1982, 1987] as [number, number],
+  /**
+   * The 2008–2010 credit crunch (D-099): lenders of every kind cut lines for borrowers not in good
+   * standing, and treat a special-credit borrower with thin equity as distressed even while it
+   * still shows a profit.
+   */
+  crunchYears: [2008, 2010] as [number, number],
+  crunchLineCut: s({ commercial: 0.25, coopBank: 0.15 }, 'low', '2008–09: banks shrank exposure to leveraged agribusiness borrowers'),
+  crunchDistressEquity: s(0.25, 'low', 'Thin by 2008 ag-lending standards, where 30% equity covenants were common'),
   /** Consultant fee under special credit (2024 $ per month). */
   consultantMonthly: s(8000, 'low'),
 };

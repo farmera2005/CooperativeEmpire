@@ -71,6 +71,12 @@ export const GM_REVIEW = {
   weights: { budget: 0.25, savings: 0.2, lender: 0.15, members: 0.1, demands: 0.1, votes: 0.05, loyalty: 0.15 },
   /** Points added to results scores per unit of farm-income stress (bad times are forgiven). */
   hardTimesCurve: s(60, 'low'),
+  /**
+   * Interest-rate hard times (D-100): directors also forgive results when the prime rate is far
+   * above normal, as in 1979–82. Stress = (prime − this) ÷ 10, capped at 1; the larger of this and
+   * farm-income stress sets the curve.
+   */
+  ratePainFrom: s(10, 'low'),
   /** Weight of the review score in board confidence (the rest is carried over). */
   reviewWeight: 0.4,
   /** Bonus as a share of salary at a perfect review (scaled from a score of 50). */

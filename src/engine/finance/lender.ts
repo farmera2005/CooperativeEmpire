@@ -21,7 +21,16 @@ import { effect } from '../people/leaders';
 export function lineRate(state: GameState, mi = state.clock.monthIndex, lenderId = state.coop.lenderId): number {
   const spread = LENDING.spreadOverPrime[lenderId]?.value ?? LENDING.spreadOverPrime['local-bank'].value;
   // The CFO's standing with the lender moves the spread.
-  return marketValue(pathFor(state), 'prime', mi) + spread + (lenderId === state.coop.lenderId ? state.coop.finance.riskSpread : 0) + effect(state, 'finance.spread');
+  // The co-op banks priced loans on the Farm Credit System's average cost of funds, so their
+  // rates trailed the market: below prime in the 1979–82 spike, above it in 1984–86 (D-097).
+  const path = pathFor(state);
+  let base = marketValue(path, 'prime', mi);
+  if (lenderKind(lenderId) === 'coopBank') {
+    let sum = 0;
+    for (let k = 0; k < LENDING.coopBankAveragingMonths; k++) sum += marketValue(path, 'prime', mi - k);
+    base = sum / LENDING.coopBankAveragingMonths;
+  }
+  return base + spread + (lenderId === state.coop.lenderId ? state.coop.finance.riskSpread : 0) + effect(state, 'finance.spread');
 }
 
 export const memberEquity = (state: GameState): Cents => balanceSheet(state.ledger, state.clock.monthIndex).totalEquity;
@@ -245,6 +254,11 @@ export function stepLender(ctx: TickContext): void {
     if (lenderKind(state.coop.lenderId) === 'commercial' && fin.status !== 'standard' && ctx.year >= c0 && ctx.year <= c1) {
       offer = Math.min(offer, roundCents(fin.lineCommitment * (1 - COVENANTS.crisisLineCut.value)));
       ctx.inbox({ kind: 'alert', title: 'The bank is cutting our line', body: `With farm loans going bad across the Corn Belt, ${brandLabel(state.coop.lenderId)} is reducing exposure to borrowers on its watch list. Our seasonal line is cut to ${formatCents(offer)}.` });
+    }
+    const [k0, k1] = COVENANTS.crunchYears;
+    if (fin.status !== 'standard' && ctx.year >= k0 && ctx.year <= k1) {
+      offer = Math.min(offer, roundCents(fin.lineCommitment * (1 - COVENANTS.crunchLineCut.value[lenderKind(state.coop.lenderId)])));
+      ctx.inbox({ kind: 'alert', title: 'Credit crunch: our line is cut', body: `With credit markets frozen, ${brandLabel(state.coop.lenderId)} is shrinking its exposure to borrowers out of compliance. Our seasonal line is cut to ${formatCents(offer)}.` });
     }
     if (offer !== fin.lineCommitment) {
       ctx.inbox({ kind: 'memo', title: 'Seasonal line renewed', body: `The lender renewed the seasonal line at ${formatCents(offer)} (was ${formatCents(fin.lineCommitment)}), sized to our storage and member equity.` });

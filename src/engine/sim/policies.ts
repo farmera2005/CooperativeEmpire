@@ -2,12 +2,13 @@
 // following that policy would issue this month. They grow with each milestone.
 
 import { marketValue } from '../world/marketPath';
-import { nominalCents } from '../world/macro';
+import { nominalCents, priceLevel } from '../world/macro';
+import { DEALS } from '../../data/competition';
 import { totalAcres } from '../members/generate';
 import { forecastDealVote } from '../deals/vote';
 import { FACILITY_COSTS } from '../../data/grain';
 import { replacementCost } from '../facilities/facilities';
-import { estimateProject } from '../facilities/actions';
+import { estimateProject, specComponents, type BuildSpec } from '../facilities/actions';
 import { pathFor } from '../world/macro';
 import { REGULATIONS, TECHNOLOGIES } from '../../data/events';
 import { affectedSites, complianceCost, isCompliant, ruleActive } from '../world/regulation';
@@ -22,8 +23,13 @@ import type { GameState } from '../types';
 import type { Command } from './commands';
 import { ROLE_DEFS } from '../../data/people';
 
-/** Rough yearly corporate overhead (GM, office, board, audit) a bot weighs against a purchase, 2024 $. */
-const BOT_OVERHEAD_2024 = 200_000;
+/** Rough yearly fixed cost of running one elevator (crew base, office, utilities), 2024 $. */
+const BOT_HOUSE_FIXED_2024 = 60_000;
+/** Above this prime rate (%) a prudent GM finances no expansion. */
+const BOT_DEAR_PRIME = 11;
+/** Bushels of space per bushel-per-hour of receiving before the pit outruns the bins. */
+const BOT_STORAGE_HOURS_PER_PIT = 40;
+const LEAN_IN_HARD_TIMES = false;
 
 export type PolicyId = 'baseline' | 'reckless' | 'conservative' | 'idle';
 
@@ -49,11 +55,13 @@ interface Style {
   manageEquity: boolean;
   cashPatronage: number;
   redemptionPct: number;
+  /** Open-position limit (bu) the GM asks the board for; omitted = live with the board's limit. */
+  positionLimit?: number;
 }
 
 const STYLES: Record<Exclude<PolicyId, 'idle'>, Style> = {
   baseline: { posture: 'market', hedgeRatio: 1, financePct: 0.6, maxPriceToEquity: 2.5, maxFacilities: 3, expand: true, minEquityRatio: 0.4, diligence: true, supplyKinds: ['agronomy', 'energy', 'feedmill'], maxSupplySites: 3, supplyScale: 0.6, manageEquity: true, cashPatronage: 0.3, redemptionPct: 0.2 },
-  reckless: { posture: 'aggressive', hedgeRatio: 0.2, financePct: 0.7, maxPriceToEquity: 4, maxFacilities: 8, expand: true, minEquityRatio: 0, diligence: false, supplyKinds: ['agronomy', 'energy', 'feedmill', 'station', 'farmstore'], maxSupplySites: 8, supplyScale: 1.2, manageEquity: false, cashPatronage: 0.5, redemptionPct: 0.4 },
+  reckless: { posture: 'aggressive', hedgeRatio: 0.2, financePct: 0.7, maxPriceToEquity: 4, maxFacilities: 8, expand: true, minEquityRatio: 0, diligence: false, supplyKinds: ['agronomy', 'energy', 'feedmill', 'station', 'farmstore'], maxSupplySites: 8, supplyScale: 1.2, manageEquity: false, cashPatronage: 0.5, redemptionPct: 0.4, positionLimit: 400_000 },
   conservative: { posture: 'premium', hedgeRatio: 1, financePct: 0.3, maxPriceToEquity: 0.8, maxFacilities: 1, expand: false, minEquityRatio: 0.5, diligence: true, supplyKinds: ['agronomy'], maxSupplySites: 1, supplyScale: 0.5, manageEquity: true, cashPatronage: 0.25, redemptionPct: 0.15 },
 };
 
@@ -62,13 +70,19 @@ function scripted(style: Style): Policy {
     const cmds: Command[] = [];
     const pol = state.coop.grainPolicy;
     if (pol.posture !== style.posture || pol.hedgeRatio !== style.hedgeRatio) cmds.push({ type: 'setGrainPolicy', policy: { posture: style.posture, hedgeRatio: style.hedgeRatio } });
+    // A speculating GM asks the board each spring for room to carry big open positions (D-099).
+    if (style.positionLimit && monthOf(state.clock.monthIndex) === 4 && pol.positionLimit.corn < style.positionLimit) {
+      cmds.push({ type: 'setGrainPolicy', policy: { positionLimit: { corn: style.positionLimit, soybeans: style.positionLimit, wheat: Math.round(style.positionLimit / 4) } } });
+    }
     const equity = memberEquity(state);
     const owned = state.coop.facilities.filter((f) => f.status !== 'closed' && f.kind === 'elevator');
     const bs = balanceSheet(state.ledger, state.clock.monthIndex);
     const eqRatio = bs.totalAssets > 0 ? bs.totalEquity / bs.totalAssets : 1;
-    // A prudent GM grows only from strength: standard lender standing and a profitable last year.
+    // A prudent GM grows only from strength: standard lender standing, a profitable last year,
+    // and borrowing that isn't dear (D-096).
     const lastFy = state.coop.equityProgram.history[state.coop.equityProgram.history.length - 1];
-    const healthy = state.coop.finance.status === 'standard' && (!lastFy || lastFy.savingsBeforeTax > 0);
+    const dearMoney = style.manageEquity && marketValue(pathFor(state), 'prime', state.clock.monthIndex) > BOT_DEAR_PRIME;
+    const healthy = state.coop.finance.status === 'standard' && (!lastFy || lastFy.savingsBeforeTax > 0) && !dearMoney;
     // What an offer really costs: a worn house needs renovating soon after purchase.
     const trueCost = (o: (typeof state.coop.offers)[number]) => o.price + (((o.conditionEstimate[0] + o.conditionEstimate[1]) / 2) < 50 ? replacementCost(pathFor(state), state.clock.monthIndex, o.components) * FACILITY_COSTS.renovateCostShare.value : 0);
 
@@ -77,19 +91,23 @@ function scripted(style: Style): Policy {
       const affordable = state.coop.offers
         .filter((o) => o.kind === 'elevator' && o.price <= Math.max(0, equity) * style.maxPriceToEquity && o.price * (1 - style.financePct) <= liquidity(state) * 0.8)
         .sort((a, b) => trueCost(a) / grainCapacity(a.components).storageBu - trueCost(b) / grainCapacity(b.components).storageBu);
-      // A prudent GM sizes the house to the grain around it and to the co-op's fixed overhead:
-      // usable space (at most about half the nearby members' crop) per dollar of price,
-      // renovation and three years of corporate overhead.
-      const overhead = nominalCents(pathFor(state), state.clock.monthIndex, 3 * BOT_OVERHEAD_2024);
-      const draw = (townId: number) => state.members.list.reduce((a, m) => a + (m.status === 'active' && (state.world.distances[townId]?.[m.townId] ?? Infinity) <= 15 ? totalAcres(m) * 150 * 0.35 * m.weight : 0), 0);
-      const score = (o: (typeof affordable)[number]) => Math.min(grainCapacity(o.components).storageBu, 0.5 * draw(o.townId)) / (trueCost(o) + overhead);
+      // A prudent GM sizes the house to the grain around it: estimated yearly profit, so a house
+      // too small to carry its fixed costs and one too big to fill both score poorly (D-096).
+      const draw = (townId: number) => state.members.list.reduce((a, m) => a + (m.status === 'active' && (state.world.distances[townId]?.[m.townId] ?? Infinity) <= 15 ? totalAcres(m) * marketValue(pathFor(state), 'yieldCorn', state.clock.monthIndex) * 0.35 * m.weight : 0), 0);
+      const score = (o: (typeof affordable)[number]) => yearlyProfit2024(state, grainCapacity(o.components).storageBu, draw(o.townId), trueCost(o));
       // The lender's line (about five times equity) must carry a reasonable fill of grain; buying
       // swaps cash for plant, so equity is unchanged. With nothing that fits, a co-op with no
       // house still buys its best option.
       const fits = affordable.filter((o) => grainCapacity(o.components).storageBu * 0.4 * marketValue(pathFor(state), 'corn', state.clock.monthIndex) * 100 <= Math.max(0, equity) * 5);
       const pool = fits.length || owned.length ? fits : affordable;
       const pick = style.manageEquity ? [...pool].sort((a, b) => score(b) - score(a) || a.id - b.id)[0] : affordable[0];
-      if (pick) {
+      // With no house yet and only poor ones for sale, build one sized to the grain around the
+      // best town (D-096). It earns nothing while it goes up, so it must clearly beat buying.
+      const build = owned.length === 0 && style.manageEquity ? planElevator(state, equity * style.maxPriceToEquity, liquidity(state) * 0.8, style.financePct) : null;
+      // A new house earns nothing for most of a year while it goes up.
+      if (build && (!pick || build.profit - BOT_HOUSE_FIXED_2024 > score(pick))) {
+        cmds.push({ type: 'buildElevator', townId: build.townId, spec: build.spec, financePct: style.financePct });
+      } else if (pick) {
         if (style.diligence && !pick.diligenceDone) cmds.push({ type: 'dueDiligence', offerId: pick.id });
         else cmds.push({ type: 'buyFacility', offerId: pick.id, financePct: style.financePct });
       }
@@ -109,9 +127,12 @@ function scripted(style: Style): Policy {
         // Last 12 months' receipts at this site vs its capacity (turns).
         const received = state.coop.grain.reports.slice(-12).reduce((a, r) => a + COMMODITIES.reduce((b, c) => b + r.byCommodity[c].receivedBu + r.byCommodity[c].turnedAwayBu, 0), 0) / Math.max(1, owned.length);
         const turns = received / Math.max(1, cap.storageBu + cap.pileBu);
-        if (f.grain.waitMemory > 1.5) {
+        // Faster receiving only helps while there is room to put the grain; once the pit
+        // outruns the bins, lines mean the house is full.
+        const pitFitsBins = cap.receiveBuHr < (cap.storageBu + cap.pileBu) / BOT_STORAGE_HOURS_PER_PIT;
+        if (f.grain.waitMemory > 1.5 && pitFitsBins) {
           cmds.push({ type: 'upgradeFacility', facilityId: f.id, components: { receiving: Math.round(cap.receiveBuHr * 0.5 / 500) * 500 }, financePct: style.financePct });
-        } else if (turns > 3.5) {
+        } else if ((turns > 3.5 || f.grain.waitMemory > 1.5) && !dearMoney) {
           cmds.push({ type: 'upgradeFacility', facilityId: f.id, components: { 'storage-steel': Math.round(cap.storageBu * 0.4 / 10_000) * 10_000 }, financePct: style.financePct });
         }
       }
@@ -166,15 +187,22 @@ function scripted(style: Style): Policy {
       const pool = { cash, qualified: Math.round((1 - cash - reserve) * 100) / 100, nonqualified: 0, unallocated: reserve };
       const cur = ep.proposal.pools.ALL;
       if (cur.cash !== pool.cash || cur.unallocated !== pool.unallocated) cmds.push({ type: 'setPatronageProposal', proposal: { ...ep.proposal, pools: { ALL: pool } } });
-      const pct = thin || wantsEquity ? 0 : style.redemptionPct;
+      // Stop revolving equity well before the covenant floor, not after (D-096).
+      const cushion = style.manageEquity && eqRatio < style.minEquityRatio + 0.1;
+      const pct = thin || cushion || wantsEquity ? 0 : style.redemptionPct;
       const red = open.find((d) => d.kind === 'redemptionBudget');
       // Only a well-capitalized co-op humors a director who wants more redemptions; the extra lapses with the demand.
       // …and never revolves more than the co-op retained last year, or equity shrinks.
       const retained = lastFy ? lastFy.qualified + lastFy.nonqualified : 0;
-      const fixed = red && healthy && eqRatio >= style.minEquityRatio + 0.1 ? Math.min(red.target, style.manageEquity ? Math.round(retained * 0.5) : red.target) : 0;
+      const fixed = red && healthy && eqRatio >= style.minEquityRatio + 0.15 ? Math.min(red.target, style.manageEquity ? Math.round(retained * 0.5) : red.target) : 0;
       if (ep.redemption.budgetPctOfSavings !== pct || ep.redemption.budgetFixed !== fixed) cmds.push({ type: 'setRedemptionPolicy', policy: { ...ep.redemption, budgetPctOfSavings: pct, budgetFixed: fixed } });
     }
     if (style.manageEquity) cmds.push(...consolidate(state, healthy));
+    // Hard times: run crews lean until a profitable year with the lender satisfied (D-095).
+    if (LEAN_IN_HARD_TIMES && style.manageEquity && monthOf(state.clock.monthIndex) === 9) {
+      const level = healthy ? 'standard' : 'lean';
+      for (const f of state.coop.facilities) if (f.status === 'operating' && f.staffing.level !== level) cmds.push({ type: 'setStaffing', facilityId: f.id, level, pay: f.staffing.pay });
+    }
     if (style.manageEquity) {
       // Meet new rules before the deadline, one site a month, while cash allows.
       let room = liquidity(state) * 0.5;
@@ -212,12 +240,18 @@ export const POLICIES: Record<PolicyId, Policy> = {
  */
 function consolidate(state: GameState, healthy: boolean): Command[] {
   const cmds: Command[] = [];
+  // Studies and diligence cost the same whatever the co-op's size; a small co-op can't afford
+  // to chase deals it may walk away from (D-096).
+  const mi = state.clock.monthIndex;
+  const dealCost = nominalCents(pathFor(state), mi, DEALS.studyCost.value + DEALS.diligenceCost.value);
+  const canAfford = dealCost <= 0.05 * Math.max(0, balanceSheet(state.ledger, mi).totalEquity);
   const open = state.deals.filter((d) => d.stage !== 'closed' && d.stage !== 'dead');
   for (const d of open) {
     // Merge from strength, with a sound co-op in the same business; a weak partner's plants
     // bring more cost than business.
     const partner = state.competitors.find((c) => c.id === d.partnerId);
-    const sound = d.kind === 'merger' && healthy && d.estimate.strength >= 45 && (partner?.sites[0]?.division ?? 'GRAIN') === 'GRAIN';
+    // A sound grain co-op is worth joining whether we are strong (growth) or struggling (survival).
+    const sound = d.kind === 'merger' && healthy && canAfford && d.estimate.strength >= 50 && (partner?.sites[0]?.division ?? 'GRAIN') === 'GRAIN';
     if (d.stage === 'proposed' && d.incoming) cmds.push({ type: 'respondDeal', dealId: d.id, accept: sound });
     if (d.stage !== 'terms' || d.kind !== 'merger') continue;
     if (d.diligence && d.truth.strength < 40) {
@@ -242,6 +276,7 @@ function consolidate(state: GameState, healthy: boolean): Command[] {
   // Two weak years in a row: look for a sound neighbor to combine with (each March).
   const h = state.coop.equityProgram.history;
   const weak = h.length >= 2 && h.slice(-2).every((x) => x.savingsBeforeTax <= 0 || !healthy);
+  // A rescue merger is worth its study fee whatever the co-op's size.
   if (monthOf(state.clock.monthIndex) === 3 && weak && !open.length && !state.deals.some((d) => state.clock.monthIndex - d.startedMonth < 24)) {
     const ours = state.coop.facilities.filter((f) => f.status !== 'closed');
     const near = (townId: number) => ours.some((f) => (state.world.distances[f.townId]?.[townId] ?? Infinity) <= 30);
@@ -251,4 +286,32 @@ function consolidate(state: GameState, healthy: boolean): Command[] {
     if (partner) cmds.push({ type: 'proposeMerger', partnerId: partner.id });
   }
   return cmds;
+}
+
+/** A new elevator for the town with the most member grain nearby, sized to it and to what the co-op can afford. */
+function planElevator(state: GameState, maxCost: number, maxDown: number, financePct: number): { townId: number; spec: BuildSpec; cost: number; profit: number } | null {
+  const mi = state.clock.monthIndex;
+  const yieldBu = marketValue(pathFor(state), 'yieldCorn', mi);
+  const draw = (townId: number) => state.members.list.reduce((a, m) => a + (m.status === 'active' && (state.world.distances[townId]?.[m.townId] ?? Infinity) <= 15 ? totalAcres(m) * yieldBu * 0.35 * m.weight : 0), 0);
+  const towns = state.world.towns.map((t) => ({ id: t.id, d: draw(t.id) })).sort((a, b) => b.d - a.d || a.id - b.id);
+  const best = towns[0];
+  if (!best || best.d <= 0) return null;
+  for (let storage = Math.min(3_000_000, Math.round((0.4 * best.d) / 50_000) * 50_000); storage >= 100_000; storage = Math.round((storage * 0.8) / 10_000) * 10_000) {
+    const spec: BuildSpec = { storageType: 'storage-steel', storageBu: storage, receiveBuHr: Math.min(20_000, Math.max(2_000, Math.round(storage / 60 / 500) * 500)), dryBuHr: Math.max(200, Math.round(storage / 200 / 100) * 100), loadout: 'truck' };
+    const est = estimateProject(state, best.id, specComponents(spec));
+    if (est.problems.length) continue;
+    if (est.cost <= maxCost && est.cost * (1 - financePct) <= maxDown) return { townId: best.id, spec, cost: est.cost, profit: yearlyProfit2024(state, storage, best.d, est.cost) };
+  }
+  return null;
+}
+
+/**
+ * The bot's rough yearly profit from a house, 2024 $: volume (four turns, at most the members'
+ * grain within reach) at 30¢ margin and services less 12¢ variable cost, less the house's fixed
+ * cost and a 12% capital charge on what it costs (cents, nominal).
+ */
+function yearlyProfit2024(state: GameState, storageBu: number, drawBu: number, costCents: number): number {
+  const pl = priceLevel(pathFor(state), state.clock.monthIndex);
+  const volume = Math.min(storageBu * 4, drawBu);
+  return volume * (0.3 - 0.12) - BOT_HOUSE_FIXED_2024 - (0.12 * costCents) / 100 / pl;
 }

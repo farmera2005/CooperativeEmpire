@@ -1,5 +1,6 @@
 // Directors' demands, board confidence and the annual GM review (DESIGN §14.3–14.4).
 
+import { marketValue } from '../world/marketPath';
 import { CONFIDENCE, DEMANDS, GM_REVIEW } from '../../data/governance';
 import { DIVISION_LABEL } from '../../data/supply';
 import { OVERHEAD } from '../../data/tuning';
@@ -157,7 +158,8 @@ export function gmReview(ctx: TickContext, fy: number): GmReview {
   const b = state.coop.budget && state.coop.budget.fy === fy ? state.coop.budget : null;
   // Budget: local savings against plan.
   // Directors are farmers: in a bad farm economy they grade on a curve.
-  const curve = clamp(GM_REVIEW.hardTimesCurve.value * farmStress(ctx), 0, 20);
+  const ratePain = clamp((marketValue(ctx.path, 'prime', ctx.mi) - GM_REVIEW.ratePainFrom.value) / 10, 0, 1);
+  const curve = clamp(GM_REVIEW.hardTimesCurve.value * Math.max(farmStress(ctx), ratePain), 0, 20);
   let budget = 55;
   if (b) {
     const planned = Object.values(b.lines).reduce((a, x) => a + x.localSavings, 0);
@@ -185,7 +187,7 @@ export function gmReview(ctx: TickContext, fy: number): GmReview {
   g.boardConfidence = clamp((1 - GM_REVIEW.reviewWeight) * g.boardConfidence + GM_REVIEW.reviewWeight * score, 0, 100);
   // Bonus.
   const members0 = state.members.list.filter((m) => m.kind === 'member' && m.status === 'active').length;
-  const salary = nominalCents(ctx.path, ctx.mi, OVERHEAD.gmSalaryBase.value + OVERHEAD.gmSalaryPerMember.value * members0);
+  const salary = nominalCents(ctx.path, ctx.mi, OVERHEAD.gmSalaryBase.value + OVERHEAD.gmSalaryPerMember.value * members0 + OVERHEAD.gmSalaryPerLocation.value * state.coop.facilities.filter((f) => f.status !== 'closed').length);
   const bonus = roundCents(salary * GM_REVIEW.maxBonus.value * clamp((score - 50) / 50, 0, 1));
   if (bonus > 0) post(state, { source: 'gm-bonus', memo: `General manager's bonus, fiscal ${fy}`, lines: [{ account: '7000', division: 'CORP', amount: bonus }, { account: '1000', division: 'CORP', amount: -bonus }] });
   const wasPip = g.pip;
