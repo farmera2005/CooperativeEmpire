@@ -11,6 +11,8 @@
   --color-grain: #c9a227;
   --color-rust: #a3472b;
   --color-sky: #3b6e8f;
+  /* Secondary text darkened from Tailwind's default so it meets WCAG AA (4.5:1) on every surface used (M8). */
+  --color-stone-500: #5c5550;
 }
 
 html, body, #root { height: 100%; }
@@ -26,3 +28,8 @@ table.data th { @apply text-left font-semibold text-stone-600 border-b border-st
 table.data td { @apply border-b border-stone-200 px-2 py-0.5; }
 table.data td.r, table.data th.r { @apply text-right tabular-nums; }
 .headline { font-family: var(--font-serif); }
+
+/* Accessibility (M8): every interactive element shows keyboard focus. */
+button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 2px solid #3b6e8f; outline-offset: 2px; }
+.skip-link { position: absolute; left: -999px; top: 0; z-index: 100; background: #fff; padding: 0.5rem 1rem; border: 1px solid #3b6e8f; }
+.skip-link:focus { left: 0.5rem; top: 0.5rem; }

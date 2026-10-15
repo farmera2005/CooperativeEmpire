@@ -140,7 +140,7 @@ function ProposalBuilder() {
       <div className="grid grid-cols-2 gap-6">
         <div className="space-y-3">
           <label className="block text-sm"><Term id="patronage-pool">Pooling</Term>{' '}
-            <select className="input" value={p.pooling} onChange={(e) => setP({ ...p, pooling: e.target.value as PatronageProposal['pooling'] })}>
+            <select className="input" aria-label="Patronage pooling" value={p.pooling} onChange={(e) => setP({ ...p, pooling: e.target.value as PatronageProposal['pooling'] })}>
               <option value="byDivision">One pool per division</option>
               <option value="single">A single pool for all business</option>
             </select>
@@ -152,12 +152,12 @@ function ProposalBuilder() {
                 <tr key={d}>
                   <td>{DIVISION_LABEL[d]}</td>
                   <td>
-                    <select className="input py-0" value={p.basis[d]} onChange={(e) => setP({ ...p, basis: { ...p.basis, [d]: e.target.value as PatronageBasis } })}>
+                    <select className="input py-0" aria-label={`Patronage basis for ${d.toLowerCase()}`} value={p.basis[d]} onChange={(e) => setP({ ...p, basis: { ...p.basis, [d]: e.target.value as PatronageBasis } })}>
                       {BASES_FOR[d].map((b) => <option key={b} value={b}>{BASIS_LABEL[b]}</option>)}
                     </select>
                   </td>
                   {p.pooling === 'byDivision' && (
-                    <td><input type="checkbox" checked={!!p.pools[d]} onChange={(e) => {
+                    <td><input type="checkbox" aria-label={`Separate pool for ${d.toLowerCase()}`} checked={!!p.pools[d]} onChange={(e) => {
                       const pools = { ...p.pools };
                       if (e.target.checked) pools[d] = { ...p.pools.ALL };
                       else delete pools[d];
@@ -175,7 +175,7 @@ function ProposalBuilder() {
             </div>
           ))}
           <label className="block text-sm">If a pool loses money:{' '}
-            <select className="input" value={p.lossTreatment} onChange={(e) => setP({ ...p, lossTreatment: e.target.value as LossTreatment })}>
+            <select className="input" aria-label="Loss treatment" value={p.lossTreatment} onChange={(e) => setP({ ...p, lossTreatment: e.target.value as LossTreatment })}>
               {(Object.keys(LOSS_LABEL) as LossTreatment[]).filter((k) => k !== 'netAgainstPools' || p.pooling === 'byDivision').map((k) => <option key={k} value={k}>{LOSS_LABEL[k]}</option>)}
             </select>
           </label>
@@ -240,8 +240,8 @@ function RedemptionEditor() {
   return (
     <Panel title="Equity redemption program">
       <div className="flex flex-wrap items-center gap-3 text-sm">
-        Annual budget: $<input className="input w-28" value={Math.round(pol.budgetFixed / 100)} onChange={(e) => setPol({ ...pol, budgetFixed: Number(e.target.value.replace(/[^\d]/g, '') || 0) * 100 })} />
-        plus <input className="input w-16 text-right" type="number" min={0} max={100} step={5} value={pctIn(pol.budgetPctOfSavings)} onChange={(e) => setPol({ ...pol, budgetPctOfSavings: Math.max(0, Math.min(100, Number(e.target.value))) / 100 })} />% of last year's net savings
+        Annual budget: $<input className="input w-28" aria-label="Annual redemption budget, dollars" value={Math.round(pol.budgetFixed / 100)} onChange={(e) => setPol({ ...pol, budgetFixed: Number(e.target.value.replace(/[^\d]/g, '') || 0) * 100 })} />
+        plus <input className="input w-16 text-right" aria-label="Redemption budget, percent of last year's net savings" type="number" min={0} max={100} step={5} value={pctIn(pol.budgetPctOfSavings)} onChange={(e) => setPol({ ...pol, budgetPctOfSavings: Math.max(0, Math.min(100, Number(e.target.value))) / 100 })} />% of last year's net savings
       </div>
       <ol className="mt-3 space-y-1 text-sm">
         {pol.plans.map((plan, i) => (
@@ -259,7 +259,7 @@ function RedemptionEditor() {
         ))}
       </ol>
       <div className="mt-2 flex items-center gap-2 text-sm">
-        <select className="input" value={add} onChange={(e) => setAdd(e.target.value as RedemptionPlan['kind'])}>
+        <select className="input" aria-label="Redemption plan to add" value={add} onChange={(e) => setAdd(e.target.value as RedemptionPlan['kind'])}>
           {(Object.keys(PLAN_LABEL) as RedemptionPlan['kind'][]).filter((k) => !pol.plans.some((p) => p.kind === k)).map((k) => <option key={k} value={k}>{PLAN_LABEL[k]}</option>)}
         </select>
         <button className="btn" onClick={() => !pol.plans.some((p) => p.kind === add) && setPol({ ...pol, plans: [...pol.plans, newPlan(add)] })}>Add plan</button>

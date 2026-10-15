@@ -255,13 +255,13 @@ function BylawsPanel() {
       </ul>
       <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
         Recommend an amendment:
-        <select className="input" value={field} onChange={(e) => setField(e.target.value as BylawChange['field'])}>
+        <select className="input" aria-label="Bylaw to amend" value={field} onChange={(e) => setField(e.target.value as BylawChange['field'])}>
           <option value="termLimit">Director term limit (terms; blank = none)</option>
           <option value="boardSize">Board size (directors)</option>
           <option value="capitalApproval">Capital approval threshold (2024 $)</option>
           <option value="memberPetitionPct">Petition threshold (% of members)</option>
         </select>
-        <input className="input w-28" value={value} onChange={(e) => setValue(e.target.value)} />
+        <input className="input w-28" aria-label="New bylaw value" value={value} onChange={(e) => setValue(e.target.value)} />
         <button className="btn" onClick={() => command({ type: 'proposeBylaw', change: change() })}>Send to the board: {bylawTitle(change())}</button>
       </div>
       {votes.length > 0 && (

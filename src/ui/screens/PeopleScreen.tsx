@@ -36,7 +36,7 @@ function Skills({ l, role }: { l: Leader; role: Role }) {
 }
 
 const Traits = ({ l }: { l: Leader }) => (
-  <span className="text-xs">{l.traits.length ? l.traits.map((t) => <span key={t} className="mr-1 inline-block whitespace-nowrap rounded bg-[#efe6c9] px-1" title={TRAITS[t].description}>{TRAITS[t].label}</span>) : <span className="text-stone-400">no notable traits</span>}</span>
+  <span className="text-xs">{l.traits.length ? l.traits.map((t) => <span key={t} className="mr-1 inline-block whitespace-nowrap rounded bg-[#efe6c9] px-1" title={TRAITS[t].description}>{TRAITS[t].label}</span>) : <span className="text-stone-500">no notable traits</span>}</span>
 );
 
 export function PeopleScreen() {
@@ -58,7 +58,7 @@ export function PeopleScreen() {
         <Stat label="Incidents, 12 months" value={incidents.length} sub={`${incidents.filter((i) => i.serious).length} serious`} tone={incidents.some((i) => i.serious) ? 'bad' : 'neutral'} />
         <div className="panel px-3 py-2">
           <div className="text-xs uppercase tracking-wide text-stone-500">Training &amp; safety budget</div>
-          <select className="input mt-1 w-full" value={p.training} onChange={(e) => command({ type: 'setTraining', level: e.target.value as TrainingLevel })}>
+          <select className="input mt-1 w-full" aria-label="Training and safety budget" value={p.training} onChange={(e) => command({ type: 'setTraining', level: e.target.value as TrainingLevel })}>
             <option value="minimal">Minimal</option><option value="standard">Standard</option><option value="strong">Strong</option>
           </select>
         </div>
@@ -150,7 +150,7 @@ function CandidateRow({ c }: { c: Candidate }) {
       <td>{ROLE_DEFS[l.role].label}</td>
       <td className="text-sm"><b>{l.name}</b><div className="text-xs text-stone-500">age {year - l.birthYear}; {c.source === 'internal' ? 'our own staff' : c.source === 'poach' ? 'at a competitor' : 'search firm'}; until {formatMonthShort(c.expiresMonth)}</div></td>
       <td><Skills l={l} role={l.role} /></td>
-      <td>{c.interviewed ? <Traits l={l} /> : <span className="text-xs text-stone-400">interview to learn more</span>}{c.referenceNote && <div className="text-xs italic">{c.referenceNote}</div>}</td>
+      <td>{c.interviewed ? <Traits l={l} /> : <span className="text-xs text-stone-500">interview to learn more</span>}{c.referenceNote && <div className="text-xs italic">{c.referenceNote}</div>}</td>
       <td className="r text-sm">{money(l.salary, { compact: true })}{c.signing > 0 && <div className="text-xs">+{money(c.signing, { compact: true })} signing</div>}</td>
       <td className="whitespace-nowrap">
         {!c.interviewed && <button className="btn py-0 text-xs" onClick={() => command({ type: 'interview', candidateId: c.id })}>Interview</button>}
@@ -208,8 +208,8 @@ function WorkforcePanel() {
             {ops.map((f) => (
               <tr key={f.id}>
                 <td>{f.name}</td><td className="r">{siteFte(game, f).toFixed(1)}</td>
-                <td><select className="input py-0 text-xs" value={f.staffing.level} onChange={(e) => command({ type: 'setStaffing', facilityId: f.id, level: e.target.value as typeof f.staffing.level, pay: f.staffing.pay })}><option value="lean">Lean</option><option value="standard">Standard</option><option value="full">Full</option></select></td>
-                <td><select className="input py-0 text-xs" value={f.staffing.pay} onChange={(e) => command({ type: 'setStaffing', facilityId: f.id, level: f.staffing.level, pay: e.target.value as typeof f.staffing.pay })}><option value="below">Below market</option><option value="at">At market</option><option value="above">Above market</option></select></td>
+                <td><select className="input py-0 text-xs" aria-label={`Staffing level at ${f.name}`} value={f.staffing.level} onChange={(e) => command({ type: 'setStaffing', facilityId: f.id, level: e.target.value as typeof f.staffing.level, pay: f.staffing.pay })}><option value="lean">Lean</option><option value="standard">Standard</option><option value="full">Full</option></select></td>
+                <td><select className="input py-0 text-xs" aria-label={`Pay at ${f.name}`} value={f.staffing.pay} onChange={(e) => command({ type: 'setStaffing', facilityId: f.id, level: f.staffing.level, pay: e.target.value as typeof f.staffing.pay })}><option value="below">Below market</option><option value="at">At market</option><option value="above">Above market</option></select></td>
               </tr>
             ))}
           </tbody>
@@ -234,7 +234,7 @@ function EffectsPanel() {
               <tr key={`${e.key}-${d ?? ''}`}>
                 <td>{e.role === 'division' ? `${d?.toLowerCase()} manager` : ROLE_DEFS[e.role].label}</td>
                 <td>{SKILL_LABEL[e.skill]}</td>
-                <td className="text-xs">{e.description} <span className="text-stone-400">({e.unit})</span></td>
+                <td className="text-xs">{e.description} <span className="text-stone-500">({e.unit})</span></td>
                 <td className="r">{fmt(effect(game, e.key, d), e.unit)}</td>
               </tr>
             ));

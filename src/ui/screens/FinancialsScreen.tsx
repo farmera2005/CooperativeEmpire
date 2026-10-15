@@ -156,7 +156,7 @@ function BsSection({ title, lines, onDrill }: { title: string; lines: { account:
   return (
     <>
       <tr><td colSpan={2} className="pt-2 text-xs font-semibold uppercase text-stone-500">{title}</td></tr>
-      {lines.length === 0 && <tr><td className="pl-4 text-stone-400">—</td><td></td></tr>}
+      {lines.length === 0 && <tr><td className="pl-4 text-stone-500">—</td><td></td></tr>}
       {lines.map((l) => (
         <tr key={l.account}><td className="pl-4"><button className="text-left hover:underline" onClick={() => onDrill(l.account)}>{l.name}</button></td><td className="r">{money(l.amount)}</td></tr>
       ))}
@@ -214,10 +214,10 @@ function BudgetPanel() {
         <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
           <b>{draft ? `Fiscal ${b.fy} budget (${b.approved ? 'approved' : 'draft'})` : `Fiscal ${b.fy} capital budget`}:</b>
           {draft && !b.approved && <>
-            sales growth <input className="input w-16" value={sg} onChange={(e) => setSg(e.target.value)} />%
-            cost growth <input className="input w-16" value={cg} onChange={(e) => setCg(e.target.value)} />%
+            sales growth <input className="input w-16" aria-label="Budget sales growth, percent" value={sg} onChange={(e) => setSg(e.target.value)} />%
+            cost growth <input className="input w-16" aria-label="Budget cost growth, percent" value={cg} onChange={(e) => setCg(e.target.value)} />%
           </>}
-          capital $<input className="input w-28" value={cap} onChange={(e) => setCap(e.target.value.replace(/[^\d]/g, ''))} />
+          capital $<input className="input w-28" aria-label="Capital budget, dollars" value={cap} onChange={(e) => setCap(e.target.value.replace(/[^\d]/g, ''))} />
           <button className="btn" onClick={() => command({ type: 'setBudget', ...(draft && !b.approved ? { salesGrowthPct: Number(sg), costGrowthPct: Number(cg) } : {}), capex: Number(cap) * 100 })}>Update</button>
         </div>
       )}

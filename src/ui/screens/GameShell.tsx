@@ -72,6 +72,7 @@ export function GameShell() {
 
   return (
     <div className="flex h-full">
+      <a href="#main" className="skip-link">Skip to content</a>
       <nav className="flex w-52 shrink-0 flex-col border-r border-stone-300 bg-[#ece6d3]" aria-label="Screens">
         <div className="border-b border-stone-300 p-3">
           <div className="headline text-sm font-bold leading-tight">{game.coop.name}</div>
@@ -93,7 +94,7 @@ export function GameShell() {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center gap-6 border-b border-stone-300 bg-white px-4 py-2">
           <div>
-            <div className="headline text-xl font-bold">{formatMonth(game.clock.monthIndex)}</div>
+            <div className="headline text-xl font-bold" aria-live="polite">{formatMonth(game.clock.monthIndex)}</div>
             <div className="text-xs text-stone-500">Fiscal {fy}</div>
           </div>
           <div className="num text-sm"><span className="text-stone-500">Cash</span> <b>{money(cash)}</b></div>
@@ -107,7 +108,7 @@ export function GameShell() {
         </header>
         {game.outcome && <GameOver />}
         <GuidePanel />
-        <main className="min-h-0 flex-1 overflow-auto p-4">
+        <main id="main" tabIndex={-1} className="min-h-0 flex-1 overflow-auto p-4">
           {tab === 'dashboard' && <Dashboard />}
           {tab === 'inbox' && <InboxScreen />}
           {tab === 'grain' && <GrainScreen />}
