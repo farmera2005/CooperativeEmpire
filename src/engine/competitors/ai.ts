@@ -40,23 +40,54 @@ export function stepCompetitors(ctx: TickContext): void {
   for (const c of active) {
     c.strength ??= rng.int(ai.initial[0], ai.initial[1]);
     const war = c.war && c.war.until > mi ? ai.priceWarCost.value : 0;
-    c.strength = clamp(c.strength + ai.reversion.value * (ai.equilibrium.value - c.strength) - ai.stressDrag.value * stress - war + rng.normal(0, ai.noise.value), 0, 100);
+    const vulnerability = 1.4 - c.strength / 100;
+    c.strength = clamp(c.strength + ai.reversion.value * (ai.equilibrium.value - c.strength) - ai.stressDrag.value * stress * vulnerability - war + rng.normal(0, ai.noise.value), 0, 100);
   }
   for (const c of active) {
     if (c.status !== 'active') continue;
     const st = c.strength ?? 50;
     // Failure: the bank closes them; their plants come up for sale at distressed prices.
     if (st < ai.failBelow.value && c.kind !== 'national') {
+      // Most troubled firms are worked out by their lender or recapitalized by the owners.
+      if (!rng.chance(ai.failProb.value)) {
+        c.strength = st + ai.workoutGain.value;
+        c.lastMove = 'restructured with its lender';
+        continue;
+      }
       c.status = 'failed';
       c.lastMove = 'failed';
+      const auctioned: typeof c.sites = [];
       for (const site of c.sites) {
+        // A stronger neighbor or a national often buys the plant outright.
+        const buyer = rng.chance(ai.acquireProb.value) ? acquirer(state, c, site, ai.acquireMiles) : null;
+        if (buyer) {
+          buyer.sites = [...buyer.sites, { ...site, id: Math.max(0, ...buyer.sites.map((x) => x.id)) + 1 }];
+          buyer.lastMove = `bought ${competitorName(state, c)}'s ${state.world.towns[site.townId].name} plant`;
+          ctx.inbox({ kind: 'news', title: `${competitorName(state, buyer)} buys a failed competitor`, body: `${competitorName(state, c)} has failed, and ${competitorName(state, buyer)} bought its ${state.world.towns[site.townId].name} location from the lender.` });
+          continue;
+        }
+        auctioned.push(site);
+      }
+      for (const site of auctioned) {
         const o = makeOffer(state, ctx.path, rng, c, site, mi, year);
         o.price = Math.round(o.price * rng.range(ai.distressDiscount[0], ai.distressDiscount[1]));
         o.sellerName = `${competitorName(state, c)} (in receivership)`;
         state.coop.offers.push(o);
       }
-      ctx.inbox({ kind: 'news', title: `${competitorName(state, c)} closes its doors`, body: `${competitorName(state, c)} has failed. Its lender is selling its ${c.sites.length > 1 ? 'facilities' : 'facility'} at distressed prices; see the Buy or build tabs.` });
+      if (auctioned.length) ctx.inbox({ kind: 'news', title: `${competitorName(state, c)} closes its doors`, body: `${competitorName(state, c)} has failed. Its lender is selling ${auctioned.length > 1 ? `${auctioned.length} facilities` : 'its facility'} at distressed prices; see the Buy or build tabs.` });
       continue;
+    }
+    // Consolidation: a smaller firm sells out to a stronger neighbor in the same business.
+    if (c.kind !== 'national' && st < ai.consolidateBelow.value && rng.chance(ai.consolidateProb.value)) {
+      const buyer = c.sites.length === 1 ? acquirer(state, c, c.sites[0], ai.acquireMiles) : null;
+      if (buyer) {
+        buyer.sites = [...buyer.sites, { ...c.sites[0], id: Math.max(0, ...buyer.sites.map((x) => x.id)) + 1 }];
+        buyer.lastMove = `bought ${competitorName(state, c)}`;
+        c.status = 'sold';
+        c.lastMove = `sold to ${competitorName(state, buyer)}`;
+        ctx.inbox({ kind: 'news', title: `${competitorName(state, c)} sells to ${competitorName(state, buyer)}`, body: `${competitorName(state, c)} in ${state.world.towns[c.sites[0].townId].name} has been sold to ${competitorName(state, buyer)}, which now runs ${buyer.sites.length} locations.` });
+        continue;
+      }
     }
     // A weak co-op near us may propose a merger.
     if (c.kind === 'coop' && st < ai.approachBelow.value && rng.chance(ai.approachProb.value) && nearUs(state, c, ai.approachMiles) && !state.deals.some((d) => d.partnerId === c.id && d.stage !== 'closed' && d.stage !== 'dead')) {
@@ -115,6 +146,16 @@ function endWars(ctx: TickContext): void {
       delete c.war;
     }
   }
+}
+
+/** The strongest healthy competitor in the same business within reach of a failed firm's site. */
+function acquirer(s: GameState, failed: Competitor, site: Competitor['sites'][number], miles: number): Competitor | null {
+  const division = site.division ?? 'GRAIN';
+  const year = yearOf(s.clock.monthIndex);
+  const cands = s.competitors.filter((x) => x !== failed && x.status === 'active' && (x.strength ?? 50) > 55 && x.sites.length
+    && (x.sites[0].division ?? 'GRAIN') === division && (x.sites[0].arrivalYear ?? 0) <= year
+    && x.sites.some((o) => milesBetween(s, o.townId, site.townId) <= miles));
+  return cands.sort((a, b) => (b.strength ?? 50) - (a.strength ?? 50) || a.id - b.id)[0] ?? null;
 }
 
 function nearUs(s: GameState, c: Competitor, miles: number): boolean {

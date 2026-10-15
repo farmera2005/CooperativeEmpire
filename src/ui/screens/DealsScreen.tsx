@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  competitorName, dealTitle, formatMonth, integrationPenalty, nominalCents, pathFor,
+  competitorName, dealTitle, forecastDealVote, formatMonth, integrationPenalty, nominalCents, pathFor,
   type Competitor, type Deal, type DealStage, type DealTerms, type OpDivision,
 } from '../../engine/index';
 import { DEALS } from '../../data/competition';
@@ -181,10 +181,35 @@ function DealCard({ d }: { d: Deal }) {
           </span>
         )}
       </div>
+      {(d.kind === 'merger' || d.kind === 'buyout') && (d.stage === 'terms' || d.stage === 'board') && <VoteForecast d={d} terms={d.stage === 'terms' ? terms : d.terms ?? terms} />}
       <details className="mt-2 text-xs text-stone-600">
         <summary className="cursor-pointer">Log</summary>
         <ul className="mt-1 list-disc pl-5">{d.log.map((l, i) => <li key={i}>{l}</li>)}</ul>
       </details>
+    </div>
+  );
+}
+
+/** How the member vote looks today, and why (the same model the vote uses). */
+function VoteForecast({ d, terms }: { d: Deal; terms: DealTerms }) {
+  const game = useStore((s) => s.game)!;
+  const f = forecastDealVote(game, d, terms);
+  const ok = f.expectedYes >= f.threshold;
+  const theirsOk = f.theirExpectedYes === undefined || f.theirExpectedYes >= 2 / 3;
+  return (
+    <div className="mt-3 rounded bg-[#f6f1e1] p-3 text-sm">
+      <div className="flex flex-wrap gap-x-6 gap-y-1">
+        <span>Our members, if the vote were today: <b className={ok ? 'text-field' : 'text-rust'}>{pct(f.expectedYes, 0)} yes</b> <span className="text-stone-500">({pct(f.threshold, 0)} needed, turnout about {pct(f.turnout, 0)})</span></span>
+        {f.theirExpectedYes !== undefined && <span>{d.partnerName}'s members: <b className={theirsOk ? 'text-field' : 'text-rust'}>{pct(f.theirExpectedYes, 0)} yes</b> <span className="text-stone-500">(⅔ needed)</span></span>}
+      </div>
+      <ul className="mt-1 grid gap-x-6 text-xs text-stone-600 md:grid-cols-2">
+        {f.factors.map((x) => <li key={x.key} className="flex justify-between gap-2"><span>{x.label}</span><span className={`num ${x.value < 0 ? 'text-rust' : 'text-field'}`}>{x.value > 0 ? '+' : ''}{x.value.toFixed(2)}</span></li>)}
+      </ul>
+      <p className="mt-1 text-xs text-stone-500">
+        Satisfied members follow the board; unhappy ones vote no. A vote is uncertain by a few points.
+        {f.basedOnEstimates ? ' Based on our estimates of their books; due diligence shows members audited figures.' : ''}
+        {!theirsOk ? ' Their members want more: more board seats or a new name for the combined co-op help.' : ''}
+      </p>
     </div>
   );
 }

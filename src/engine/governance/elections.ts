@@ -279,6 +279,13 @@ function holdMemberVote(ctx: TickContext, mv: MemberVote, rng: Rng): void {
  * member's lean; satisfied members follow the board. Needs `threshold` of votes cast and quorum.
  */
 export function memberReferendum(s: GameState, rng: Rng, appeal: number, threshold: number): { yesShare: number; turnout: number; passed: boolean } {
+  const e = expectedReferendum(s, appeal);
+  const yesShare = clamp(e.yesShare + rng.normal(0, 0.03), 0, 1);
+  return { yesShare, turnout: e.turnout, passed: e.turnout >= s.governance.bylaws.quorumPct && yesShare >= threshold };
+}
+
+/** The expected outcome of a referendum before the vote's noise (for forecasts). */
+export function expectedReferendum(s: GameState, appeal: number): { yesShare: number; turnout: number } {
   let yes = 0;
   let cast = 0;
   let eligible = 0;
@@ -288,7 +295,5 @@ export function memberReferendum(s: GameState, rng: Rng, appeal: number, thresho
     cast += m.weight * t;
     yes += m.weight * t * sigmoid(3 * (appeal + (m.satisfaction - 50) / 100));
   }
-  const yesShare = clamp((cast > 0 ? yes / cast : 0) + rng.normal(0, 0.03), 0, 1);
-  const turnout = eligible > 0 ? cast / eligible : 0;
-  return { yesShare, turnout, passed: turnout >= s.governance.bylaws.quorumPct && yesShare >= threshold };
+  return { yesShare: cast > 0 ? yes / cast : 0, turnout: eligible > 0 ? cast / eligible : 0 };
 }

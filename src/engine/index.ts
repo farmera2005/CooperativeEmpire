@@ -55,3 +55,5 @@ export { dealTitle, integrationPenalty, partnerProfile } from './deals/deals';
 export { techById, techCost, techFactor, uncoveredSites } from './world/tech';
 export { affectedSites, complianceCost, deadlineOf, isCompliant } from './world/regulation';
 export { flagOn, openDecisions } from './world/events';
+export { forecastDealVote } from './deals/vote';
+export type { DealVoteForecast } from './deals/vote';

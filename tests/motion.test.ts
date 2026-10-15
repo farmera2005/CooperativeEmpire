@@ -6,6 +6,8 @@ import { balance } from '../src/engine/ledger/ledger';
 import { migrate } from '../src/engine/save/migrations';
 import { SCHEMA_VERSION } from '../src/engine/types';
 import { DEALS } from '../src/data/competition';
+import { forecastDealVote } from '../src/engine/deals/vote';
+import { yearOf } from '../src/engine/core/calendar';
 
 const run = (s: GameState, months: number) => {
   for (let i = 0; i < months && !s.outcome; i++) s = advanceMonth(s).state;
@@ -34,6 +36,17 @@ describe('competitors in motion', () => {
     expect(active.every((c) => typeof c.strength === 'number' || (c.sites[0]?.arrivalYear ?? 0) > 1988)).toBe(true);
     expect(s.competitors.some((c) => c.lastMove)).toBe(true);
     expect(checkInvariants(s)).toEqual([]);
+  });
+
+  it('most local competitors outlast the 1980s farm crisis', () => {
+    let s = coop(1978, 12, 'strict');
+    const local = (x: GameState) => x.competitors.filter((c) => c.kind !== 'national' && c.status === 'active' && (c.sites[0]?.arrivalYear ?? 0) <= yearOf(x.clock.monthIndex)).length;
+    const before = local(s);
+    s = run(s, 12 * 10);
+    expect(s.outcome).toBeFalsy();
+    // Some fail or sell out, but competition remains (it all vanished before D-080).
+    expect(local(s)).toBeGreaterThan(before * 0.5);
+    expect(local(s)).toBeLessThan(before);
   });
 
   it('ethanol plants go up after the renewable fuel standard', () => {
@@ -70,6 +83,24 @@ describe('deals', () => {
     expect(s.coop.name).toBe('Prairie Unity Cooperative');
     expect(s.competitors.find((c) => c.id === partner.id)!.status).toBe('sold');
     expect(checkInvariants(s)).toEqual([]);
+  });
+
+  it('members back a sound, board-recommended merger and balk at a bad one', () => {
+    let s = coop(1995, 4);
+    const partner = s.competitors.find((c) => c.kind === 'coop' && c.status === 'active' && (c.sites[0].division ?? 'GRAIN') === 'GRAIN')!;
+    s = applyCommand(s, { type: 'proposeMerger', partnerId: partner.id }).state;
+    s = run(friendly(s), 2);
+    const d = s.deals[0];
+    const healthy = { ...d, diligence: true, truth: { ...d.truth, strength: 60, debt: Math.round(d.truth.fairValue * 0.3) } };
+    const good = forecastDealVote(s, healthy, { name: s.coop.name, partnerSeats: 1 });
+    expect(good.expectedYes).toBeGreaterThan(good.threshold);
+    expect(good.theirExpectedYes!).toBeGreaterThan(2 / 3);
+    // A debt-laden partner, a takeover of the board, and unhappy members.
+    const w = cloneState(s);
+    for (const m of w.members.list) m.satisfaction = 35;
+    const bad = forecastDealVote(w, { ...healthy, truth: { ...healthy.truth, strength: 20, debt: Math.round(d.truth.fairValue * 0.9) } }, { name: 'New Co-op', partnerSeats: 5 });
+    expect(bad.expectedYes).toBeLessThan(bad.threshold);
+    expect(bad.factors.some((f) => f.key === 'leverage' && f.value < 0)).toBe(true);
   });
 
   it('sells a farm-supply division and books the gain or loss', () => {

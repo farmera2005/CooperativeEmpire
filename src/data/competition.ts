@@ -9,12 +9,28 @@ export const COMPETITOR_AI = {
   /** Quarterly drift toward this level. */
   equilibrium: s(60, 'low'),
   reversion: s(0.08, 'low'),
-  /** Strength lost per unit of farm-income stress each quarter. */
-  stressDrag: s(25, 'low'),
+  /**
+   * Strength lost per unit of farm-income stress each quarter, scaled by vulnerability
+   * (1.4 − strength/100) so thin balance sheets suffer most. Calibrated so the 1980s farm
+   * crisis closes roughly a fifth of local firms, not all of them (D-080).
+   */
+  stressDrag: s(9, 'low', 'Calibrated: ~15–25% of local grain and farm-supply firms failed or sold out in 1980–87'),
   noise: s(5, 'low'),
   /** A price war costs strength each quarter it lasts. */
   priceWarCost: s(4, 'low'),
   failBelow: s(12, 'low'),
+  /** Below failBelow, the quarterly chance the lender closes them; otherwise a workout. */
+  failProb: s(0.4, 'low'),
+  workoutGain: s(10, 'low', 'Strength restored by a lender workout or new owner capital'),
+  /** Share of a failed firm's plants bought by a stronger competitor instead of going to auction. */
+  acquireProb: s(0.5, 'low'),
+  acquireMiles: 40,
+  /**
+   * Consolidation: each quarter a smaller local firm may sell out to a stronger neighbor in the
+   * same business (owners retiring, scale economics). The plants keep running under the buyer.
+   */
+  consolidateProb: s(0.005, 'low', 'About 2% of local firms a year; elevator firm counts roughly halved 1980–2010'),
+  consolidateBelow: s(65, 'low'),
   investAbove: s(70, 'low'),
   investProb: s(0.12, 'low'),
   /** Storage added by an expansion (share of current). */
@@ -47,6 +63,40 @@ export const ETHANOL = {
   maxPlants: 2,
   /** Road miles = straight line × this. */
   roadFactor: 1.2,
+};
+
+/**
+ * How members weigh a merger at the vote (D-081). Appeal shifts every member's lean; a member at
+ * satisfaction 50 with appeal 0.35 votes yes about 74% of the time. Board-recommended co-op
+ * mergers usually pass with 70–90%; they fail over a debt-laden partner, lost control, or
+ * unhappy members.
+ */
+export const MERGER_VOTE = {
+  /** Members largely follow a united board's recommendation. */
+  boardRecommends: s(0.3, 'low', 'Most board-recommended co-op unifications pass'),
+  /** Partner's financial health: ± this at strength 45 ± 35. */
+  partnerHealth: s(0.2, 'low'),
+  /** Scale gained: this × (partner sites ÷ our sites, at most 1). */
+  scale: s(0.1, 'low'),
+  /** Partner leverage above 45% of its assets costs up to this. */
+  leverage: s(0.3, 'low'),
+  /** Each board seat beyond the first given to the partner. */
+  perSeat: s(0.04, 'low'),
+  /** Dropping our name. */
+  rename: s(0.05, 'low'),
+  /** Diligence findings presented at the information meetings. */
+  diligence: s(0.05, 'low'),
+  /** Trust in management: × (board confidence − 50). */
+  trust: s(0.004, 'low'),
+  /** Hard times make members open to consolidation: × farm stress. */
+  hardTimes: s(0.25, 'low'),
+  /** A partner far from our sites feels like a takeover of the hometown. */
+  distanceMiles: 30,
+  distance: s(0.1, 'low'),
+  /** Their side: base yes share and adjustments. */
+  theirBase: s(0.66, 'low'),
+  theirPerSeat: s(0.04, 'low'),
+  theirNoise: s(0.05, 'low'),
 };
 
 /** Mergers, division sales, joint ventures and buyouts (DESIGN §14.6). */

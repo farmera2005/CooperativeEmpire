@@ -3,7 +3,8 @@
 // and buyouts, both sides) → closing → integration. Closing posts a consolidation entry.
 
 import { ETHANOL_RETURN, ETHANOL_RETURN_FALLBACK } from '../../data/events';
-import { DEALS } from '../../data/competition';
+import { DEALS, MERGER_VOTE } from '../../data/competition';
+import { dealAppeal, theirYes } from './vote';
 import type { SupplyDivision } from '../../data/supply';
 import { fiscalYearOf, formatMonth, isFiscalYearEnd, yearOf } from '../core/calendar';
 import { formatCents } from '../core/format';
@@ -229,15 +230,15 @@ export function stepDeals(ctx: TickContext): void {
     }
     if (d.stage === 'members' && mi >= d.stageUntil) {
       const rng = dealRng(state, d.id, 'members');
-      const appeal = d.kind === 'buyout'
-        ? (d.terms?.price ?? 0) / Math.max(1, balanceSheet(state.ledger, mi).totalEquity) - 1.15
-        : 0.1 + 0.4 * ((d.truth.strength - 45) / 50) + (d.truth.sites > 1 ? 0.05 : 0);
+      // Members hear the real figures at the information meetings.
+      const terms = d.terms ?? { name: state.coop.name, partnerSeats: 0 };
+      const { appeal } = dealAppeal(state, d, terms, d.truth);
       const ours = memberReferendum(state, rng, appeal, state.governance.bylaws.supermajority);
-      const theirYes = d.kind === 'merger' ? clamp(0.55 + (50 - d.truth.strength) / 120 + 0.05 * (d.terms?.partnerSeats ?? 0) + rng.normal(0, 0.06), 0, 1) : 1;
-      const theirs = { yesShare: theirYes, turnout: 0.4, passed: theirYes >= 2 / 3 };
+      const theirYesShare = d.kind === 'merger' ? clamp(theirYes(state, d, terms) + rng.normal(0, MERGER_VOTE.theirNoise.value), 0, 1) : 1;
+      const theirs = { yesShare: theirYesShare, turnout: 0.4, passed: theirYesShare >= 2 / 3 };
       const passed = ours.passed && theirs.passed;
-      setDeal(state, d.id, { ourMembers: ours, ...(d.kind === 'merger' ? { theirMembers: theirs } : {}), stage: passed ? 'closing' : 'dead', stageUntil: mi + 1, log: [...d.log, `${formatMonth(mi)}: our members ${ours.passed ? 'approved' : 'rejected'} (${Math.round(ours.yesShare * 100)}% yes)${d.kind === 'merger' ? `; theirs ${theirs.passed ? 'approved' : 'rejected'} (${Math.round(theirYes * 100)}%)` : ''}.`] });
-      ctx.inbox({ kind: passed ? 'memo' : 'alert', title: `Member vote: ${dealTitle(d)}`, body: `Our members voted ${Math.round(ours.yesShare * 100)}% yes on ${Math.round(ours.turnout * 100)}% turnout (${Math.round(state.governance.bylaws.supermajority * 100)}% needed)${d.kind === 'merger' ? `; ${d.partnerName}'s members ${Math.round(theirYes * 100)}% yes` : ''}. ${passed ? 'The deal closes next month.' : 'The deal is dead.'}` });
+      setDeal(state, d.id, { ourMembers: ours, ...(d.kind === 'merger' ? { theirMembers: theirs } : {}), stage: passed ? 'closing' : 'dead', stageUntil: mi + 1, log: [...d.log, `${formatMonth(mi)}: our members ${ours.passed ? 'approved' : 'rejected'} (${Math.round(ours.yesShare * 100)}% yes)${d.kind === 'merger' ? `; theirs ${theirs.passed ? 'approved' : 'rejected'} (${Math.round(theirYesShare * 100)}%)` : ''}.`] });
+      ctx.inbox({ kind: passed ? 'memo' : 'alert', title: `Member vote: ${dealTitle(d)}`, body: `Our members voted ${Math.round(ours.yesShare * 100)}% yes on ${Math.round(ours.turnout * 100)}% turnout (${Math.round(state.governance.bylaws.supermajority * 100)}% needed)${d.kind === 'merger' ? `; ${d.partnerName}'s members ${Math.round(theirYesShare * 100)}% yes` : ''}. ${passed ? 'The deal closes next month.' : 'The deal is dead.'}` });
       continue;
     }
     if (d.stage === 'closing' && mi >= d.stageUntil) {
