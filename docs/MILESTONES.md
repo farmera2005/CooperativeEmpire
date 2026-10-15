@@ -65,8 +65,22 @@ Internal checkpoints (commit each): M3a Agronomy → M3b Feed → M3c Energy →
 - News & Inbox polish; "advance until attention" interrupts.
 - **Playtest:** 1998 merger wave from both sides; UST deadline; a dust explosion.
 
-## M8 — Polish and balance
+## M8 — Polish and balance ✅ complete (balance targets partly met; see status)
 - Guided first year tutorial, glossary tooltips everywhere, "why did this happen" on every major number, Annual Report, Scorecard, scenarios (1979, 1998, +1).
 - Balance passes with the runner: baseline ≥ 80% survival over 55 yrs; reckless fails in 1980s/2008; net savings 1–4% of sales.
 - Accessibility and keyboard navigation; performance check at 5,000 members × 60 years.
 - **Playtest:** a full 1970–2025 campaign.
+
+**M8 status (50 seeds, 55 years each):**
+
+| Run | Survived | Median net savings | Target |
+|---|---|---|---|
+| Baseline from 1970 | 30/50 (60%) | 3.3% | ≥ 80% survival: **not met** |
+| Baseline from 1985 | 40/50 (80%) | 4.0% | met |
+| Baseline from 2010 | 41/50 (82%) | 4.2% | survival met; savings slightly above 4% |
+| Reckless from 1970 | 1/50 | 1.1% | fails in the 1980s: met (most failures 1977–85) |
+| Reckless from 2000 | 30/50 | 1.8% | fails around 2008: **not met** (failures spread 2008–2054) |
+
+Engine errors: 0 in every run. Open balance work: 1970-start single-house co-ops through the
+1980s (fired or liquidated 1978–1995), a sharper 2008 test for reckless hedging and leverage,
+and trimming 2010-era savings back under 4%.
