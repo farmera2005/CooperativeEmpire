@@ -37,6 +37,14 @@ export const GOVERNANCE_SETUP = {
   directorMaxAge: 72,
 };
 
+/** How repeated grievances combine (D-085). */
+export const GRIEVANCES = {
+  maxSeverity: s(4, 'low', 'Cap on one grievance kind per member'),
+  repeatWeight: s(0.25, 'low', 'Share of the weaker complaint added when the same one recurs'),
+  /** Farmers blame a disaster closure (explosion, fire) far less than a badly run house. */
+  disasterFactor: s(0.3, 'low'),
+};
+
 export const OVERHEAD = {
   /** GM salary: base + per member, 2024 $. */
   gmSalaryBase: s(85_000, 'low'),

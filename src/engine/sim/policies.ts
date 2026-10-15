@@ -1,6 +1,13 @@
 // Scripted policies for the headless balance runner. Each returns the commands a player
 // following that policy would issue this month. They grow with each milestone.
 
+import { nominalCents } from '../world/macro';
+import { totalAcres } from '../members/generate';
+import { forecastDealVote } from '../deals/vote';
+import { FACILITY_COSTS } from '../../data/grain';
+import { replacementCost } from '../facilities/facilities';
+import { estimateProject } from '../facilities/actions';
+import { pathFor } from '../world/macro';
 import { REGULATIONS, TECHNOLOGIES } from '../../data/events';
 import { affectedSites, complianceCost, isCompliant, ruleActive } from '../world/regulation';
 import { techCost, uncoveredSites } from '../world/tech';
@@ -13,6 +20,9 @@ import { balanceSheet } from '../ledger/statements';
 import type { GameState } from '../types';
 import type { Command } from './commands';
 import { ROLE_DEFS } from '../../data/people';
+
+/** Rough yearly corporate overhead (GM, office, board, audit) a bot weighs against a purchase, 2024 $. */
+const BOT_OVERHEAD_2024 = 200_000;
 
 export type PolicyId = 'baseline' | 'reckless' | 'conservative' | 'idle';
 
@@ -55,13 +65,24 @@ function scripted(style: Style): Policy {
     const owned = state.coop.facilities.filter((f) => f.status !== 'closed' && f.kind === 'elevator');
     const bs = balanceSheet(state.ledger, state.clock.monthIndex);
     const eqRatio = bs.totalAssets > 0 ? bs.totalEquity / bs.totalAssets : 1;
+    // A prudent GM grows only from strength: standard lender standing and a profitable last year.
+    const lastFy = state.coop.equityProgram.history[state.coop.equityProgram.history.length - 1];
+    const healthy = state.coop.finance.status === 'standard' && (!lastFy || lastFy.savingsBeforeTax > 0);
+    // What an offer really costs: a worn house needs renovating soon after purchase.
+    const trueCost = (o: (typeof state.coop.offers)[number]) => o.price + (((o.conditionEstimate[0] + o.conditionEstimate[1]) / 2) < 50 ? replacementCost(pathFor(state), state.clock.monthIndex, o.components) * FACILITY_COSTS.renovateCostShare.value : 0);
 
     // Buy an affordable elevator: first one any time, more when strong.
-    if (owned.length < style.maxFacilities && (owned.length === 0 || (style.expand && eqRatio >= style.minEquityRatio && monthOf(state.clock.monthIndex) === 2))) {
+    if (owned.length < style.maxFacilities && (owned.length === 0 || (style.expand && (healthy || !style.manageEquity) && eqRatio >= style.minEquityRatio && monthOf(state.clock.monthIndex) === 2))) {
       const affordable = state.coop.offers
         .filter((o) => o.kind === 'elevator' && o.price <= Math.max(0, equity) * style.maxPriceToEquity && o.price * (1 - style.financePct) <= liquidity(state) * 0.8)
-        .sort((a, b) => a.price / grainCapacity(a.components).storageBu - b.price / grainCapacity(b.components).storageBu);
-      const pick = affordable[0];
+        .sort((a, b) => trueCost(a) / grainCapacity(a.components).storageBu - trueCost(b) / grainCapacity(b.components).storageBu);
+      // A prudent GM sizes the house to the grain around it and to the co-op's fixed overhead:
+      // usable space (at most about half the nearby members' crop) per dollar of price,
+      // renovation and three years of corporate overhead.
+      const overhead = nominalCents(pathFor(state), state.clock.monthIndex, 3 * BOT_OVERHEAD_2024);
+      const draw = (townId: number) => state.members.list.reduce((a, m) => a + (m.status === 'active' && (state.world.distances[townId]?.[m.townId] ?? Infinity) <= 15 ? totalAcres(m) * 150 * 0.35 * m.weight : 0), 0);
+      const score = (o: (typeof affordable)[number]) => Math.min(grainCapacity(o.components).storageBu, 0.5 * draw(o.townId)) / (trueCost(o) + overhead);
+      const pick = style.manageEquity ? [...affordable].sort((a, b) => score(b) - score(a) || a.id - b.id)[0] : affordable[0];
       if (pick) {
         if (style.diligence && !pick.diligenceDone) cmds.push({ type: 'dueDiligence', offerId: pick.id });
         else cmds.push({ type: 'buyFacility', offerId: pick.id, financePct: style.financePct });
@@ -72,7 +93,8 @@ function scripted(style: Style): Policy {
     if (monthOf(state.clock.monthIndex) === 7) {
       for (const f of owned) {
         if (f.status !== 'operating' || state.coop.projects.some((p) => p.facilityId === f.id)) continue;
-        if (f.condition < 35) {
+        // Renovate while still healthy enough for the lender to finance it.
+        if (f.condition < (style.manageEquity ? 45 : 35)) {
           cmds.push({ type: 'renovateFacility', facilityId: f.id, financePct: style.financePct });
           continue;
         }
@@ -92,15 +114,16 @@ function scripted(style: Style): Policy {
     // buying a dealer that's for sale or building a modest site in the home town.
     const supply = state.coop.facilities.filter((f) => f.status !== 'closed' && f.kind !== 'elevator');
     const established = owned.some((f) => state.clock.monthIndex - f.acquiredMonth >= 12);
-    if (monthOf(state.clock.monthIndex) === 3 && established && supply.length < style.maxSupplySites && eqRatio >= style.minEquityRatio && !state.coop.projects.length) {
+    const supplyRoom = Math.max(0, equity) * (style.manageEquity ? 0.3 : 1);
+    if (monthOf(state.clock.monthIndex) === 3 && established && (healthy || !style.manageEquity) && supply.length < style.maxSupplySites && eqRatio >= style.minEquityRatio && !state.coop.projects.length) {
       const next = style.supplyKinds.find((k) => !supply.some((f) => f.kind === k)) ?? style.supplyKinds[supply.length % style.supplyKinds.length];
-      const offer = state.coop.offers.find((o) => o.kind === next && o.price * (1 - style.financePct) <= liquidity(state) * 0.6);
+      const offer = state.coop.offers.find((o) => o.kind === next && o.price * (1 - style.financePct) <= Math.min(liquidity(state) * 0.6, supplyRoom));
       if (offer) cmds.push(style.diligence && !offer.diligenceDone ? { type: 'dueDiligence', offerId: offer.id } : { type: 'buyFacility', offerId: offer.id, financePct: style.financePct });
       else {
         const comps: Components = {};
         for (const [id, q] of Object.entries(TYPICAL_SITE[next])) comps[id as ComponentId] = COMPONENTS[id as ComponentId].unit === 'each' || id === 'site' ? Math.max(1, Math.round((q ?? 0) * style.supplyScale)) : Math.round((q ?? 0) * style.supplyScale);
         const town = owned[0]?.townId ?? state.coop.homeTownId;
-        cmds.push({ type: 'buildFacility', kind: next, townId: town, components: comps, financePct: style.financePct });
+        if (estimateProject(state, town, comps).cost * (1 - style.financePct) <= supplyRoom) cmds.push({ type: 'buildFacility', kind: next, townId: town, components: comps, financePct: style.financePct });
       }
     }
     // Each September, after the books close: set the patronage mix and redemption budget
@@ -132,13 +155,20 @@ function scripted(style: Style): Policy {
       const wantsEquity = open.some((d) => d.kind === 'equityRatio');
       const cash = thin || wantsEquity ? 0.2 : wantsCash ? Math.max(0.4, style.cashPatronage) : style.cashPatronage;
       const ep = state.coop.equityProgram;
-      if (ep.proposal.pools.ALL.cash !== cash) cmds.push({ type: 'setPatronageProposal', proposal: { ...ep.proposal, pools: { ALL: { cash, qualified: 1 - cash, nonqualified: 0, unallocated: 0 } } } });
+      // A prudent co-op keeps part of each year's savings as an unallocated reserve against bad years.
+      const reserve = style.manageEquity ? (thin ? 0.15 : 0.1) : 0;
+      const pool = { cash, qualified: Math.round((1 - cash - reserve) * 100) / 100, nonqualified: 0, unallocated: reserve };
+      const cur = ep.proposal.pools.ALL;
+      if (cur.cash !== pool.cash || cur.unallocated !== pool.unallocated) cmds.push({ type: 'setPatronageProposal', proposal: { ...ep.proposal, pools: { ALL: pool } } });
       const pct = thin || wantsEquity ? 0 : style.redemptionPct;
       const red = open.find((d) => d.kind === 'redemptionBudget');
       // Only a well-capitalized co-op humors a director who wants more redemptions; the extra lapses with the demand.
-      const fixed = red && eqRatio >= style.minEquityRatio + 0.1 ? red.target : 0;
+      // …and never revolves more than the co-op retained last year, or equity shrinks.
+      const retained = lastFy ? lastFy.qualified + lastFy.nonqualified : 0;
+      const fixed = red && healthy && eqRatio >= style.minEquityRatio + 0.1 ? Math.min(red.target, style.manageEquity ? Math.round(retained * 0.5) : red.target) : 0;
       if (ep.redemption.budgetPctOfSavings !== pct || ep.redemption.budgetFixed !== fixed) cmds.push({ type: 'setRedemptionPolicy', policy: { ...ep.redemption, budgetPctOfSavings: pct, budgetFixed: fixed } });
     }
+    if (style.manageEquity) cmds.push(...consolidate(state, healthy));
     if (style.manageEquity) {
       // Meet new rules before the deadline, one site a month, while cash allows.
       let room = liquidity(state) * 0.5;
@@ -168,3 +198,51 @@ export const POLICIES: Record<PolicyId, Policy> = {
   conservative: scripted(STYLES.conservative),
   idle: () => [],
 };
+
+/**
+ * Consolidation, as real co-ops did when handling margins fell (D-087): hear out sound
+ * neighbors who approach us, seek a merger after two weak years, set terms the members will
+ * pass, and never sell out to a buyer.
+ */
+function consolidate(state: GameState, healthy: boolean): Command[] {
+  const cmds: Command[] = [];
+  const open = state.deals.filter((d) => d.stage !== 'closed' && d.stage !== 'dead');
+  for (const d of open) {
+    // Merge from strength, with a sound co-op in the same business; a weak partner's plants
+    // bring more cost than business.
+    const partner = state.competitors.find((c) => c.id === d.partnerId);
+    const sound = d.kind === 'merger' && healthy && d.estimate.strength >= 45 && (partner?.sites[0]?.division ?? 'GRAIN') === 'GRAIN';
+    if (d.stage === 'proposed' && d.incoming) cmds.push({ type: 'respondDeal', dealId: d.id, accept: sound });
+    if (d.stage !== 'terms' || d.kind !== 'merger') continue;
+    if (d.diligence && d.truth.strength < 40) {
+      cmds.push({ type: 'abandonDeal', dealId: d.id });
+      continue;
+    }
+    if (!d.diligence && liquidity(state) > 0) {
+      cmds.push({ type: 'dealDiligence', dealId: d.id });
+      continue;
+    }
+    // Offer the partner enough seats for their members, if ours still pass it.
+    let terms = { name: state.coop.name, partnerSeats: 1 };
+    for (let seats = 1; seats <= 3; seats++) {
+      const f = forecastDealVote(state, d, { ...terms, partnerSeats: seats });
+      terms = { ...terms, partnerSeats: seats };
+      if ((f.theirExpectedYes ?? 1) >= 0.7) break;
+    }
+    const f = forecastDealVote(state, d, terms);
+    if (f.expectedYes >= f.threshold + 0.03 && (f.theirExpectedYes ?? 1) >= 0.69) cmds.push({ type: 'submitDeal', dealId: d.id, terms });
+    else cmds.push({ type: 'abandonDeal', dealId: d.id });
+  }
+  // Two weak years in a row: look for a sound neighbor to combine with (each March).
+  const h = state.coop.equityProgram.history;
+  const weak = h.length >= 2 && h.slice(-2).every((x) => x.savingsBeforeTax <= 0 || !healthy);
+  if (monthOf(state.clock.monthIndex) === 3 && weak && !open.length && !state.deals.some((d) => state.clock.monthIndex - d.startedMonth < 24)) {
+    const ours = state.coop.facilities.filter((f) => f.status !== 'closed');
+    const near = (townId: number) => ours.some((f) => (state.world.distances[f.townId]?.[townId] ?? Infinity) <= 30);
+    const partner = state.competitors
+      .filter((c) => c.kind === 'coop' && c.status === 'active' && (c.strength ?? 50) >= 45 && (c.sites[0]?.division ?? 'GRAIN') === 'GRAIN' && c.sites.some((x) => near(x.townId)))
+      .sort((a, b) => (b.strength ?? 50) - (a.strength ?? 50) || a.id - b.id)[0];
+    if (partner) cmds.push({ type: 'proposeMerger', partnerId: partner.id });
+  }
+  return cmds;
+}

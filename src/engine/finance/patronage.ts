@@ -10,6 +10,7 @@
 //        nonqualified (3300) equity by vintage, and unallocated retained earnings (3400).
 //   F+4  annual meeting: cash patronage, redemptions and income tax are paid.
 
+import { addGrievance } from '../members/grievances';
 import { PATRONAGE } from '../../data/finance';
 import { QUALIFIED_MIN_CASH_PCT } from '../../data/law';
 import { DIVISION_LABEL, LINES, type LineId } from '../../data/supply';
@@ -386,8 +387,7 @@ export function distributePatronage(ctx: TickContext): DistributionSummary | nul
       if (short > 0 && m.status === 'active') {
         const sev = Math.round(clamp((pc.taxBillGrievance.value * short) / total, 0, 3) * 100) / 100;
         if (sev > 0.05) {
-          m.grievances.push({ kind: 'patronageTax', division: 'CORP', month: ctx.mi, severity: sev });
-          if (m.grievances.length > 6) m.grievances.shift();
+          addGrievance(m, { kind: 'patronageTax', division: 'CORP', month: ctx.mi, severity: sev });
         }
       }
       m.loyalty = clamp(m.loyalty + pc.cashLoyalty.value * (plan.cash[i] / total - pc.cashReference.value), 0, 1);

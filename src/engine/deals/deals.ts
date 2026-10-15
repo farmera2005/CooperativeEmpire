@@ -319,7 +319,8 @@ function closeMerger(ctx: TickContext, d: Deal): void {
   const par = nominalCents(ctx.path, mi, 1000);
   const equity = Math.max(0, p.fairValue + p.workingCapital - p.debt);
   const stockTotal = Math.min(equity, par * joiners.length);
-  const allocated = Math.min(p.allocatedEquity, equity - stockTotal);
+  // With no patrons to carry it (theirs already belong to us), their equity goes to unallocated reserves.
+  const allocated = joiners.length ? Math.min(p.allocatedEquity, equity - stockTotal) : 0;
   const fy = fiscalYearOf(mi, state.setup.fiscalYearEndMonth);
   const acres = joiners.map((m) => totalAcres(m) + 20);
   const shares = allocateCents(allocated, acres);

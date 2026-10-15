@@ -169,7 +169,7 @@ export function stepRandomEvents(ctx: TickContext): void {
     const rng = ctx.rng('events.site', f.id);
     // Grain dust explosion.
     if (f.kind === 'elevator' && active(E.dustExplosion, year)) {
-      const nonCompliant = ruleActive(state, 'osha-grain') && !isCompliant(state, osha, f) ? 2 : 1;
+      const nonCompliant = year < EVENT_PARAMS.standardYear ? EVENT_PARAMS.preStandardFactor : ruleActive(state, 'osha-grain') && !isCompliant(state, osha, f) ? 2 : 1;
       const p = E.dustExplosion.baseMonthly * (1 + EVENT_PARAMS.dustPerMillionBu.value * dustExposure(f, month)) * nonCompliant * safety * techFactor(state, 'dustRisk');
       if (rng.chance(p)) {
         const { gross, net } = lossCost(ctx, E.dustExplosion);
@@ -179,7 +179,7 @@ export function stepRandomEvents(ctx: TickContext): void {
         seriousIncident(ctx, f, net, `Dust explosion at ${f.name}; workers hurt.`);
         state.governance.boardConfidence = clamp(state.governance.boardConfidence + EVENT_PARAMS.explosionConfidence, 0, 100);
         for (const m of state.members.list) if (m.status === 'active' && m.townId === f.townId) m.satisfaction = clamp(m.satisfaction + EVENT_PARAMS.explosionSatisfaction, 0, 100);
-        ctx.inbox({ kind: 'alert', title: `Explosion at ${f.name}`, body: `A grain dust explosion tore through ${f.name}. Workers were hurt. Damage is ${formatCents(gross)}; insurance covers ${Math.round(E.dustExplosion.insured * 100)}%. The house is down for about ${EVENT_PARAMS.explosionDownWeeks} weeks.${nonCompliant > 1 ? ' OSHA will note that the site had not met the grain handling standard.' : ''}` });
+        ctx.inbox({ kind: 'alert', title: `Explosion at ${f.name}`, body: `A grain dust explosion tore through ${f.name}. Workers were hurt. Damage is ${formatCents(gross)}; insurance covers ${Math.round(E.dustExplosion.insured * 100)}%. The house is down for about ${EVENT_PARAMS.explosionDownWeeks} weeks.${year >= EVENT_PARAMS.standardYear && nonCompliant > 1 ? ' OSHA will note that the site had not met the grain handling standard.' : ''}` });
       }
     }
     // Out-of-condition grain after a wet fall, December–April.

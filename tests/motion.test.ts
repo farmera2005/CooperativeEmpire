@@ -103,6 +103,27 @@ describe('deals', () => {
     expect(bad.factors.some((f) => f.key === 'leverage' && f.value < 0)).toBe(true);
   });
 
+  it('a merger whose patrons already belong to us keeps the equity subledger tied to the books', () => {
+    let closed = 0;
+    for (const seed of [4, 5, 6, 7, 8]) {
+      let s = cloneState(coop(1995, seed));
+      const partner = s.competitors.find((c) => c.kind === 'coop' && c.status === 'active' && (c.sites[0].division ?? 'GRAIN') === 'GRAIN');
+      if (!partner) continue;
+      // Everyone in the partner's towns already belongs to us: nobody joins at closing.
+      const towns = new Set(partner.sites.map((x) => x.townId));
+      for (const m of s.members.list) if (towns.has(m.townId) && m.kind === 'nonmember') m.kind = 'member';
+      // A weak partner's board almost always says yes.
+      s.competitors = s.competitors.map((c) => (c.id === partner.id ? { ...c, strength: 25 } : c));
+      s = applyCommand(s, { type: 'proposeMerger', partnerId: partner.id }).state;
+      s = run(s, 2);
+      s = applyCommand(s, { type: 'submitDeal', dealId: s.deals[0].id, terms: { name: s.coop.name, partnerSeats: 3 } }).state;
+      s = run(friendly(s), 4);
+      if (['integration', 'closed'].includes(s.deals[0].stage)) closed++;
+      expect(checkInvariants(s)).toEqual([]);
+    }
+    expect(closed).toBeGreaterThan(0);
+  });
+
   it('sells a farm-supply division and books the gain or loss', () => {
     let s = applyCommand(coop(2000, 5), { type: 'buildFacility', kind: 'energy', townId: 0, components: TYPICAL_SITE.energy, financePct: 0.5 }, { boardApproved: true }).state;
     s = run(s, 18);

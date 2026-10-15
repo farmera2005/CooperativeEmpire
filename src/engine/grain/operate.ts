@@ -10,6 +10,8 @@
 //   6. hedges rebalanced, inventory and DP liability marked to market, margin deposits
 //   7. fees, bond, report and margin breakdown
 
+import { addGrievance } from '../members/grievances';
+import { GRIEVANCES } from '../../data/tuning';
 import { expectedRefundRate } from '../finance/selectors';
 import { techFactor } from '../world/tech';
 import {
@@ -382,14 +384,15 @@ export function stepGrain(ctx: TickContext): void {
     const ta = COMMODITIES.reduce((a, c) => a + fl.turnedAway[c], 0);
     const off = COMMODITIES.reduce((a, c) => a + fl.harvest[c] + fl.steady[c], 0);
     const avgWait = off > 0 ? fl.waitBu / off : 0;
-    const severity = Math.max(0, avgWait - op.waitGrievanceHours.value) * op.grievancePerWaitHour.value + (off > 0 ? (op.grievancePerTurnedAway.value * ta) / off : 0);
+    const disaster = state.eventLog.some((e) => e.facilityId === f.id && (e.id === 'dustExplosion' || e.id === 'stormDamage') && mi - e.monthIndex <= 6);
+    const severity = (Math.max(0, avgWait - op.waitGrievanceHours.value) * op.grievancePerWaitHour.value + (off > 0 ? (op.grievancePerTurnedAway.value * ta) / off : 0))
+      * (disaster ? GRIEVANCES.disasterFactor.value : 1);
     if (severity > 0.05) {
       const seen = new Set<number>();
       for (const mo of memberOffers) {
         if (mo.fid !== f.id || seen.has(mo.m.id)) continue;
         seen.add(mo.m.id);
-        mo.m.grievances.push({ kind: 'harvestWait', division: 'GRAIN', month: mi, severity: Math.round(severity * 100) / 100 });
-        if (mo.m.grievances.length > 6) mo.m.grievances.shift();
+        addGrievance(mo.m, { kind: 'harvestWait', division: 'GRAIN', month: mi, severity: Math.round(severity * 100) / 100 });
       }
     }
   }

@@ -6,6 +6,7 @@
 // Order per division: share of wallet → demand and sales by line → capacity limits →
 // purchases, inventory relief, LCM → prepay/prebuy → credit → report.
 
+import { addGrievance } from '../members/grievances';
 import { expectedRefundRate } from '../finance/selectors';
 import { techFactor } from '../world/tech';
 import { flagOn } from '../world/events';
@@ -248,8 +249,7 @@ export function stepSupply(ctx: TickContext): void {
         const seen = new Set<number>();
         for (const b of acc.buyers) if (b.line === 'APPLICATION' && !seen.has(b.m.id)) {
           seen.add(b.m.id);
-          b.m.grievances.push({ kind: 'lateApplication', division: 'AGRONOMY', month: mi, severity: Math.round(sev * 100) / 100 });
-          if (b.m.grievances.length > 6) b.m.grievances.shift();
+          addGrievance(b.m, { kind: 'lateApplication', division: 'AGRONOMY', month: mi, severity: Math.round(sev * 100) / 100 });
         }
       }
     }

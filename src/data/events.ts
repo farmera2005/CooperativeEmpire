@@ -22,7 +22,7 @@ export interface RandomEventDef {
 }
 
 export const RANDOM_EVENTS: Record<RandomEventId, RandomEventDef> = {
-  dustExplosion: { id: 'dustExplosion', label: 'Grain dust explosion', from: 1970, baseMonthly: 0.0005, cost: 2_500_000, insured: 0.7, confidence: 'low', note: 'Per elevator, scaled by throughput; 1977 had a cluster of deadly explosions; rates fell sharply after the 1987 OSHA standard' },
+  dustExplosion: { id: 'dustExplosion', label: 'Grain dust explosion', from: 1970, baseMonthly: 0.00006, cost: 2_500_000, insured: 0.7, confidence: 'low', note: 'Per elevator, scaled by storage and season; doubled before the 1987 OSHA grain standard. US: ~10–20 explosions a year among ~10,000 elevators in the 1970s–80s, about half that later (D-086)' },
   outOfCondition: { id: 'outOfCondition', label: 'Out-of-condition grain', from: 1970, baseMonthly: 0.02, cost: 0, insured: 0, confidence: 'low', note: 'Per elevator in Dec–Apr after a wet fall; loss as a share of corn inventory' },
   fuelFire: { id: 'fuelFire', label: 'Bulk plant fire', from: 1970, baseMonthly: 0.0004, cost: 400_000, insured: 0.8, confidence: 'low' },
   nh3Theft: { id: 'nh3Theft', label: 'Anhydrous ammonia theft', from: 1995, to: 2012, baseMonthly: 0.01, cost: 8_000, insured: 0, confidence: 'low', note: 'Meth-lab era thefts from nurse tanks' },
@@ -36,6 +36,9 @@ export const RANDOM_EVENTS: Record<RandomEventId, RandomEventDef> = {
 export const EVENT_PARAMS = {
   /** Explosion risk multiplier per million bushels received in the month. */
   dustPerMillionBu: s(1.5, 'low'),
+  /** Explosion risk before the OSHA grain handling standard took hold. */
+  preStandardFactor: 2,
+  standardYear: 1988,
   /** Out-of-condition loss as a share of corn on hand. */
   outOfConditionLoss: [0.01, 0.04] as [number, number],
   /** Explosions and fires: condition lost and weeks down. */
