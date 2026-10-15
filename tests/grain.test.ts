@@ -78,7 +78,7 @@ describe('grain operations', () => {
     let open = applyCommand(hedged, { type: 'setGrainPolicy', policy: { hedgeRatio: 0 } }, { boardApproved: true }).state;
     const mh: number[] = [];
     const mo: number[] = [];
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 96; i++) {
       hedged = advanceMonth(hedged).state;
       open = advanceMonth(open).state;
       mh.push(hedged.coop.grain.report!.grossMargin.value);

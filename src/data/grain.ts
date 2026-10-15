@@ -166,15 +166,16 @@ export const OPERATIONS = {
 
 export const STAFF = {
   fteBase: s(1.0, 'low'),
-  ftePerMillionBu: s(2, 'low'),
+  /** About 1 FTE per million bushels of space at country houses; big terminals run leaner (D-084). */
+  ftePerMillionBu: s(1.0, 'low'),
   /** Labor needed relative to 2024 for the same facility (automation, bigger trucks, electronic scales). */
   laborIntensity: [
-    { year: 1970, value: 1.8, confidence: 'low' as const },
+    { year: 1970, value: 1.6, confidence: 'low' as const },
     { year: 1990, value: 1.4, confidence: 'low' as const },
     { year: 2010, value: 1.1, confidence: 'low' as const },
     { year: 2024, value: 1.0, confidence: 'low' as const },
   ],
-  ftePerTenThousandBuHr: s(0.6, 'low'),
+  ftePerTenThousandBuHr: s(0.4, 'low'),
   annualWage: s(50_000, 'low', '2024 $ elevator hand / operator'),
   benefitsRate: s(0.3, 'low'),
   levelFactor: s({ lean: 0.8, standard: 1, full: 1.2 }, 'low'),
@@ -220,7 +221,7 @@ export const HEDGING = {
 export const SHARE_MODEL = {
   /** Logit scale per 2024 dollar of net price per bushel. */
   theta: s(28, 'low', 'A 5¢ better net price moves roughly a sixth more of the volume'),
-  loyalty: s(0.1, 'low', '2024 $/bu equivalent preference of a fully loyal member for their co-op'),
+  loyalty: s(0.15, 'low', '2024 $/bu equivalent preference of a fully loyal member for their co-op (D-084)'),
   contractOffered: s(0.006, 'low', '$/bu equivalent per contract type offered'),
   waitPerHour: s(0.012, 'low', '$/bu equivalent per hour of remembered harvest wait'),
   grievance: s(0.012, 'low', '$/bu equivalent per unit of grievance severity'),

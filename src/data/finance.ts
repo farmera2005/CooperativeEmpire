@@ -4,6 +4,17 @@
 
 import { annual, s, type AnnualPoint } from './types';
 
+/**
+ * Members weigh the refund they expect when choosing where to sell grain and buy inputs (D-083):
+ * last year's cash patronage at full value, retained equity discounted because it comes back
+ * years later. The rate is a share of last fiscal year's sales.
+ */
+export const PATRONAGE_EXPECTATION = {
+  retainedValue: s(0.4, 'low', 'Present value of retained patronage revolved in 10–15 years'),
+  /** Cap on the expected refund rate (share of sales), to keep a windfall year from dominating. */
+  maxRate: s(0.04, 'low'),
+};
+
 export const PATRONAGE = {
   /** Months after fiscal year end when the audit is finished and the proposal goes to the board. */
   auditMonths: 2,

@@ -1,10 +1,11 @@
 // Read-only views of the co-op's equity, patronage and lending position for the UI.
 
-import { REDEMPTION } from '../../data/finance';
-import { fiscalYearOf } from '../core/calendar';
+import { PATRONAGE_EXPECTATION, REDEMPTION } from '../../data/finance';
+import { fiscalYearEnd, fiscalYearOf } from '../core/calendar';
+import { clamp } from '../core/math';
 import type { Cents } from '../core/money';
 import { ratios } from '../ledger/ratios';
-import { balanceSheet } from '../ledger/statements';
+import { balanceSheet, incomeStatement } from '../ledger/statements';
 import type { DistributionSummary, GameState, Member, PatronageProposal } from '../types';
 import { covenantSet } from './covenants';
 import { planDistribution } from './patronage';
@@ -114,4 +115,19 @@ export function covenantHeadroom(state: GameState) {
     { label: 'Term debt / net fixed assets', value: r.termDebtToNetFixed, limit: c.maxTermDebtToFixed, kind: 'max' as const },
     { label: 'Debt service coverage', value: r.debtServiceCoverage, limit: c.minDebtService, kind: 'min' as const },
   ];
+}
+
+/**
+ * The patronage refund members expect, as a share of sales: last distribution's cash plus
+ * discounted retained equity, over that fiscal year's sales (D-083). Zero before any distribution.
+ */
+export function expectedRefundRate(s: GameState): number {
+  const hist = s.coop.equityProgram.history;
+  const h = hist[hist.length - 1];
+  if (!h) return 0;
+  const fye = fiscalYearEnd(h.fy, s.setup.fiscalYearEndMonth);
+  const sales = incomeStatement(s.ledger, fye - 11, fye).sales;
+  if (sales <= 0) return 0;
+  const valued = h.cash + PATRONAGE_EXPECTATION.retainedValue.value * (h.qualified + h.nonqualified);
+  return clamp(valued / sales, 0, PATRONAGE_EXPECTATION.maxRate.value);
 }

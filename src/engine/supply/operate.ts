@@ -6,6 +6,7 @@
 // Order per division: share of wallet → demand and sales by line → capacity limits →
 // purchases, inventory relief, LCM → prepay/prebuy → credit → report.
 
+import { expectedRefundRate } from '../finance/selectors';
 import { techFactor } from '../world/tech';
 import { flagOn } from '../world/events';
 import { CHOICE_EFFECTS } from '../../data/events';
@@ -164,6 +165,8 @@ export function stepSupply(ctx: TickContext): void {
     // People: the division manager's selling and the crews' service.
     const peopleU = effect(state, 'supply.share', d) + (d === 'AGRONOMY' ? techFactor(state, 'supplyShare') : 0) - staffServicePenalty(state, d);
     const creditU = CREDIT.utility.value[pol.credit];
+    // Members count on a patronage refund like last year's (percent of price).
+    const refundPct = expectedRefundRate(state) * 100;
     const dist = state.world.distances;
 
     if (d !== 'RETAIL') {
@@ -182,7 +185,7 @@ export function stepSupply(ctx: TickContext): void {
             const full = (divisionsInTown.get(f.townId)?.size ?? 0) >= 3 ? CROSS_DIVISION.fullServicePct.value : 0;
             const u = ourAdv * (0.5 + m.priceSens) - cfg.distancePctPerMile * dd
               + cfg.serviceQuality * (STAFF_SERVICE[f.staffing.level] + peopleU - (d === 'AGRONOMY' ? lateMem * SS.lateServicePenalty.value : 0))
-              + (m.kind === 'member' ? cfg.loyalty * m.loyalty : 0) + creditU * m.creditNeed
+              + (m.kind === 'member' ? cfg.loyalty * m.loyalty + refundPct : 0) + creditU * m.creditNeed
               + CROSS_DIVISION.bundlePct.value * Math.sqrt(nb) + full - griev * SS.grievancePct.value;
             if (!best || u > best.u) best = { u, site: s, dist: dd };
           } else {

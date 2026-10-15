@@ -10,6 +10,7 @@
 //   6. hedges rebalanced, inventory and DP liability marked to market, margin deposits
 //   7. fees, bond, report and margin breakdown
 
+import { expectedRefundRate } from '../finance/selectors';
 import { techFactor } from '../world/tech';
 import {
   BU_PER_CAR, COMMODITIES, DRYING, FARM_HAUL_PER_MILE, FARM_YIELD_SD, FARMER_MARKETING, FEED_CORN_PER_HEAD, FEES,
@@ -181,6 +182,8 @@ export function stepGrain(ctx: TickContext): void {
   let offeredTotal = 0;
   const priceAdv: number[] = [];
   const posture = POSTURE_BID.value[pol.posture];
+  // Members count on a patronage refund like last year's (2024 $/bu, valued on corn).
+  const refundBu = (expectedRefundRate(state) * (F.corn + local.corn)) / idx;
 
   for (const m of state.members.list) {
     if (m.status !== 'active') continue;
@@ -198,14 +201,18 @@ export function stepGrain(ctx: TickContext): void {
       const service = (sm.staffingService.value[o.facility.staffing.level] - crewPenalty) * sm.serviceQuality.value
         - sm.waitPerHour.value * o.facility.grain.waitMemory;
       const u = priceW * price + service + contracts * sm.contractOffered.value
-        + (m.kind === 'member' ? sm.loyalty.value * m.loyalty : 0) - sm.grievance.value * grievance + bundleBonus;
+        + (m.kind === 'member' ? sm.loyalty.value * m.loyalty + refundBu : 0) - sm.grievance.value * grievance + bundleBonus;
       if (!best || u > best.u) best = { facility: o.facility, u, price };
     }
     let denom = 0;
     let bestComp = -Infinity;
+    // Satisfaction judges our posted bid against rivals' posted bids. Distance shapes how much
+    // a farmer uses us (the share model), not whether our prices are fair (D-082).
+    let bestCompBid = 0;
     for (const o of s.comps) {
       const price = o.posture - FARM_HAUL_PER_MILE.value * o.dist;
       bestComp = Math.max(bestComp, price);
+      bestCompBid = Math.max(bestCompBid, o.posture);
       denom += Math.exp(sm.theta.value * (priceW * price + o.service * sm.serviceQuality.value));
     }
     const big = m.sizeClass === 'large' || m.sizeClass === 'mega';
@@ -252,10 +259,12 @@ export function stepGrain(ctx: TickContext): void {
     }
     // Satisfaction: price/service experience for those who do business with us.
     if (best && anyBusiness) {
-      const adv = best.price - Math.max(bestComp, -1);
-      priceAdv.push(adv);
+      priceAdv.push(best.price - Math.max(bestComp, -1));
+      const adv = posture - bestCompBid;
       const exp = clamp(50 + SATISFACTION.pricePerDollar.value * adv - SATISFACTION.waitPerHour.value * best.facility.grain.waitMemory - SATISFACTION.grievancePerSeverity.value * grievance + (m.kind === 'member' ? SATISFACTION.loyaltyBonus.value * m.loyalty : 0), 0, 100);
-      m.satisfaction += SATISFACTION.alpha.value * (exp - m.satisfaction);
+      // Members who do little grain business with us form their opinion slowly.
+      const share = m.share[GRAIN_LINE.corn] ?? 0;
+      m.satisfaction += SATISFACTION.alpha.value * clamp(0.25 + share, 0.25, 1) * (exp - m.satisfaction);
     } else {
       m.satisfaction += (SATISFACTION.alpha.value / 3) * (50 - m.satisfaction);
     }
