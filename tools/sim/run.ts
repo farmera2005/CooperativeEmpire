@@ -14,6 +14,8 @@ const start = Number(arg('start', '1970'));
 const years = Number(arg('years', '55'));
 const policyId = arg('policy', 'baseline') as PolicyId;
 const seeds = Number(arg('seeds', '10'));
+/** First seed of the run, to split one batch across processes. */
+const first = Number(arg('first', '1'));
 const members = Number(arg('members', '400'));
 const mode = arg('mode', 'drift') as 'drift' | 'strict';
 const outRoot = arg('out', 'runs');
@@ -33,7 +35,7 @@ const outcomes: Record<string, number> = {};
 let errors = 0;
 const t0 = performance.now();
 
-for (let seed = 1; seed <= seeds; seed++) {
+for (let seed = first; seed < first + seeds; seed++) {
   let s: GameState = newGame({ ...DEFAULT_SETUP, startYear: start, startingMembers: members, gameSeed: seed, mapSeed: seed, historyMode: mode });
   let err = '';
   const ts = performance.now();
@@ -80,7 +82,7 @@ for (let seed = 1; seed <= seeds; seed++) {
   if (totSales > 0) pctAll.push(pct);
   const facs = s.coop.facilities.filter((f) => f.status !== 'closed').length;
   seedRows.push([seed, ok, s.outcome?.kind ?? (insolvent ? 'insolvent' : ''), yearOf(s.clock.monthIndex), h.equity / 100, h.activeMembers, Number.isFinite(minEquity) ? minEquity / 100 : '', negYears, (pct * 100).toFixed(2), facs, `"${err}"`, ((performance.now() - ts) / Math.max(1, months)).toFixed(1), `"${(s.outcome?.text ?? '').replace(/"/g, "'").slice(0, 160)}"`].join(','));
-  process.stdout.write(`seed ${seed}/${seeds} ${ok ? 'ok' : `FAILED ${s.outcome?.kind ?? ''} ${yearOf(s.clock.monthIndex)}`}${insolvent ? ' (insolvent)' : ''} savings ${(pct * 100).toFixed(2)}% of sales, ${facs} facilities${err ? `: ${err}` : ''}\n`);
+  process.stdout.write(`seed ${seed}/${first + seeds - 1} ${ok ? 'ok' : `FAILED ${s.outcome?.kind ?? ''} ${yearOf(s.clock.monthIndex)}`}${insolvent ? ' (insolvent)' : ''} savings ${(pct * 100).toFixed(2)}% of sales, ${facs} facilities${err ? `: ${err}` : ''}\n`);
 }
 
 const secs = (performance.now() - t0) / 1000;
