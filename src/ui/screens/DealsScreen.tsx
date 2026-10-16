@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import {
-  competitorName, dealTitle, forecastDealVote, formatMonth, integrationPenalty, nominalCents, pathFor,
+  competitorName, dealTitle, forecastDealVote, formatMonth, forSale, integrationPenalty, nominalCents, pathFor, sellerAcceptance,
   type Competitor, type Deal, type DealStage, type DealTerms, type OpDivision,
 } from '../../engine/index';
 import { DEALS } from '../../data/competition';
+import { LENDING } from '../../data/tuning';
 import { Term } from '../components/Term';
 import { Panel, Stat } from '../components/Panel';
 import { money, pct } from '../format';
@@ -52,7 +53,7 @@ export function DealsScreen() {
             {active.map((c) => <CompetitorRow key={c.id} c={c} ourDivisions={ourDivisions} busy={open.some((d) => d.partnerId === c.id)} />)}
           </tbody>
         </table>
-        <p className="mt-2 text-xs text-stone-500">A merger or joint-venture study costs {money(nominalCents(pathFor(game), game.clock.monthIndex, DEALS.studyCost.value))} and takes {DEALS.studyMonths} months; due diligence costs {money(nominalCents(pathFor(game), game.clock.monthIndex, DEALS.diligenceCost.value))}. Only cooperatives can merge with us.</p>
+        <p className="mt-2 text-xs text-stone-500">A merger or joint-venture study costs {money(nominalCents(pathFor(game), game.clock.monthIndex, DEALS.studyCost.value))} and takes {DEALS.studyMonths} months; due diligence costs {money(nominalCents(pathFor(game), game.clock.monthIndex, DEALS.diligenceCost.value))}. Only cooperatives can merge with us. A locally owned private company can be bought outright: a valuation brings the owner's asking price. National companies are not for sale.</p>
       </Panel>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -124,6 +125,7 @@ function CompetitorRow({ c, ourDivisions, busy }: { c: Competitor; ourDivisions:
             )}
           </div>
         )}
+        {forSale(game, c) && !busy && <button className="btn text-xs" onClick={() => command({ type: 'proposeAcquisition', partnerId: c.id })}>Study a purchase</button>}
         {busy && <span className="text-xs text-stone-500">in talks</span>}
       </td>
     </tr>
@@ -134,6 +136,11 @@ function DealCard({ d }: { d: Deal }) {
   const game = useStore((s) => s.game)!;
   const command = useStore((s) => s.command);
   const [terms, setTerms] = useState<DealTerms>(d.terms ?? { name: d.kind === 'merger' ? `${game.coop.name.replace(/ Cooperative$| Co-op$/, '')} United Cooperative` : game.coop.name, partnerSeats: 2 });
+  // Acquisition offer in dollars and financed share; default to the asking price once it is known.
+  const [offer, setOffer] = useState<number | null>(null);
+  const [financePct, setFinancePct] = useState<number | null>(null);
+  const offerCents = Math.round((offer ?? (d.terms?.price ?? 0) / 100) * 100);
+  const financed = financePct ?? d.terms?.financePct ?? 0.6;
   const e = d.estimate;
   const shown = (x: number) => (d.diligence ? money(x) : `≈ ${money(x)}`);
   return (
@@ -148,10 +155,11 @@ function DealCard({ d }: { d: Deal }) {
       {d.stage !== 'proposed' && d.stage !== 'study' && (
         <div className="mt-2 grid grid-cols-2 gap-x-4 text-sm md:grid-cols-4">
           <div><span className="text-xs text-stone-500">{d.kind === 'divisionSale' ? 'Our plants, fair value' : 'Their plants, fair value'}</span><div className="num">{shown(e.fairValue)}</div></div>
-          {d.kind !== 'divisionSale' && d.kind !== 'buyout' && <div><span className="text-xs text-stone-500">Their debt</span><div className="num">{shown(e.debt)}</div></div>}
+          {d.kind !== 'divisionSale' && d.kind !== 'buyout' && d.kind !== 'acquisition' && <div><span className="text-xs text-stone-500">Their debt</span><div className="num">{shown(e.debt)}</div></div>}
           <div><span className="text-xs text-stone-500">Working capital</span><div className="num">{shown(e.workingCapital)}</div></div>
           {d.kind === 'merger' && <div><span className="text-xs text-stone-500">Their members</span><div className="num">{e.members}</div></div>}
-          {d.terms?.price !== undefined && <div><span className="text-xs text-stone-500">Price offered</span><div className="num font-semibold">{money(d.terms.price)}</div></div>}
+          {d.kind === 'acquisition' && d.asking !== undefined && <div><span className="text-xs text-stone-500">Owner's asking price</span><div className="num">{money(d.asking)}</div></div>}
+          {d.terms?.price !== undefined && (d.kind !== 'acquisition' || d.stage !== 'terms') && <div><span className="text-xs text-stone-500">{d.kind === 'acquisition' ? 'Our offer' : 'Price offered'}</span><div className="num font-semibold">{money(d.terms.price)}</div></div>}
         </div>
       )}
       {!d.diligence && d.stage === 'terms' && d.kind !== 'divisionSale' && <p className="mt-1 text-xs text-rust">Figures are estimates until due diligence; they can be off by a third.</p>}
@@ -171,7 +179,14 @@ function DealCard({ d }: { d: Deal }) {
                 <label className="text-sm">Their board seats <input className="input ml-1 w-14" type="number" min={0} max={5} value={terms.partnerSeats} onChange={(ev) => setTerms({ ...terms, partnerSeats: Number(ev.target.value) })} /></label>
               </>
             )}
-            <button className="btn btn-primary" onClick={() => command({ type: 'submitDeal', dealId: d.id, terms })}>Send to the board</button>
+            {d.kind === 'acquisition' && (
+              <>
+                <label className="text-sm">Our offer $ <input className="input ml-1 w-32" type="number" min={0} step={1000} value={Math.round(offerCents / 100)} onChange={(ev) => setOffer(Number(ev.target.value))} /></label>
+                <label className="text-sm">Financed % <input className="input ml-1 w-16" type="number" min={0} max={Math.round(LENDING.maxFinancePct.value * 100)} value={Math.round(financed * 100)} onChange={(ev) => setFinancePct(Number(ev.target.value) / 100)} /></label>
+                <span className="text-xs text-stone-500">Chance the owner accepts: {pct(sellerAcceptance(d, offerCents), 0)}</span>
+              </>
+            )}
+            <button className="btn btn-primary" onClick={() => command({ type: 'submitDeal', dealId: d.id, terms: d.kind === 'acquisition' ? { ...terms, price: offerCents, financePct: financed } : terms })}>Send to the board</button>
           </>
         )}
         {d.stage === 'members' && <span className="text-sm text-stone-600">Ballots are out to the members.</span>}

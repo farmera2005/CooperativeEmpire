@@ -18,7 +18,7 @@ export interface Account {
   cf: CashFlowSection;
   isGroup?: IsGroup;
   /** Balance sheet grouping. */
-  bsGroup?: 'currentAssets' | 'investments' | 'fixedAssets' | 'currentLiabilities' | 'longTermLiabilities' | 'memberEquity';
+  bsGroup?: 'currentAssets' | 'investments' | 'fixedAssets' | 'intangibles' | 'currentLiabilities' | 'longTermLiabilities' | 'memberEquity';
 }
 
 const a = (id: string, name: string, type: AccountType, cf: CashFlowSection, extra: Partial<Account> = {}): Account => ({ id, name, type, cf, ...extra });
@@ -46,6 +46,8 @@ export const ACCOUNTS: Account[] = [
   a('1530', 'Vehicles', 'asset', 'investing', { bsGroup: 'fixedAssets' }),
   a('1540', 'Construction in progress', 'asset', 'investing', { bsGroup: 'fixedAssets' }),
   a('1590', 'Accumulated depreciation', 'contraAsset', 'operating', { bsGroup: 'fixedAssets' }),
+  a('1600', 'Goodwill', 'asset', 'investing', { bsGroup: 'intangibles' }),
+  a('1690', 'Accumulated amortization of goodwill', 'contraAsset', 'operating', { bsGroup: 'intangibles' }),
   a('2000', 'Seasonal line of credit', 'liability', 'financing', { bsGroup: 'currentLiabilities' }),
   a('2100', 'Accounts payable', 'liability', 'operating', { bsGroup: 'currentLiabilities' }),
   a('2110', 'Grain payables & deferred payment', 'liability', 'operating', { bsGroup: 'currentLiabilities' }),
@@ -71,6 +73,7 @@ export const ACCOUNTS: Account[] = [
   a('7000', 'Salaries & wages', 'expense', 'income', { isGroup: 'personnel' }),
   a('7010', 'Benefits & payroll taxes', 'expense', 'income', { isGroup: 'personnel' }),
   a('7100', 'Depreciation', 'expense', 'income', { isGroup: 'depreciation' }),
+  a('7110', 'Amortization of goodwill', 'expense', 'income', { isGroup: 'depreciation' }),
   a('7200', 'Repairs & maintenance', 'expense', 'income', { isGroup: 'repairs' }),
   a('7300', 'Insurance', 'expense', 'income', { isGroup: 'insurance' }),
   a('7400', 'Utilities', 'expense', 'income', { isGroup: 'utilities' }),

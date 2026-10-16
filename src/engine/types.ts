@@ -1030,7 +1030,7 @@ export interface PeopleState {
 
 // ---------- Deals (DESIGN §14.6) ----------
 
-export type DealKind = 'merger' | 'divisionSale' | 'jv' | 'buyout';
+export type DealKind = 'merger' | 'divisionSale' | 'jv' | 'buyout' | 'acquisition';
 export type DealStage = 'proposed' | 'study' | 'terms' | 'board' | 'members' | 'closing' | 'integration' | 'closed' | 'dead';
 
 export interface DealPartner {
@@ -1050,8 +1050,10 @@ export interface DealTerms {
   name: string;
   /** Board seats for the partner's directors (mergers). */
   partnerSeats: number;
-  /** Price (division sales, buyouts) in cents. */
+  /** Price (division sales, buyouts) or our offer (acquisitions) in cents. */
   price?: Cents;
+  /** Share of an acquisition's price financed with a term loan. */
+  financePct?: number;
 }
 
 export interface MemberVoteResult {
@@ -1080,6 +1082,11 @@ export interface Deal {
   ourMembers?: MemberVoteResult;
   theirMembers?: MemberVoteResult;
   log: string[];
+  /** Acquisitions: the owner's asking price, set when the study is done. */
+  asking?: Cents;
+  /** Acquisitions: goodwill booked at closing and the month it closed (for amortization). */
+  goodwill?: Cents;
+  closedMonth?: number;
 }
 
 export interface JointVenture {

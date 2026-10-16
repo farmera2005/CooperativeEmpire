@@ -113,6 +113,8 @@ export interface BalanceSheet {
   currentAssets: BalanceSheetLine[];
   investments: BalanceSheetLine[];
   fixedAssets: BalanceSheetLine[];
+  /** Goodwill from buying companies, net of amortization. */
+  intangibles: BalanceSheetLine[];
   currentLiabilities: BalanceSheetLine[];
   longTermLiabilities: BalanceSheetLine[];
   memberEquity: BalanceSheetLine[];
@@ -130,7 +132,7 @@ export function balanceSheet(l: LedgerState, at: number): BalanceSheet {
     const [acct] = splitKey(k);
     byAcct[acct] = (byAcct[acct] ?? 0) + bal[k];
   }
-  const groups = { currentAssets: [], investments: [], fixedAssets: [], currentLiabilities: [], longTermLiabilities: [], memberEquity: [] } as Record<
+  const groups = { currentAssets: [], investments: [], fixedAssets: [], intangibles: [], currentLiabilities: [], longTermLiabilities: [], memberEquity: [] } as Record<
     NonNullable<(typeof ACCOUNTS)[number]['bsGroup']>, BalanceSheetLine[]
   >;
   let currentYearSavings = 0;
@@ -145,7 +147,7 @@ export function balanceSheet(l: LedgerState, at: number): BalanceSheet {
     groups[acc.bsGroup].push({ account: acc.id, name: acc.name, amount: natural });
   }
   const tot = (xs: BalanceSheetLine[]) => xs.reduce((x, y) => x + y.amount, 0);
-  const totalAssets = tot(groups.currentAssets) + tot(groups.investments) + tot(groups.fixedAssets);
+  const totalAssets = tot(groups.currentAssets) + tot(groups.investments) + tot(groups.fixedAssets) + tot(groups.intangibles);
   const totalLiabilities = tot(groups.currentLiabilities) + tot(groups.longTermLiabilities);
   const totalEquity = tot(groups.memberEquity) + currentYearSavings;
   return { at, ...groups, currentYearSavings, totalAssets, totalLiabilities, totalEquity };

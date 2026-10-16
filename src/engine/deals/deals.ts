@@ -1,6 +1,8 @@
-// Mergers, division sales, joint ventures and buyouts (DESIGN §14.6). A deal moves through
-// stages: (proposed →) study → terms (optional diligence) → our board → members (mergers
-// and buyouts, both sides) → closing → integration. Closing posts a consolidation entry.
+// Mergers, acquisitions, division sales, joint ventures and buyouts (DESIGN §14.6). A deal
+// moves through stages: (proposed →) study → terms (optional diligence) → our board → members
+// (mergers and buyouts, both sides) → closing → integration. Closing posts a consolidation entry.
+// An acquisition buys a private company's plants and working capital for cash and a term loan;
+// its owner, not a board or members, decides whether to sell (D-102).
 
 import { ETHANOL_RETURN, ETHANOL_RETURN_FALLBACK } from '../../data/events';
 import { DEALS, MERGER_VOTE } from '../../data/competition';
@@ -13,8 +15,8 @@ import { allocateCents, roundCents, type Cents } from '../core/money';
 import { stream, type Rng } from '../core/rng';
 import { competitorName, siteComponents, usedValue } from '../competitors/competitors';
 import { capitalize, netBookValue, newFacility } from '../facilities/facilities';
-import { facilityName } from '../facilities/actions';
-import { lineRate, loanPayment } from '../finance/lender';
+import { facilityName, financePurchase, purchaseFinancingProblem } from '../facilities/actions';
+import { lineRate, loanPayment, renewalCommitment } from '../finance/lender';
 import { assignOfficers, makeDirector } from '../governance/board';
 import { memberReferendum } from '../governance/elections';
 import { addAgendaItem } from '../governance/votes';
@@ -98,6 +100,42 @@ export function proposeJv(s: GameState, partnerId: number, division: OpDivision)
   return info(`Joint-venture study with ${competitorName(s, c)} commissioned.`);
 }
 
+/** Private companies we may buy: local firms, not co-ops (they merge) or real national companies (D-102). */
+export const forSale = (s: GameState, c: Competitor): boolean =>
+  c.status === 'active' && c.kind === 'independent' && !c.brandId && c.sites.length > 0 && c.sites.every((x) => (x.arrivalYear ?? 0) <= yearOf(s.clock.monthIndex));
+
+export function proposeAcquisition(s: GameState, partnerId: number): Msgs {
+  const c = s.competitors.find((x) => x.id === partnerId);
+  if (!c || !forSale(s, c)) return err(c?.kind === 'coop' ? 'Another cooperative can merge with us, not be bought.' : 'Only a locally owned private company can be bought.');
+  if (s.deals.some((d) => openDeal(d) && d.partnerId === partnerId)) return err('We are already in talks with them.');
+  chargeStudy(s, `purchase of ${competitorName(s, c)}`);
+  newDeal(s, 'acquisition', c, competitorName(s, c), false, partnerProfile(s, c), mainDivision(s, c));
+  return info(`Valuation of ${competitorName(s, c)} commissioned; the owner's asking price comes with it in ${DEALS.studyMonths} months.`);
+}
+
+/** The division of a company's most valuable site (where its goodwill is carried). */
+function mainDivision(s: GameState, c: Competitor): OpDivision {
+  const mi = s.clock.monthIndex;
+  const v = (x: Competitor['sites'][number]) => usedValue(pathFor(s), mi, siteComponents(x), yearOf(mi) - x.builtYear, x.condition);
+  const top = [...c.sites].sort((a, b) => v(b) - v(a) || a.id - b.id)[0];
+  return (top?.division ?? 'GRAIN') as OpDivision;
+}
+
+/** What the owner asks: appraised plants and working capital times a multiple for age and health. */
+function askingPrice(s: GameState, d: Deal, c: Competitor | undefined): Cents {
+  const rng = dealRng(s, d.id, 'asking');
+  const st = d.truth.strength;
+  const multiple = DEALS.askMultiple.value - ((c?.ownerAge ?? 50) >= 65 ? DEALS.askRetiringDiscount.value : 0) + (DEALS.askStrengthPremium.value * (st - 50)) / 100 + rng.range(-DEALS.askNoise.value, DEALS.askNoise.value);
+  return roundCents((d.truth.fairValue + d.truth.workingCapital) * clamp(multiple, 0.8, 1.6));
+}
+
+/** Chance the owner accepts our offer: none below the floor, rising to certain at the asking price. */
+export function sellerAcceptance(d: Deal, offer: Cents): number {
+  if (!d.asking) return 0;
+  const floor = DEALS.acceptFloor.value;
+  return clamp((offer / d.asking - floor) / (1 - floor), 0, 1);
+}
+
 export function proposeDivisionSale(s: GameState, division: OpDivision): Msgs {
   if (division === 'GRAIN') return err('Selling the grain business would mean selling the co-op; consider a merger instead.');
   const facs = s.coop.facilities.filter((f) => f.status !== 'closed' && f.division === division);
@@ -156,7 +194,15 @@ export function submitDeal(s: GameState, dealId: number, terms: DealTerms): Msgs
   const d = s.deals.find((x) => x.id === dealId);
   if (!d || d.stage !== 'terms') return err('That deal is not ready for the board.');
   if (d.kind === 'merger' && (!terms.name.trim() || terms.partnerSeats < 0 || terms.partnerSeats > 5)) return err('Give the combined co-op a name and 0–5 board seats for the partner.');
-  setDeal(s, d.id, { stage: 'board', terms: { ...terms, ...(d.terms?.price !== undefined ? { price: d.terms.price } : {}) } });
+  if (d.kind === 'acquisition') {
+    const price = Math.round(terms.price ?? 0);
+    const financePct = clamp(terms.financePct ?? 0, 0, LENDING.maxFinancePct.value);
+    if (!(price > 0)) return err('Name the price we will offer.');
+    if (sellerAcceptance(d, price) <= 0) return err(`The owner will not consider less than ${formatCents(roundCents((d.asking ?? 0) * DEALS.acceptFloor.value))}.`);
+    const problem = purchaseFinancingProblem(s, price, financePct);
+    if (problem) return err(problem);
+    setDeal(s, d.id, { stage: 'board', terms: { ...terms, price, financePct } });
+  } else setDeal(s, d.id, { stage: 'board', terms: { ...terms, ...(d.terms?.price !== undefined ? { price: d.terms.price } : {}) } });
   addAgendaItem(s, { type: 'deal', title: dealTitle(d), submittedMonth: s.clock.monthIndex, command: { type: 'dealBoardApproved', dealId: d.id }, source: 'gm' });
   return info(`"${dealTitle(d)}" goes to the board at next month's meeting.`);
 }
@@ -175,6 +221,7 @@ export function dealTitle(d: Deal): string {
     case 'jv': return `Form a ${d.division?.toLowerCase()} joint venture with ${d.partnerName}`;
     case 'divisionSale': return `Sell the ${d.division?.toLowerCase()} division to ${d.partnerName}${d.terms?.price ? ` for ${formatCents(d.terms.price)}` : ''}`;
     case 'buyout': return `Sell the cooperative to ${d.partnerName}${d.terms?.price ? ` for ${formatCents(d.terms.price)}` : ''}`;
+    case 'acquisition': return `Buy ${d.partnerName}${d.terms?.price && d.stage !== 'study' ? ` for ${formatCents(d.terms.price)}` : ''}`;
   }
 }
 
@@ -216,14 +263,20 @@ export function stepDeals(ctx: TickContext): void {
       continue;
     }
     if (d.stage === 'study' && mi >= d.stageUntil) {
-      const price = d.kind === 'divisionSale' ? roundCents(d.truth.fairValue * ctx.rng('deals.divisionPrice', d.id).range(DEALS.divisionPrice[0], DEALS.divisionPrice[1]) + d.truth.workingCapital) : undefined;
-      const terms: DealTerms = { name: d.kind === 'merger' ? state.coop.name : state.coop.name, partnerSeats: d.kind === 'merger' ? Math.min(3, Math.max(1, Math.round(d.truth.sites))) : 0, ...(price !== undefined ? { price } : {}) };
-      setDeal(state, d.id, { stage: 'terms', terms, log: [...d.log, `${formatMonth(mi)}: study complete.`] });
+      const asking = d.kind === 'acquisition' ? askingPrice(state, d, state.competitors.find((c) => c.id === d.partnerId)) : undefined;
+      const price = d.kind === 'divisionSale' ? roundCents(d.truth.fairValue * ctx.rng('deals.divisionPrice', d.id).range(DEALS.divisionPrice[0], DEALS.divisionPrice[1]) + d.truth.workingCapital) : asking;
+      const terms: DealTerms = {
+        name: state.coop.name, partnerSeats: d.kind === 'merger' ? Math.min(3, Math.max(1, Math.round(d.truth.sites))) : 0,
+        ...(price !== undefined ? { price } : {}), ...(d.kind === 'acquisition' ? { financePct: Math.min(0.6, LENDING.maxFinancePct.value) } : {}),
+      };
+      setDeal(state, d.id, { stage: 'terms', terms, ...(asking !== undefined ? { asking } : {}), log: [...d.log, `${formatMonth(mi)}: study complete.`] });
       const e = d.estimate;
       ctx.inbox({
         kind: 'memo', title: `Study complete: ${dealTitle({ ...d, terms })}`,
         body: d.kind === 'divisionSale'
           ? `${d.partnerName} offers ${formatCents(price!)} for the ${d.division?.toLowerCase()} division (plants and working capital). Send it to the board from the Deals screen, or walk away.`
+          : d.kind === 'acquisition'
+          ? `The owner of ${d.partnerName} is asking ${formatCents(asking!)} for the business: ${e.sites} site${e.sites > 1 ? 's' : ''} our consultant values at ${formatCents(e.fairValue)}, plus about ${formatCents(e.workingCapital)} of inventory and receivables. The seller pays off their own debt. Set our offer and financing and send it to the board from the Deals screen.`
           : `Our consultant estimates ${d.partnerName}'s plants at ${formatCents(e.fairValue)}, debt ${formatCents(e.debt)}, members' equity ${formatCents(e.allocatedEquity)}. Due diligence would firm up these numbers. Set the terms and send it to the board from the Deals screen.`,
       });
       continue;
@@ -248,6 +301,7 @@ export function stepDeals(ctx: TickContext): void {
     if (d.stage === 'integration' && mi >= d.stageUntil) setDeal(state, d.id, { stage: 'closed', log: [...d.log, `${formatMonth(mi)}: integration complete.`] });
   }
   stepJointVentures(ctx);
+  stepGoodwill(ctx);
 }
 
 /** Our board approved the deal (called from the board meeting). */
@@ -262,6 +316,17 @@ export function dealBoardApproved(ctx: TickContext, dealId: number): string {
       setDeal(state, d.id, { stage: 'dead', log: [...d.log, `${formatMonth(mi)}: their board said no.`] });
       return `${d.partnerName}'s board voted it down.`;
     }
+  }
+  // The owner of a private company decides alone, on our price.
+  if (d.kind === 'acquisition') {
+    const offer = d.terms?.price ?? 0;
+    if (!dealRng(state, d.id, 'seller').chance(sellerAcceptance(d, offer))) {
+      setDeal(state, d.id, { stage: 'dead', log: [...d.log, `${formatMonth(mi)}: the owner turned down ${formatCents(offer)}.`] });
+      ctx.inbox({ kind: 'alert', title: `${d.partnerName} turns down our offer`, body: `The owner would not sell for ${formatCents(offer)}; they had asked ${formatCents(d.asking ?? 0)}. We can study the purchase again later.` });
+      return `The owner of ${d.partnerName} turned down the offer.`;
+    }
+    setDeal(state, d.id, { stage: 'closing', stageUntil: mi + 1, log: [...d.log, `${formatMonth(mi)}: our board approved; the owner accepted ${formatCents(offer)}.`] });
+    return `The owner accepted. The purchase closes in ${formatMonth(mi + 1)}.`;
   }
   const needsMembers = d.kind === 'merger' || d.kind === 'buyout';
   setDeal(state, d.id, { stage: needsMembers ? 'members' : 'closing', stageUntil: mi + (needsMembers ? DEALS.memberMeetingMonths : 0), log: [...d.log, `${formatMonth(mi)}: boards approved.`] });
@@ -280,6 +345,7 @@ function closeDeal(ctx: TickContext, d: Deal): void {
     case 'merger': closeMerger(ctx, d); break;
     case 'divisionSale': closeDivisionSale(ctx, d); break;
     case 'jv': closeJv(ctx, d); break;
+    case 'acquisition': closeAcquisition(ctx, d); break;
     case 'buyout': {
       const { state } = ctx;
       setDeal(state, d.id, { stage: 'closed' });
@@ -375,6 +441,69 @@ function closeMerger(ctx: TickContext, d: Deal): void {
   state.integrationUntil = mi + DEALS.integrationMonths;
   setDeal(state, d.id, { stage: 'integration', stageUntil: mi + DEALS.integrationMonths, log: [...d.log, `${formatMonth(mi)}: closed.`] });
   ctx.inbox({ kind: 'memo', title: `Merger with ${d.partnerName} closes`, body: `We now operate ${facs.length} more location${facs.length > 1 ? 's' : ''}; ${joiners.length} of their patrons are our members, bringing ${formatCents(allocated)} of allocated equity. We assumed ${formatCents(p.debt)} of debt. Expect a year of integration: systems and crews take time to combine, and service suffers meanwhile.${seats ? ` ${seats} of their directors join our board.` : ''}` });
+}
+
+/**
+ * Asset purchase of a private company (D-102): plants at appraised value, working capital as
+ * collected, the rest of the price as goodwill, or a bargain gain if we paid less than both.
+ * The seller keeps and repays its own debt; its customers are not members until they join.
+ */
+function closeAcquisition(ctx: TickContext, d: Deal): void {
+  const { state, mi } = ctx;
+  const c = state.competitors.find((x) => x.id === d.partnerId);
+  const fail = (why: string) => {
+    setDeal(state, d.id, { stage: 'dead', log: [...d.log, `${formatMonth(mi)}: ${why}`] });
+    ctx.inbox({ kind: 'alert', title: `Purchase of ${d.partnerName} falls through`, body: why });
+  };
+  if (!c || !forSale(state, c) || c.sites.length !== d.truth.sites) return fail(`${d.partnerName} is no longer in business as it was when we agreed terms.`);
+  const price = d.terms?.price ?? 0;
+  const financed = financePurchase(state, price, d.terms?.financePct ?? 0, `Purchase of ${d.partnerName}`);
+  if (financed) return fail(financed.map((m) => m.text).join(' '));
+  const p = partnerProfile(state, c);
+  const { lines, facs } = takeSites(state, c, p.fairValue);
+  const division = d.division ?? 'GRAIN';
+  const goodwill = Math.max(0, price - p.fairValue - p.workingCapital);
+  const gain = Math.max(0, p.fairValue + p.workingCapital - price);
+  post(state, {
+    source: 'acquisition', memo: `Purchase of ${d.partnerName}: plants, working capital${goodwill ? ' and goodwill' : ''}`,
+    lines: [
+      ...lines,
+      { account: '1000', division: 'CORP', amount: p.workingCapital - price },
+      { account: '1600', division, amount: goodwill },
+      { account: '8200', division, amount: -gain },
+    ],
+  });
+  c.status = 'sold';
+  c.sites = [];
+  c.lastMove = `sold to ${state.coop.name}`;
+  state.coop.offers = state.coop.offers.filter((o) => o.competitorId !== c.id);
+  const renewed = renewalCommitment(state);
+  if (renewed > state.coop.finance.lineCommitment) state.coop.finance.lineCommitment = renewed;
+  const until = mi + DEALS.acquisitionIntegrationMonths;
+  state.integrationUntil = Math.max(state.integrationUntil ?? 0, until);
+  setDeal(state, d.id, { stage: 'integration', stageUntil: until, goodwill, closedMonth: mi, log: [...d.log, `${formatMonth(mi)}: closed for ${formatCents(price)}.`] });
+  ctx.inbox({
+    kind: 'memo', title: `We bought ${d.partnerName}`,
+    body: `The purchase closed for ${formatCents(price)}. We now run ${facs.map((f) => f.name).join(', ')}. ${goodwill ? `We paid ${formatCents(goodwill)} above the plants' appraisal and working capital; that goodwill is written off over ${DEALS.goodwillMonths / 12} years.` : gain ? `We paid ${formatCents(gain)} less than the appraised plants and working capital, a bargain gain booked this month.` : ''} Their customers can now do business with us; they share in patronage once they join. Expect a few months of integration.`,
+  });
+}
+
+/** Straight-line goodwill amortization, from the month after each purchase closed. */
+function stepGoodwill(ctx: TickContext): void {
+  const n = DEALS.goodwillMonths;
+  for (const d of ctx.state.deals) {
+    if (!d.goodwill || d.closedMonth === undefined) continue;
+    const k = ctx.mi - d.closedMonth;
+    if (k < 1 || k > n) continue;
+    const amt = Math.floor((d.goodwill * k) / n) - Math.floor((d.goodwill * (k - 1)) / n);
+    if (amt > 0) post(ctx.state, { source: 'goodwill-amortization', memo: `Goodwill amortization: ${d.partnerName}`, lines: [{ account: '7110', division: d.division ?? 'GRAIN', amount: amt }, { account: '1690', division: d.division ?? 'GRAIN', amount: -amt }] });
+  }
+}
+
+/** Goodwill still on the books for each purchase (ties to accounts 1600 and 1690). */
+export function goodwillRemaining(s: GameState): Cents {
+  const n = DEALS.goodwillMonths;
+  return s.deals.reduce((a, d) => (d.goodwill && d.closedMonth !== undefined ? a + d.goodwill - Math.floor((d.goodwill * clamp(s.clock.monthIndex - d.closedMonth, 0, n)) / n) : a), 0);
 }
 
 /** Remove a facility and its assets from the books; returns the lines and its net book value. */

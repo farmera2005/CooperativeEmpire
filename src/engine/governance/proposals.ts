@@ -342,6 +342,17 @@ export function evaluate(s: GameState, item: AgendaItem): MeritVector {
         v.controversy = 0.6;
         if (d.division) v.divisionEffects[d.division] = -1;
         v.notes.push(`Price ${formatCents(d.terms?.price ?? 0)} vs book ${formatCents(book)}; the division ${ts.localSavings < 0 ? 'lost' : 'made'} ${formatCents(Math.abs(ts.localSavings))} last year`);
+      } else if (d.kind === 'acquisition') {
+        // Directors judge the price against the appraisal, the fit with our trade area and the bite out of equity.
+        const price = d.terms?.price ?? 0;
+        const value = e.fairValue + e.workingCapital;
+        const equity = Math.max(1, balanceSheet(s.ledger, s.clock.monthIndex).totalEquity);
+        const near = s.competitors.find((c) => c.id === d.partnerId)?.sites.some((x) => ours.some((f) => (s.world.distances[f.townId]?.[x.townId] ?? 99) <= 20)) ?? false;
+        v.trueMerit = clamp(2 * (value / Math.max(1, price) - 1) + (near ? 0.15 : -0.1) + (e.strength - 50) / 200 - (price > 0.5 * equity ? 0.3 : 0) - (d.diligence ? 0 : 0.15), -1, 1);
+        v.headlineMerit = 0.3;
+        v.growth = 0.8;
+        v.controversy = 0.4;
+        v.notes.push(`${d.partnerName}: ${e.sites} site(s); price ${formatCents(price)} against plants and working capital of ${formatCents(value)}${d.diligence ? '' : ' (estimates; no diligence)'}`);
       } else {
         const premium = (d.terms?.price ?? 0) / Math.max(1, balanceSheet(s.ledger, s.clock.monthIndex).totalEquity);
         v.trueMerit = clamp(premium - 1.1 + (s.coop.finance.status !== 'standard' ? 0.4 : -0.2), -1, 1);

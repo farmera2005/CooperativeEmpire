@@ -51,7 +51,7 @@ export { engagement } from './governance/elections';
 export { effect, effectiveSkill, holder, marketSalary, totalFte } from './people/leaders';
 export { tightness, siteFte, staffServicePenalty } from './people/staff';
 export { searchQuality } from './people/hiring';
-export { dealTitle, integrationPenalty, partnerProfile } from './deals/deals';
+export { dealTitle, forSale, goodwillRemaining, integrationPenalty, partnerProfile, sellerAcceptance } from './deals/deals';
 export { techById, techCost, techFactor, uncoveredSites } from './world/tech';
 export { affectedSites, complianceCost, deadlineOf, isCompliant } from './world/regulation';
 export { flagOn, openDecisions } from './world/events';

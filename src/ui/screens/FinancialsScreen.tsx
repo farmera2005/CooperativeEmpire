@@ -95,7 +95,7 @@ export function FinancialsScreen() {
         <Panel title={`Balance sheet, ${formatMonth(to)}`}>
           <table className="data">
             <tbody>
-              {([['Current assets', bs.currentAssets], ['Investments in other cooperatives', bs.investments], ['Property & equipment', bs.fixedAssets]] as const).map(([h, lines]) => (
+              {([['Current assets', bs.currentAssets], ['Investments in other cooperatives', bs.investments], ['Property & equipment', bs.fixedAssets], ['Goodwill', bs.intangibles]] as const).map(([h, lines]) => (
                 <BsSection key={h} title={h} lines={lines} onDrill={setDrill} />
               ))}
               <tr className="font-semibold"><td>Total assets</td><td className="r">{money(bs.totalAssets)}</td></tr>

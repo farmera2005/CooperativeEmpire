@@ -1,5 +1,6 @@
 // Accounting invariants checked every month (DESIGN §22.1).
 
+import { DEALS } from '../../data/competition';
 import { splitKey } from './coa';
 import { activityFor, balanceSheet, cashFlow } from './statements';
 import type { GameState } from '../types';
@@ -110,6 +111,12 @@ export function checkInvariants(state: GameState): string[] {
   if (inv !== glOf('1400')) errors.push(`Regional + lender equity ${inv} != GL ${glOf('1400')}`);
   const jv = state.jvs.reduce((a, x) => a + x.investment, 0);
   if (jv !== glOf('1450')) errors.push(`Joint ventures ${jv} != GL ${glOf('1450')}`);
+
+  // 10. Goodwill, net of amortization, ties to the purchases that created it.
+  const n = DEALS.goodwillMonths;
+  let gw = 0;
+  for (const d of state.deals) if (d.goodwill && d.closedMonth !== undefined) gw += d.goodwill - Math.floor((d.goodwill * Math.min(n, Math.max(0, mi - d.closedMonth))) / n);
+  if (gw !== glOf('1600') + glOf('1690')) errors.push(`Goodwill ${gw} != GL ${glOf('1600') + glOf('1690')}`);
 
   return errors;
 }

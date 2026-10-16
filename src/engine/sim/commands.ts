@@ -19,7 +19,7 @@ import { boardGate } from '../governance/proposals';
 import { addAgendaItem } from '../governance/votes';
 import type { Role } from '../../data/people';
 import { checkReferences, coach, fire, giveRaise, hire, interview, listInternal, poach, setBonusPlan, startSearch } from '../people/hiring';
-import { abandonDeal, dealDiligence, proposeDivisionSale, proposeJv, proposeMerger, respondDeal, submitDeal } from '../deals/deals';
+import { abandonDeal, dealDiligence, proposeAcquisition, proposeDivisionSale, proposeJv, proposeMerger, respondDeal, submitDeal } from '../deals/deals';
 import type { BylawChange, DealTerms, OpDivision, TrainingLevel, GameState, GrainPolicy, PatronageProposal, PayPosition, RedemptionPolicy, StaffLevel, SupplyPolicy } from '../types';
 import type { RegionalCategory } from '../../data/finance';
 import { validateProposal } from '../finance/patronage';
@@ -74,6 +74,7 @@ export type Command =
   | { type: 'setTraining'; level: TrainingLevel }
   | { type: 'proposeMerger'; partnerId: number }
   | { type: 'proposeJv'; partnerId: number; division: OpDivision }
+  | { type: 'proposeAcquisition'; partnerId: number }
   | { type: 'proposeDivisionSale'; division: OpDivision }
   | { type: 'respondDeal'; dealId: number; accept: boolean }
   | { type: 'dealDiligence'; dealId: number }
@@ -239,6 +240,7 @@ function run(s: GameState, cmd: Command): CommandMessage[] {
     case 'giveRaise': return giveRaise(s, cmd.leaderId);
     case 'proposeMerger': return proposeMerger(s, cmd.partnerId);
     case 'proposeJv': return proposeJv(s, cmd.partnerId, cmd.division);
+    case 'proposeAcquisition': return proposeAcquisition(s, cmd.partnerId);
     case 'adoptTech': return adoptTech(s, cmd.techId);
     case 'comply': return comply(s, cmd.ruleId, cmd.facilityId);
     case 'chooseOption': return chooseOption(s, cmd.inboxId, cmd.optionId);

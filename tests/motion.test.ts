@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { advanceMonth, applyCommand, checkInvariants, DEFAULT_SETUP, newGame, type GameState } from '../src/engine/index';
+import { advanceMonth, applyCommand, checkInvariants, DEFAULT_SETUP, forSale, goodwillRemaining, newGame, sellerAcceptance, type GameState } from '../src/engine/index';
 import { TYPICAL_SITE } from '../src/data/facilities';
 import { cloneState } from '../src/engine/sim/clone';
 import { balance } from '../src/engine/ledger/ledger';
@@ -122,6 +122,70 @@ describe('deals', () => {
       expect(checkInvariants(s)).toEqual([]);
     }
     expect(closed).toBeGreaterThan(0);
+  });
+
+  it('buys a private company: valuation, asking price, board, owner, closing, goodwill', () => {
+    let s = coop(1995, 4);
+    const target = s.competitors.find((c) => forSale(s, c))!;
+    expect(target).toBeDefined();
+    let r = applyCommand(s, { type: 'proposeAcquisition', partnerId: target.id });
+    expect(r.ok, r.messages.map((m) => m.text).join()).toBe(true);
+    s = run(r.state, 2);
+    let d = s.deals[0];
+    expect(d.kind).toBe('acquisition');
+    expect(d.stage).toBe('terms');
+    expect(d.asking).toBeGreaterThan(0);
+    expect(d.terms?.price).toBe(d.asking);
+    // Offer a tenth over the asking price: the owner sells, and the premium is goodwill.
+    const offer = Math.round(d.asking! * 1.1);
+    expect(sellerAcceptance(d, offer)).toBe(1);
+    r = applyCommand(s, { type: 'submitDeal', dealId: d.id, terms: { ...d.terms!, price: offer, financePct: 0.5 } });
+    expect(r.ok, r.messages.map((m) => m.text).join()).toBe(true);
+    const sitesBefore = r.state.coop.facilities.filter((f) => f.status !== 'closed').length;
+    s = run(friendly(r.state), 3);
+    d = s.deals[0];
+    expect(['integration', 'closed']).toContain(d.stage);
+    expect(s.coop.facilities.filter((f) => f.status !== 'closed').length).toBe(sitesBefore + target.sites.length);
+    expect(s.competitors.find((c) => c.id === target.id)!.status).toBe('sold');
+    expect(d.goodwill).toBeGreaterThan(0);
+    expect(balance(s.ledger, '1600')).toBe(d.goodwill);
+    // Amortized straight-line from the month after closing.
+    s = run(s, 12);
+    expect(goodwillRemaining(s)).toBeLessThan(d.goodwill!);
+    expect(balance(s.ledger, '1600') + balance(s.ledger, '1690')).toBe(goodwillRemaining(s));
+    expect(checkInvariants(s)).toEqual([]);
+  });
+
+  it('books a bargain gain when the owner takes less than the plants and working capital are worth', () => {
+    let s = coop(1995, 4);
+    const target = s.competitors.find((c) => forSale(s, c))!;
+    s = run(applyCommand(s, { type: 'proposeAcquisition', partnerId: target.id }).state, 2);
+    // A retiring owner in a hurry: asking 80% of appraised value.
+    s = cloneState(s);
+    const d = s.deals[0];
+    const value = d.truth.fairValue + d.truth.workingCapital;
+    s.deals = [{ ...d, asking: Math.round(value * 0.8) }];
+    s = applyCommand(s, { type: 'submitDeal', dealId: d.id, terms: { ...d.terms!, price: Math.round(value * 0.8), financePct: 0.5 } }).state;
+    s = run(friendly(s), 3);
+    expect(['integration', 'closed']).toContain(s.deals[0].stage);
+    expect(s.deals[0].goodwill ?? 0).toBe(0);
+    expect(balance(s.ledger, '8200')).toBeLessThan(0);
+    expect(checkInvariants(s)).toEqual([]);
+  });
+
+  it('only private local companies are for sale, and never below the owner\'s floor', () => {
+    let s = coop(1995, 4);
+    const coopPartner = s.competitors.find((c) => c.kind === 'coop' && c.status === 'active')!;
+    expect(applyCommand(s, { type: 'proposeAcquisition', partnerId: coopPartner.id }).ok).toBe(false);
+    const national = s.competitors.find((c) => c.kind === 'national');
+    if (national) expect(applyCommand(s, { type: 'proposeAcquisition', partnerId: national.id }).ok).toBe(false);
+    const target = s.competitors.find((c) => forSale(s, c))!;
+    s = run(applyCommand(s, { type: 'proposeAcquisition', partnerId: target.id }).state, 2);
+    const d = s.deals[0];
+    const lowball = Math.round(d.asking! * (DEALS.acceptFloor.value - 0.05));
+    const r = applyCommand(s, { type: 'submitDeal', dealId: d.id, terms: { ...d.terms!, price: lowball } });
+    expect(r.ok).toBe(false);
+    expect(r.messages[0].text).toMatch(/will not consider/);
   });
 
   it('sells a farm-supply division and books the gain or loss', () => {

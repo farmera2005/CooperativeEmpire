@@ -72,15 +72,21 @@ export function lenderReview(state: GameState, cost: Cents, loan: Cents): string
   return null;
 }
 
-function finance(state: GameState, cost: Cents, financePct: number, purpose: string): Result | null {
-  const pct = Math.max(0, Math.min(LENDING.maxFinancePct.value, financePct));
-  const loan = roundCents(cost * pct);
+/** Why a purchase can't be paid for (term loan for `financePct`, the rest from cash and the line), or null. */
+export function purchaseFinancingProblem(state: GameState, cost: Cents, financePct: number): string | null {
+  const loan = roundCents(cost * Math.max(0, Math.min(LENDING.maxFinancePct.value, financePct)));
   const refused = lenderReview(state, cost, loan);
-  if (refused) return err(refused);
+  if (refused) return refused;
   const cashNeeded = cost - loan;
-  if (cashNeeded > liquidity(state)) {
-    return err(`Not enough cash and line of credit: need ${formatCents(cashNeeded)} beyond the ${formatCents(loan)} term loan, have ${formatCents(liquidity(state))} available.`);
-  }
+  if (cashNeeded > liquidity(state)) return `Not enough cash and line of credit: need ${formatCents(cashNeeded)} beyond the ${formatCents(loan)} term loan, have ${formatCents(liquidity(state))} available.`;
+  return null;
+}
+
+/** Arrange a purchase's financing (creates the term loan); returns an error result if it can't be paid for. */
+export function financePurchase(state: GameState, cost: Cents, financePct: number, purpose: string): Result | null {
+  const problem = purchaseFinancingProblem(state, cost, financePct);
+  if (problem) return err(problem);
+  const loan = roundCents(cost * Math.max(0, Math.min(LENDING.maxFinancePct.value, financePct)));
   if (loan > 0) createTermLoan(state, loan, purpose);
   return null;
 }
@@ -111,7 +117,7 @@ export function buyOffer(state: GameState, offerId: number, financePct: number):
   if (!o) return err('That offer is no longer available.');
   const mi = state.clock.monthIndex;
   const town = state.world.towns[o.townId];
-  const fail = finance(state, o.price, financePct, `Purchase of ${facilityName(town.name, o.kind)}`);
+  const fail = financePurchase(state, o.price, financePct, `Purchase of ${facilityName(town.name, o.kind)}`);
   if (fail) return fail;
   const f = newFacility(state, o.townId, facilityName(town.name, o.kind), o.components, 'operating', o.builtYear, o.condition, o.kind);
   if (o.envLiability > 0) f.envLiability = { cost: o.envLiability, discovered: false };

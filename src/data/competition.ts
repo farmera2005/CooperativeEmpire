@@ -125,4 +125,19 @@ export const DEALS = {
   jvSynergy: s(0.12, 'low'),
   jvPayout: s(0.5, 'low'),
   incomingExpiryMonths: 3,
+  /**
+   * Buying a private company (D-102): an asset purchase of its plants and working capital. The
+   * owner asks this multiple of their appraised value, less for a retiring owner (65+), more for
+   * a strong business, with ±noise.
+   */
+  askMultiple: s(1.15, 'low', 'Owners of profitable private elevators and dealers ask above appraisal'),
+  askRetiringDiscount: s(0.15, 'low', 'Retiring owners without heirs in the business sell for less'),
+  askStrengthPremium: s(0.4, 'low', 'Added multiple per unit of (strength − 50) ÷ 100'),
+  askNoise: s(0.08, 'low'),
+  /** The owner never takes less than this share of the asking price; at the asking price they always sell. */
+  acceptFloor: s(0.85, 'low'),
+  /** Integration of a bought company: shorter than a merger (no members, boards or equity to combine). */
+  acquisitionIntegrationMonths: 6,
+  /** Goodwill is amortized straight-line over this many months (the private-company alternative, ASU 2014-02). */
+  goodwillMonths: 120,
 };

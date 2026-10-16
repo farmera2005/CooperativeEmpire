@@ -62,7 +62,7 @@ function raiseDemands(ctx: TickContext): void {
     const signature = dir.petIssues.filter((p) => p.kind !== 'hometown');
     const canExpand = state.coop.facilities.filter((f) => f.status === 'operating').length >= 2;
     const pet = signature.length && (!canExpand || rng.chance(0.7)) ? rng.pick(signature) : dir.petIssues[0];
-    if (pet.kind === 'hometown' && !canExpand) continue;
+    if (!pet || (pet.kind === 'hometown' && !canExpand)) continue;
     const who = memberName(state, dir.memberId);
     const deadline = ctx.mi + DEMANDS.deadlineMonths;
     const base = { id: g.nextItemId++, directorId: dir.memberId, createdMonth: ctx.mi, deadlineMonth: deadline, status: 'open' as const };
