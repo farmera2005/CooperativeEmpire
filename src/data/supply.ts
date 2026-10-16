@@ -63,9 +63,9 @@ export const LINES: Record<LineId, LineDef> = {
   FEED_DAIRY: { id: 'FEED_DAIRY', division: 'FEED', label: 'Dairy feed', unit: 'ton', cost: { kind: 'ration' }, margin: { kind: 'perUnit', value: 45 }, season: FLAT, inventory: 'flow', creditShare: 0.85 },
   FEED_BEEF: { id: 'FEED_BEEF', division: 'FEED', label: 'Beef feed & supplements', unit: 'ton', cost: { kind: 'ration' }, margin: { kind: 'perUnit', value: 55 }, season: [1.3, 1.3, 1.2, 1, 0.8, 0.7, 0.7, 0.7, 0.8, 1, 1.2, 1.3], inventory: 'flow', creditShare: 0.85 },
   FEED_TOLL: { id: 'FEED_TOLL', division: 'FEED', label: 'Toll milling for integrators', unit: 'ton', cost: { kind: 'service' }, margin: { kind: 'perUnit', value: 15 }, season: FLAT, inventory: 'flow', creditShare: 1 },
-  FUEL_DIESEL: { id: 'FUEL_DIESEL', division: 'ENERGY', label: 'Farm diesel (delivered)', unit: 'gal', cost: { kind: 'series', series: ['diesel'], weights: [1], factor: 1 }, margin: { kind: 'perUnit', value: 0.28 }, season: DIESEL_SEASON, inventory: 'flow', creditShare: 0.6 },
-  FUEL_GAS: { id: 'FUEL_GAS', division: 'ENERGY', label: 'Farm gasoline (delivered)', unit: 'gal', cost: { kind: 'series', series: ['gasoline'], weights: [1], factor: 1 }, margin: { kind: 'perUnit', value: 0.28 }, season: DIESEL_SEASON, inventory: 'flow', creditShare: 0.6 },
-  PROPANE: { id: 'PROPANE', division: 'ENERGY', label: 'Propane (heating & crop drying)', unit: 'gal', cost: { kind: 'series', series: ['propane'], weights: [1], factor: 1 }, margin: { kind: 'perUnit', value: 0.85 }, season: FLAT, inventory: 'position', storage: { component: 'propane-storage', perUnit: 1 }, creditShare: 0.5 },
+  FUEL_DIESEL: { id: 'FUEL_DIESEL', division: 'ENERGY', label: 'Farm diesel (delivered)', unit: 'gal', cost: { kind: 'series', series: ['diesel'], weights: [1], factor: 1 }, margin: { kind: 'perUnit', value: 0.25 }, season: DIESEL_SEASON, inventory: 'flow', creditShare: 0.6 },
+  FUEL_GAS: { id: 'FUEL_GAS', division: 'ENERGY', label: 'Farm gasoline (delivered)', unit: 'gal', cost: { kind: 'series', series: ['gasoline'], weights: [1], factor: 1 }, margin: { kind: 'perUnit', value: 0.25 }, season: DIESEL_SEASON, inventory: 'flow', creditShare: 0.6 },
+  PROPANE: { id: 'PROPANE', division: 'ENERGY', label: 'Propane (heating & crop drying)', unit: 'gal', cost: { kind: 'series', series: ['propane'], weights: [1], factor: 1 }, margin: { kind: 'perUnit', value: 0.65 }, season: FLAT, inventory: 'position', storage: { component: 'propane-storage', perUnit: 1 }, creditShare: 0.5 },
   LUBES: { id: 'LUBES', division: 'ENERGY', label: 'Lubricants', unit: '$', cost: { kind: 'fixed2024', perUnit: 1 }, margin: { kind: 'pct', value: 0.2 }, season: DIESEL_SEASON, inventory: 'flow', creditShare: 0.6 },
   STATION_FUEL: { id: 'STATION_FUEL', division: 'RETAIL', label: 'Station fuel', unit: 'gal', cost: { kind: 'series', series: ['gasoline', 'diesel'], weights: [0.8, 0.2], factor: 1 }, margin: { kind: 'perUnit', value: 0.2 }, season: RETAIL_SEASON, inventory: 'flow', creditShare: 0.1 },
   STORE_INSIDE: { id: 'STORE_INSIDE', division: 'RETAIL', label: 'C-store inside sales', unit: '$', cost: { kind: 'fixed2024', perUnit: 1 }, margin: { kind: 'pct', value: 0.43 }, season: RETAIL_SEASON, inventory: 'flow', creditShare: 0 },
@@ -158,8 +158,8 @@ export const RETAIL_DEMAND = {
   /** Inside sales (2024 $) per gallon pumped. */
   insidePerGal: s(1.1, 'low', 'NACS: rural c-stores sell roughly $1–1.5 inside per gallon pumped'),
   /** Farm store spend per farm acre and per town resident per year (2024 $). */
-  farmStorePerAcre: s(14, 'low'),
-  farmStorePerResident: s(40, 'low'),
+  farmStorePerAcre: s(20, 'low', 'Fencing, animal health, parts, tools and workwear bought locally'),
+  farmStorePerResident: s(120, 'low', 'Rural households\' farm-and-home, lawn and pet spending (D-103)'),
   /** Share of retail customers who are members: members in town over households, clamped. */
   memberShareRange: s<[number, number]>([0.05, 0.6], 'low'),
   householdsPerResident: s(0.4, 'low'),
@@ -258,6 +258,14 @@ export const SUPPLY_COMPETITORS = {
 export const SUPPLY_WAGES = s<Record<SupplyDivision, number>>({ AGRONOMY: 55_000, FEED: 48_000, ENERGY: 52_000, RETAIL: 30_000 }, 'low');
 
 /** Facility running costs for supply sites besides staff and repairs (2024 $ per year). */
+/**
+ * Costs that scale with sales rather than with plants, as a share of sales and services (D-103):
+ * agronomists, sales staff and product handling. Co-op agronomy runs roughly 8–10% of sales in
+ * operating costs; plants and crews cover about half of that. Energy, feed and retail costs are
+ * carried by delivery, power and store staffing instead.
+ */
+export const SELLING_COST_PCT = s<Record<SupplyDivision, number>>({ AGRONOMY: 0.035, FEED: 0, ENERGY: 0, RETAIL: 0 }, 'low', 'Co-op agronomy operating expense ~8–10% of sales; local savings 3–6%');
+
 export const SITE_UTILITIES = s<Record<string, number>>({ agronomy: 30_000, feedmill: 60_000, energy: 12_000, station: 40_000, farmstore: 25_000 }, 'low');
 /** Extra wages in busy months as share of regular wages, by division. */
 export const SEASONAL_OVERTIME = s<Record<SupplyDivision, { months: number[]; share: number }>>({

@@ -17,7 +17,7 @@ import { REGIONS } from '../../data/regions/eccb';
 import {
   AGRONOMY_DEMAND, CROSS_DIVISION, CREDIT, DIVISION_CONFIG, ENERGY_DEMAND, FEED_DEMAND, FILL, LINES, LINES_BY_DIVISION, PREPAY,
   REBATES, RETAIL_DEMAND, SUPPLY_DIVISIONS, SUPPLY_SHARE, type LineId, type SupplyDivision,
-} from '../../data/supply';
+ SELLING_COST_PCT } from '../../data/supply';
 import { valueAt } from '../../data/types';
 import { bd } from '../core/breakdown';
 import { monthOf, yearOf } from '../core/calendar';
@@ -414,7 +414,7 @@ export function stepSupply(ctx: TickContext): void {
     }
 
     // ---- variable operating costs: delivery, mill power, tank rent, prepay intake ----
-    if (open) operatingExtras(ctx, d, book, sold, acc, idx, pl, month, prices);
+    if (open) operatingExtras(ctx, d, book, sold, acc, idx, pl, month, prices, revenueTot + serviceTot);
     if (d === 'AGRONOMY' && open && pol.prepayProgram && PREPAY.months.includes(month)) {
       const springShare = [3, 4, 5, 6].reduce((a, m) => a + (['FERT_N', 'FERT_PK', 'CROP_PROTECTION', 'SEED'] as LineId[]).reduce((b, id) => b + (acc.annualOurs[id] ?? 0) * seasonShare(id, m) * prices[id].ours, 0), 0);
       const w = month === 12 ? PREPAY.decemberWeight.value : (1 - PREPAY.decemberWeight.value) / 2;
@@ -588,7 +588,7 @@ function fillAndPrebuy(ctx: TickContext, d: SupplyDivision, book: SupplyBook, fa
   return 0;
 }
 
-function operatingExtras(ctx: TickContext, d: SupplyDivision, book: SupplyBook, sold: Partial<Record<LineId, number>>, acc: Acc, idx: number, pl: number, month: number, prices: Record<LineId, LinePrice>): void {
+function operatingExtras(ctx: TickContext, d: SupplyDivision, book: SupplyBook, sold: Partial<Record<LineId, number>>, acc: Acc, idx: number, pl: number, month: number, prices: Record<LineId, LinePrice>, revenue: Cents): void {
   const { state } = ctx;
   const lines: JournalLine[] = [];
   let cash = 0;
@@ -603,6 +603,8 @@ function operatingExtras(ctx: TickContext, d: SupplyDivision, book: SupplyBook, 
     lines.push({ account: '6000', division: d, amount: -amount });
     cash += amount;
   };
+  // Agronomists, sales staff and product handling grow with the business, not the plant (D-103).
+  ex('7000', roundCents(revenue * SELLING_COST_PCT.value[d]));
   if (d === 'ENERGY') {
     const gal = (sold.FUEL_DIESEL ?? 0) + (sold.FUEL_GAS ?? 0) + (sold.PROPANE ?? 0);
     ex('7680', roundCents(gal * (ENERGY_DEMAND.deliveryBase.value + ENERGY_DEMAND.deliveryPerMile.value * avgDist) * pl * 100));

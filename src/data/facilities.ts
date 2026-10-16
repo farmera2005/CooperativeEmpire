@@ -109,9 +109,9 @@ export const KIND_BASE_FTE: Record<FacilityKind, number> = { elevator: 0, agrono
 export const TYPICAL_SITE: Record<Exclude<FacilityKind, 'elevator'>, Partial<Record<ComponentId, number>>> = {
   agronomy: { site: 6, 'dry-fert-plant': 4000, 'nh3-storage': 300, 'liquid-fert-tanks': 1500, 'chem-warehouse': 1, 'seed-warehouse': 1, applicator: 2 },
   feedmill: { site: 4, 'feed-mill': 30_000, 'bulk-feed-truck': 2 },
-  energy: { site: 3, 'bulk-fuel-plant': 60_000, 'propane-storage': 60_000, 'fuel-truck': 3 },
+  energy: { site: 3, 'bulk-fuel-plant': 45_000, 'propane-storage': 45_000, 'fuel-truck': 2 },
   station: { site: 1, 'c-store': 2500 },
-  farmstore: { site: 2, 'farm-store': 8000 },
+  farmstore: { site: 2, 'farm-store': 5000 },
 };
 
 export const STORAGE_COMPONENTS: ComponentId[] = ['storage-wood', 'storage-concrete', 'storage-steel', 'storage-flat'];
