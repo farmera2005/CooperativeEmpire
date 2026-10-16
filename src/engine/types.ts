@@ -964,7 +964,7 @@ export interface Leader {
   bonusPlan: boolean;
   coachedMonth: number | null;
   /** Hidden flags revealed by audits or events. */
-  flags: { embezzling?: boolean; hiddenPosition?: boolean };
+  flags: { embezzling?: boolean; hiddenPosition?: boolean; proposed?: number; approved?: number; right?: number };
   retiring?: number;
 }
 

@@ -119,7 +119,7 @@ function LeadershipPanel() {
             return (
               <tr key={role}>
                 <td>{ROLE_DEFS[role].label}</td>
-                <td className="text-sm"><b>{l.name}</b><div className="text-xs text-stone-500">age {year - l.birthYear}, {Math.max(0, Math.round((game.clock.monthIndex - l.hiredMonth) / 12))} yr{l.retiring !== undefined ? `, retiring ${formatMonthShort(l.retiring)}` : ''}</div></td>
+                <td className="text-sm"><b>{l.name}</b><div className="text-xs text-stone-500">age {year - l.birthYear}, {Math.max(0, Math.round((game.clock.monthIndex - l.hiredMonth) / 12))} yr{l.retiring !== undefined ? `, retiring ${formatMonthShort(l.retiring)}` : ''}</div>{(l.flags.proposed ?? 0) > 0 && <div className="text-xs text-stone-500" title="Proposals brought to you, how many you approved, and how many have been reviewed as the right call">Proposals: {l.flags.proposed} made, {l.flags.approved ?? 0} approved, {l.flags.right ?? 0} proved right</div>}</td>
                 <td><Skills l={l} role={role} /></td>
                 <td><Traits l={l} /></td>
                 <td className={`r text-sm ${l.salary < market * 0.95 ? 'text-rust' : ''}`}>{money(l.salary, { compact: true })}<div className="text-xs text-stone-500">market {money(market, { compact: true })}</div></td>
@@ -135,7 +135,7 @@ function LeadershipPanel() {
           })}
         </tbody>
       </table>
-      <p className="mt-1 text-xs text-stone-500">Skill ranges narrow as you interview, check references and work with people. Coaching and interviews spend your time (political capital).</p>
+      <p className="mt-1 text-xs text-stone-500">Skill ranges narrow as you interview, check references and work with people. Coaching and interviews spend your time (political capital). Division managers bring proposals for their business to your inbox; how often they are right depends on their skill, and each one is reviewed months later.</p>
     </Panel>
   );
 }

@@ -29,6 +29,8 @@ const BOT_HOUSE_FIXED_2024 = 60_000;
 const BOT_DEAR_PRIME = 11;
 /** Bushels of space per bushel-per-hour of receiving before the pit outruns the bins. */
 const BOT_STORAGE_HOURS_PER_PIT = 40;
+/** A manager's proposals are approved when the midpoint of their revealed skill is at least this. */
+const BOT_TRUST_SKILL = 10;
 
 export type PolicyId = 'baseline' | 'reckless' | 'conservative' | 'idle';
 
@@ -197,6 +199,18 @@ function scripted(style: Style): Policy {
       if (ep.redemption.budgetPctOfSavings !== pct || ep.redemption.budgetFixed !== fixed) cmds.push({ type: 'setRedemptionPolicy', policy: { ...ep.redemption, budgetPctOfSavings: pct, budgetFixed: fixed } });
     }
     if (style.manageEquity) cmds.push(...consolidate(state, healthy));
+    // Managers' proposals (D-104): a prudent GM backs a manager whose record shows at least
+    // average skill in the area of the call, and declines the rest.
+    if (style.manageEquity) {
+      for (const item of state.inbox) {
+        const c = item.choice;
+        if (!c || c.chosen || !c.handler.startsWith('mgr.')) continue;
+        const l = state.people.leaders.find((x) => x.id === c.data?.leaderId);
+        const skill = c.handler.endsWith('staffing') || c.handler.endsWith('offseason') ? 'operations' : c.handler.endsWith('credit') ? 'finance' : c.handler.endsWith('toll') ? 'sales' : 'merchandising';
+        const [lo, hi] = l ? l.revealed[skill] : [0, 0];
+        cmds.push({ type: 'chooseOption', inboxId: item.id, optionId: (lo + hi) / 2 >= BOT_TRUST_SKILL ? 'approve' : 'decline' });
+      }
+    }
     if (style.manageEquity) {
       // Meet new rules before the deadline, one site a month, while cash allows.
       let room = liquidity(state) * 0.5;

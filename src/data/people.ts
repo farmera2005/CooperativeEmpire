@@ -117,7 +117,7 @@ export const TRAITS: Record<TraitId, TraitDef> = {
 export type EffectKey =
   | 'grain.basis' | 'grain.throughput' | 'supply.share' | 'agronomy.application' | 'feed.mill' | 'energy.delivery' | 'finance.spread'
   | 'finance.forecast' | 'coo.opex' | 'coo.decay' | 'safety.incidents' | 'safety.insurance' | 'hr.turnover' | 'members.satisfaction'
-  | 'members.election' | 'innovation.adoption' | 'staff.morale';
+  | 'members.election' | 'innovation.adoption' | 'staff.morale' | 'division.opex';
 
 export interface EffectRow {
   role: Role | 'division';
@@ -132,25 +132,31 @@ export interface EffectRow {
   description: string;
 }
 
-/** The skill → effect table (DESIGN §15.2), shown in the People screen. */
+/**
+ * The skill → effect table (DESIGN §15.2), shown in the People screen. Effects are 0 at skill
+ * 10. D-104 doubled most of them, and added the division manager's grip on site costs, so a
+ * strong management team is worth several times its salary and a weak or missing one costs
+ * real money.
+ */
 export const EFFECTS: EffectRow[] = [
-  { role: 'GRAIN', skill: 'merchandising', key: 'grain.basis', perPoint: 0.004, min: -0.03, max: 0.04, unit: '$/bu (2024)', description: 'Basis captured on grain sold' },
-  { role: 'GRAIN', skill: 'operations', key: 'grain.throughput', perPoint: 0.012, min: -0.1, max: 0.12, unit: '× receiving rate', description: 'Bushels per hour through the legs at harvest' },
-  { role: 'division', skill: 'sales', key: 'supply.share', perPoint: 0.03, min: -0.25, max: 0.3, unit: 'utility', description: 'Farmers\' preference for our farm-supply divisions' },
-  { role: 'AGRONOMY', skill: 'operations', key: 'agronomy.application', perPoint: 0.015, min: -0.12, max: 0.15, unit: '× acres/day', description: 'Custom application acres per rig-day' },
-  { role: 'FEED', skill: 'operations', key: 'feed.mill', perPoint: 0.012, min: -0.1, max: 0.12, unit: '× mill tons', description: 'Feed mill throughput' },
-  { role: 'ENERGY', skill: 'operations', key: 'energy.delivery', perPoint: 0.012, min: -0.1, max: 0.12, unit: '× gallons/truck', description: 'Delivery truck gallons per month' },
-  { role: 'CFO', skill: 'finance', key: 'finance.spread', perPoint: -0.04, min: -0.3, max: 0.25, unit: 'points', description: 'Lender\'s spread on our line and new term loans' },
+  { role: 'GRAIN', skill: 'merchandising', key: 'grain.basis', perPoint: 0.008, min: -0.05, max: 0.08, unit: '$/bu (2024)', description: 'Basis captured on grain sold' },
+  { role: 'GRAIN', skill: 'operations', key: 'grain.throughput', perPoint: 0.024, min: -0.15, max: 0.24, unit: '× receiving rate', description: 'Bushels per hour through the legs at harvest' },
+  { role: 'division', skill: 'sales', key: 'supply.share', perPoint: 0.06, min: -0.35, max: 0.6, unit: 'utility', description: 'Farmers\' preference for our farm-supply divisions' },
+  { role: 'division', skill: 'operations', key: 'division.opex', perPoint: -0.01, min: -0.1, max: 0.06, unit: '× division site costs', description: 'Wages, repairs and utilities at the division\'s sites' },
+  { role: 'AGRONOMY', skill: 'operations', key: 'agronomy.application', perPoint: 0.03, min: -0.18, max: 0.3, unit: '× acres/day', description: 'Custom application acres per rig-day' },
+  { role: 'FEED', skill: 'operations', key: 'feed.mill', perPoint: 0.024, min: -0.15, max: 0.24, unit: '× mill tons', description: 'Feed mill throughput' },
+  { role: 'ENERGY', skill: 'operations', key: 'energy.delivery', perPoint: 0.024, min: -0.15, max: 0.24, unit: '× gallons/truck', description: 'Delivery truck gallons per month' },
+  { role: 'CFO', skill: 'finance', key: 'finance.spread', perPoint: -0.08, min: -0.6, max: 0.4, unit: 'points', description: 'Lender\'s spread on our line and new term loans' },
   { role: 'CFO', skill: 'finance', key: 'finance.forecast', perPoint: -0.08, min: -0.8, max: 0.6, unit: '× forecast error', description: 'Error in budgets and the CFO\'s notes' },
-  { role: 'COO', skill: 'operations', key: 'coo.opex', perPoint: -0.004, min: -0.04, max: 0.03, unit: '× site operating cost', description: 'Wages, repairs and utilities at every site' },
-  { role: 'COO', skill: 'operations', key: 'coo.decay', perPoint: -0.03, min: -0.25, max: 0.2, unit: '× condition decay', description: 'How fast facilities wear' },
-  { role: 'SAFETY', skill: 'safety', key: 'safety.incidents', perPoint: -0.07, min: -0.5, max: 0.4, unit: '× incident risk', description: 'Workplace injuries and accidents' },
-  { role: 'SAFETY', skill: 'safety', key: 'safety.insurance', perPoint: -0.01, min: -0.08, max: 0.06, unit: '× insurance', description: 'Property and liability premiums' },
-  { role: 'HR', skill: 'leadership', key: 'hr.turnover', perPoint: -0.05, min: -0.35, max: 0.3, unit: '× turnover', description: 'Employee turnover; quality of hires' },
-  { role: 'MARKETING', skill: 'memberRelations', key: 'members.satisfaction', perPoint: 0.04, min: -0.3, max: 0.3, unit: 'points/month', description: 'Member satisfaction drift' },
+  { role: 'COO', skill: 'operations', key: 'coo.opex', perPoint: -0.008, min: -0.08, max: 0.05, unit: '× site operating cost', description: 'Wages, repairs and utilities at every site' },
+  { role: 'COO', skill: 'operations', key: 'coo.decay', perPoint: -0.06, min: -0.5, max: 0.3, unit: '× condition decay', description: 'How fast facilities wear' },
+  { role: 'SAFETY', skill: 'safety', key: 'safety.incidents', perPoint: -0.07, min: -0.6, max: 0.4, unit: '× incident risk', description: 'Workplace injuries and accidents' },
+  { role: 'SAFETY', skill: 'safety', key: 'safety.insurance', perPoint: -0.02, min: -0.15, max: 0.08, unit: '× insurance', description: 'Property and liability premiums' },
+  { role: 'HR', skill: 'leadership', key: 'hr.turnover', perPoint: -0.07, min: -0.5, max: 0.35, unit: '× turnover', description: 'Employee turnover; quality of hires' },
+  { role: 'MARKETING', skill: 'memberRelations', key: 'members.satisfaction', perPoint: 0.08, min: -0.4, max: 0.6, unit: 'points/month', description: 'Member satisfaction drift' },
   { role: 'MARKETING', skill: 'memberRelations', key: 'members.election', perPoint: 0.03, min: -0.2, max: 0.25, unit: 'utility', description: 'Incumbents\' standing in elections; accuracy of vote forecasts' },
   { role: 'IT', skill: 'innovation', key: 'innovation.adoption', perPoint: -0.05, min: -0.4, max: 0.3, unit: '× months', description: 'Time to adopt new technology (M7)' },
-  { role: 'division', skill: 'leadership', key: 'staff.morale', perPoint: 1.2, min: -10, max: 10, unit: 'morale points', description: 'Staff morale in the division' },
+  { role: 'division', skill: 'leadership', key: 'staff.morale', perPoint: 1.8, min: -12, max: 15, unit: 'morale points', description: 'Staff morale in the division' },
 ];
 
 /** Labor market tightness by year (1 = normal). Tight markets raise wages, vacancies and turnover. */
@@ -209,6 +215,56 @@ export const INCIDENTS = {
 export const NOTES = {
   /** Noise in a leader's forecast at skill 1 (falls linearly to ~0 at 20). */
   noiseAtSkill1: s(1, 'low'),
+};
+
+/**
+ * Managers' proposals to the GM (D-104). Each hired division manager reads the situation in
+ * their business through noise that shrinks with skill, and proposes a change to its settings
+ * when their read crosses a threshold. The GM approves or declines in the inbox; a review memo
+ * reports, months later, whether the call was right.
+ */
+export const PROPOSALS = {
+  /** Noise in a manager's read at skill 1, as a share of each signal's scale (falls to ~0 at 20). */
+  noiseAtSkill1: s(2.2, 'low'),
+  /** Chance a manager speaks up when they see a case: base, per leadership point above 10, per unit of ambition. */
+  initiativeBase: s(0.55, 'low'),
+  initiativePerLeadership: s(0.04, 'low'),
+  initiativePerAmbition: s(0.3, 'low'),
+  /** Fertilizer fill: expected nitrogen change by spring that justifies a heavier or lighter fill; step in the fill share. */
+  fillThreshold: s(0.08, 'low'),
+  fillStep: s(0.3, 'low'),
+  fillScale: s(0.15, 'low', 'Typical error of a nitrogen price read, as a share'),
+  /** Propane cover: expected change by January. */
+  coverThreshold: s(0.1, 'low'),
+  coverScale: s(0.15, 'low'),
+  /** Credit: expected rise in farm-income stress over the next year. */
+  creditThreshold: s(0.08, 'low'),
+  creditScale: s(0.12, 'low'),
+  /** Hedging: expected corn move over six months. */
+  hedgeThreshold: s(0.05, 'low'),
+  hedgeScale: s(0.12, 'low'),
+  gunslingerHedge: s(0.7, 'low', 'A Gunslinger asks to hedge only this share when sure of a rally (above the board\'s 50% line)'),
+  /** Staffing: peak use of the division's equipment (last season) that calls for full or lean crews. */
+  busyAbove: s(0.92, 'low'),
+  quietBelow: s(0.5, 'low'),
+  utilScale: s(0.25, 'low'),
+  /** Grain staffing: average truck wait (hours) at harvest that calls for full crews. */
+  grainWaitAbove: s(1.5, 'low'),
+  waitScale: s(1, 'low'),
+  /** Grain storage fees: share of last year's deliveries turned away that calls for higher fees, and fee steps. */
+  turnedAwayAbove: s(0.03, 'low'),
+  turnedAwayScale: s(0.04, 'low'),
+  storageFeeUp: s(1.25, 'low'),
+  storageFeeDown: s(0.85, 'low'),
+  /** Below this many turns a year the house has room to sell; cut fees to fill it. */
+  emptyTurns: s(1.5, 'low'),
+  /** Months after the busy season when a manager steps full crews back down. */
+  offSeasonAsk: s<Record<string, number>>({ GRAIN: 12, AGRONOMY: 7, FEED: 4, ENERGY: 3 }, 'low'),
+  /** Morale after the GM approves or declines a proposal. */
+  approveMorale: 3,
+  declineMorale: -2,
+  /** Months until the review memo. */
+  reviewMonths: 8,
 };
 
 export const MISCONDUCT = {

@@ -12,6 +12,7 @@ import { grainCapacity } from '../facilities/facilities';
 import { liquidity } from '../finance/lender';
 import { post } from '../ledger/ledger';
 import { effect } from '../people/leaders';
+import { applyProposal } from '../people/proposals';
 import type { CommandMessage } from '../sim/commands';
 import type { TickContext } from '../sim/context';
 import type { Facility, GameState, InboxChoice, InboxItem } from '../types';
@@ -99,6 +100,7 @@ function applyChoice(s: GameState, item: InboxItem, optionId: string, rng: Rng):
       return [{ level: 'info', text }];
     }
   }
+  if (c.handler.startsWith('mgr.')) return applyProposal(s, item, optionId);
   return [];
 }
 

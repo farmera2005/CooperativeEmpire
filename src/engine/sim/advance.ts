@@ -16,6 +16,7 @@ import { stepRegionalAnnual, stepRegionalPurchases } from '../finance/regionals'
 import { holdBoardMeeting } from '../governance/votes';
 import { stepPeople } from '../people/staff';
 import { stepNotes } from '../people/notes';
+import { stepProposals } from '../people/proposals';
 import { stepCompetitors } from '../competitors/ai';
 import { stepDeals } from '../deals/deals';
 import { stepBoardRelations } from '../governance/review';
@@ -148,6 +149,8 @@ export function advanceMonth(state: GameState, decisions: Command[] = [], opts: 
   }
   // 26. competitor strategy, deals. 27. leaders' notes
   stepNotes(ctx);
+  // Managers bring proposals for their business units; earlier ones are reviewed (D-104).
+  stepProposals(ctx);
   // 28. scorecard + history
   const snap = snapshot(w);
   w.history.push(snap);

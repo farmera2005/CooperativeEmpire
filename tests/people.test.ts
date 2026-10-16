@@ -7,6 +7,9 @@ import { balance } from '../src/engine/ledger/ledger';
 import { generateLeader } from '../src/engine/people/leaders';
 import { stream } from '../src/engine/core/rng';
 import type { Role, TraitId } from '../src/data/people';
+import { draftProposals } from '../src/engine/people/proposals';
+import { makeContext } from '../src/engine/sim/context';
+import { toMonthIndex } from '../src/engine/core/calendar';
 
 const run = (s: GameState, months: number) => {
   for (let i = 0; i < months && !s.outcome; i++) s = advanceMonth(s).state;
@@ -114,6 +117,72 @@ describe('leaders and effects', () => {
     const { noiseFor } = await import('../src/engine/people/notes');
     const s = cloneState(coop(2000, 9));
     expect(noiseFor(withLeader(s, 'GRAIN', 18), 'GRAIN')).toBeLessThan(noiseFor(withLeader(s, 'GRAIN', 4), 'GRAIN'));
+  });
+});
+
+/** A co-op with every farm-supply business open (built in place, for tests of managers). */
+function fullCoop(year: number, seed = 1): GameState {
+  let s = coop(year, seed);
+  for (const k of ['agronomy', 'feedmill', 'energy'] as const) s = applyCommand(s, { type: 'buildFacility', kind: k, townId: s.coop.homeTownId, components: TYPICAL_SITE[k], financePct: 0.5 }, { boardApproved: true }).state;
+  const w = cloneState(s);
+  for (const f of w.coop.facilities) f.status = 'operating';
+  w.coop.projects = [];
+  return w;
+}
+
+describe('managers\' proposals', () => {
+  it('a strong manager reads the business right far more often than a weak one', () => {
+    const base = fullCoop(1975, 2);
+    const accuracy = (skill: number) => {
+      let made = 0;
+      let right = 0;
+      for (const role of ['AGRONOMY', 'ENERGY', 'FEED'] as Role[]) {
+        const s = withLeader(base, role, skill);
+        const l = s.people.leaders.find((x) => x.role === role)!;
+        for (let year = 1976; year <= 2005; year++) for (const month of [1, 5, 6, 11]) {
+          const w = { ...s, clock: { ...s.clock, monthIndex: toMonthIndex(year, month) } };
+          const ctx = makeContext(w);
+          for (let k = 0; k < 20; k++) for (const d of draftProposals(ctx, l, stream(k, w.clock.monthIndex, 'test.read', l.id))) {
+            if (d.kind === 'offseason') continue;
+            made++;
+            if (d.right) right++;
+          }
+        }
+      }
+      return { made, rate: right / Math.max(1, made) };
+    };
+    const strong = accuracy(18);
+    const weak = accuracy(4);
+    expect(strong.made).toBeGreaterThan(50);
+    expect(weak.made).toBeGreaterThan(strong.made);
+    expect(strong.rate).toBeGreaterThan(0.85);
+    expect(strong.rate - weak.rate).toBeGreaterThan(0.15);
+  });
+
+  it('brings a proposal to the inbox; approving changes the setting and a review follows', () => {
+    let s = withLeader(fullCoop(1985, 3), 'AGRONOMY', 16);
+    let item;
+    for (let i = 0; i < 36 && !item; i++) {
+      s = advanceMonth(s).state;
+      item = s.inbox.find((x) => x.choice && !x.choice.chosen && x.choice.handler.startsWith('mgr.'));
+    }
+    expect(item).toBeDefined();
+    const before = JSON.stringify([s.coop.supplyPolicy, s.coop.facilities.map((f) => f.staffing)]);
+    const r = applyCommand(s, { type: 'chooseOption', inboxId: item!.id, optionId: 'approve' });
+    expect(r.ok, r.messages.map((m) => m.text).join()).toBe(true);
+    expect(JSON.stringify([r.state.coop.supplyPolicy, r.state.coop.facilities.map((f) => f.staffing)])).not.toBe(before);
+    const l = r.state.people.leaders.find((x) => x.role === 'AGRONOMY')!;
+    expect(l.flags.approved).toBe(1);
+    s = run(r.state, 9);
+    expect(s.inbox.some((x) => x.title.startsWith('Looking back:'))).toBe(true);
+    expect(checkInvariants(s)).toEqual([]);
+  });
+
+  it('a division manager\'s operations skill moves the division\'s site costs', () => {
+    const strong = withLeader(coop(1995, 4), 'GRAIN', 20);
+    const weak = withLeader(coop(1995, 4), 'GRAIN', 2);
+    expect(effect(strong, 'division.opex', 'GRAIN')).toBeCloseTo(-0.1);
+    expect(effect(weak, 'division.opex', 'GRAIN')).toBeCloseTo(0.06);
   });
 });
 

@@ -206,7 +206,7 @@ export function stepFacilityCosts(ctx: TickContext): void {
   const decayFactor = 1 + effect(state, 'coo.decay');
   const opexFactor = (d: DivisionId) => {
     const r = DIVISION_ROLE[d];
-    return coo * (r && holder(state, r)?.traits.includes('tightWithADollar') ? 0.97 : 1);
+    return coo * (1 + effect(state, 'division.opex', d)) * (r && holder(state, r)?.traits.includes('tightWithADollar') ? 0.97 : 1);
   };
   for (const f of state.coop.facilities) {
     if (f.status === 'closed' || f.status === 'underConstruction') continue;
