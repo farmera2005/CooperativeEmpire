@@ -32,7 +32,7 @@ import { grainCostIndex } from '../grain/prices';
 import { priceLevel } from '../world/macro';
 import { marketValue } from '../world/marketPath';
 import { layerQty, lowerOfCostOrMarket, relieve } from './inventory';
-import { linePrice, seriesRatio, type LinePrice } from './prices';
+import { linePrice, seriesRatio, supplierTerms, type LinePrice } from './prices';
 import { stepCredit } from './credit';
 import { addFyLine } from '../finance/defaults';
 import { effect } from '../people/leaders';
@@ -180,7 +180,8 @@ export function stepSupply(ctx: TickContext): void {
     rollBreakdowns(ctx, d, facs);
     const lines = LINES_BY_DIVISION(d).filter((id) => (LINES[id].availableFrom ?? 0) <= year);
     const prices = {} as Record<LineId, LinePrice>;
-    for (const id of lines) prices[id] = linePrice(state, path, id, mi, idx, pl, pol.posture);
+    const discount = open ? supplierTerms(state, d).pct : 0;
+    for (const id of lines) prices[id] = linePrice(state, path, id, mi, idx, pl, pol.posture, discount);
     const acc = emptyAcc();
     const sites = sitesFor(state, d, year);
     const theta = cfg.thetaPerPct.value;

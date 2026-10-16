@@ -235,6 +235,24 @@ export const REBATES = {
   paidMonth: 10,
 };
 
+/**
+ * Supplier volume pricing (D-107): the more a division buys in a year, the better the wholesale
+ * price its suppliers give it. The discount grows with the logarithm of trailing purchases between
+ * a floor and a top (2024 $), and the top discount widens over the decades as suppliers
+ * consolidated and volume programs grew. Crop protection is left out: its manufacturer rebate
+ * tiers (`REBATES`) already reward volume.
+ */
+export const SUPPLIER_VOLUME = {
+  /** Top discount off wholesale cost, by year, at the top volume. */
+  maxDiscount: ap([[1970, 0.01], [1980, 0.015], [1990, 0.025], [2000, 0.035], [2010, 0.05], [2024, 0.06]], 'low', 'Volume programs and freight-paid tiers grew as fertilizer, fuel and feed suppliers consolidated'),
+  /** Share of the top discount each division's suppliers give (fuel is a thin-margin commodity). */
+  divisionWeight: s<Record<SupplyDivision, number>>({ AGRONOMY: 1, FEED: 0.7, ENERGY: 0.3, RETAIL: 0.8 }, 'low'),
+  /** Annual purchases (2024 $) where discounts start, and where the top discount is reached. */
+  floor2024: s(500_000, 'low'),
+  top2024: s(50_000_000, 'low'),
+  excludedLines: ['CROP_PROTECTION'] as LineId[],
+};
+
 /** Competitor dealers by division: chance per town (county seats higher), and national chains by era. */
 export const SUPPLY_COMPETITORS = {
   AGRONOMY: { probTown: 0.3, probSeat: 0.8 },

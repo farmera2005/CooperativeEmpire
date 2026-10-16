@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Bar, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { KIND_LABEL, type FacilityKind } from '../../data/facilities';
 import { DIVISION_LABEL, LINES, LINES_BY_DIVISION, type LineId, type SupplyDivision } from '../../data/supply';
-import { fiscalYearOf, fiscalYearStart, formatMonthShort, incomeStatement, type SupplyPolicy } from '../../engine/index';
+import { fiscalYearOf, fiscalYearStart, formatMonthShort, incomeStatement, supplierTerms, type SupplyPolicy } from '../../engine/index';
 import { BreakdownView } from '../components/BreakdownView';
 import { BuildSupplySite, FacilitiesPanel, OffersPanel } from '../components/FacilityPanels';
 import { CommitNumber } from '../components/CommitNumber';
@@ -52,6 +52,7 @@ function Overview({ d }: { d: SupplyDivision }) {
   const ytd = incomeStatement(game.ledger, fyStart, mi, d);
   const open = game.coop.facilities.some((f) => f.division === d && f.status === 'operating');
   const ar = book.ar.current + book.ar.past30 + book.ar.past60 + book.ar.past90 + book.ar.harvest;
+  const terms = supplierTerms(game, d);
   const chart = book.reports.slice(-24).map((x) => ({
     m: formatMonthShort(x.monthIndex),
     sales: Object.values(x.lines).reduce((a, l) => a + (l?.revenue ?? 0), 0) / 100,
@@ -60,11 +61,13 @@ function Overview({ d }: { d: SupplyDivision }) {
   if (!open && !r) return <Panel title={DIVISION_LABEL[d]}>The co-op is not in this business yet. See <b>Buy or build</b>.</Panel>;
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
         <Stat label="Sales + services, FYTD" value={money(ytd.sales + ytd.serviceIncome, { compact: true })} />
         <Stat label="Gross margin + services, FYTD" value={money(ytd.grossRevenue, { compact: true })} sub={ytd.sales ? pct(ytd.grossRevenue / (ytd.sales + ytd.serviceIncome)) : ''} />
         <Stat label="Local savings, FYTD" value={money(ytd.localSavings, { compact: true })} tone={ytd.localSavings >= 0 ? 'good' : 'bad'} sub="before corporate overhead" />
         <Stat label="Share of wallet" value={pct(r?.share ?? 0, 0)} sub="farms that can reach us" />
+        <Stat label={<Term id="supplier-volume">Supplier volume pricing</Term>} value={`${(terms.pct * 100).toFixed(1)}% off`}
+          sub={`best this year ${(terms.maxPct * 100).toFixed(1)}%${d === 'AGRONOMY' ? ' (not crop protection)' : ''}; bought ${money(terms.volume2024 * 100, { compact: true })} (12 mo, 2024 $)${terms.nextPointAt2024 ? `; +1 pt at ${money(terms.nextPointAt2024 * 100, { compact: true })}` : ''}`} />
         <Stat label="Receivables" value={money(ar, { compact: true })} sub={`allowance ${money(book.allowance, { compact: true })}`} />
         <Stat label={d === 'ENERGY' ? 'Prebuy & prepay held' : 'Customer prepay'} value={money(book.prepay, { compact: true })} sub={d === 'ENERGY' && book.prebuyGal > 0 ? `${num(book.prebuyGal)} gal to deliver at $${book.prebuyPrice.toFixed(2)}` : ''} />
       </div>

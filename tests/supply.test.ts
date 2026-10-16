@@ -67,3 +67,29 @@ describe('supply divisions', () => {
     expect(s.inbox.some((i) => i.title.includes('Non-member business'))).toBe(true);
   });
 });
+
+describe('supplier volume pricing', () => {
+  it('discounts grow with purchases and widen over the decades', async () => {
+    const { volumeDiscount } = await import('../src/engine/supply/prices');
+    expect(volumeDiscount('AGRONOMY', 2010, 400_000)).toBe(0);
+    expect(volumeDiscount('AGRONOMY', 2010, 5_000_000)).toBeGreaterThan(volumeDiscount('AGRONOMY', 2010, 1_000_000));
+    expect(volumeDiscount('AGRONOMY', 2010, 500_000_000)).toBeCloseTo(volumeDiscount('AGRONOMY', 2010, 50_000_000));
+    expect(volumeDiscount('AGRONOMY', 2015, 5_000_000)).toBeGreaterThan(volumeDiscount('AGRONOMY', 1975, 5_000_000));
+    expect(volumeDiscount('ENERGY', 2015, 5_000_000)).toBeLessThan(volumeDiscount('AGRONOMY', 2015, 5_000_000));
+  });
+
+  it('lowers our cost but not the going price, and never touches crop protection', async () => {
+    const { linePrice } = await import('../src/engine/supply/prices');
+    const { pathFor, priceLevel } = await import('../src/engine/world/macro');
+    const s = newGame({ ...DEFAULT_SETUP, startYear: 2010, startingMembers: 200 });
+    const path = pathFor(s);
+    const mi = s.clock.monthIndex;
+    const pl = priceLevel(path, mi);
+    const base = linePrice(s, path, 'FERT_N', mi, pl, pl, 'market');
+    const disc = linePrice(s, path, 'FERT_N', mi, pl, pl, 'market', 0.04);
+    expect(disc.cost).toBeCloseTo(base.cost * 0.96);
+    expect(disc.market).toBe(base.market);
+    expect(disc.ours).toBe(base.ours);
+    expect(linePrice(s, path, 'CROP_PROTECTION', mi, pl, pl, 'market', 0.04).cost).toBe(linePrice(s, path, 'CROP_PROTECTION', mi, pl, pl, 'market').cost);
+  });
+});

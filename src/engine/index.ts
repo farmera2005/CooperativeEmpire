@@ -34,6 +34,8 @@ export { liquidity, borrowingBase, lineDrawn, lineRate, maxCommitment } from './
 export { competitorName } from './competitors/competitors';
 export { shipCapacities, GRAIN_LINE } from './grain/operate';
 export { grainCostIndex, localBasis, bestTruckSale, railSale } from './grain/prices';
+export { supplierTerms, volumeDiscount } from './supply/prices';
+export type { SupplierTerms } from './supply/prices';
 export { equityOverview, previewDistribution, memberStatement, covenantHeadroom } from './finance/selectors';
 export type { EquityOverview, DistributionPreview, MemberStatement } from './finance/selectors';
 export { validateProposal, poolLabel, BASES_FOR, lineDivision } from './finance/patronage';
