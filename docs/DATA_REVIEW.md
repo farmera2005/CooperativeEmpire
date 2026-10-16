@@ -463,7 +463,7 @@ Cost anchors are 2024 dollars scaled by the construction-cost index; other dolla
 | SELLING_COST_PCT | {"AGRONOMY":0.035,"FEED":0,"ENERGY":0,"RETAIL":0} | low | Co-op agronomy operating expense ~8–10% of sales; local savings 3–6% |
 | SITE_UTILITIES | {"agronomy":30000,"feedmill":60000,"energy":12000,"station":40000,"farmstore":25000} | low |  |
 | SUPPLIER_VOLUME.maxDiscount (1970–2024) | 0.01, 0.015, 0.025, 0.035, 0.05, 0.06 | low | Volume programs and freight-paid tiers grew as fertilizer, fuel and feed suppliers consolidated |
-| SUPPLIER_VOLUME.divisionWeight | {"AGRONOMY":1,"FEED":0.7,"ENERGY":0.3,"RETAIL":0.8} | low |  |
+| SUPPLIER_VOLUME.divisionWeight | {"AGRONOMY":0.6,"FEED":0.4,"ENERGY":0.3,"RETAIL":0.6} | low |  |
 | SUPPLIER_VOLUME.floor2024 | 500,000 | low |  |
 | SUPPLIER_VOLUME.top2024 | 50,000,000 | low |  |
 | SUPPLY_COMPETITORS |  | low |  |

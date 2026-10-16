@@ -54,10 +54,10 @@ const DIESEL_SEASON = [0.04, 0.04, 0.07, 0.13, 0.13, 0.08, 0.06, 0.06, 0.1, 0.17
 const RETAIL_SEASON = [0.075, 0.07, 0.08, 0.085, 0.09, 0.09, 0.095, 0.09, 0.085, 0.08, 0.08, 0.08];
 
 export const LINES: Record<LineId, LineDef> = {
-  FERT_N: { id: 'FERT_N', division: 'AGRONOMY', label: 'Nitrogen (anhydrous, UAN, urea)', unit: 'ton', cost: { kind: 'series', series: ['anhydrous', 'uan28', 'urea'], weights: [0.6, 0.25 * (0.82 / 0.28), 0.15 * (0.82 / 0.46)], factor: 0.87 }, margin: { kind: 'pct', value: 0.11 }, season: N_SEASON, inventory: 'position', storage: { component: 'dry-fert-plant|nh3-storage|liquid-fert-tanks', perUnit: 1 }, creditShare: 0.7 },
-  FERT_PK: { id: 'FERT_PK', division: 'AGRONOMY', label: 'Phosphate & potash', unit: 'ton', cost: { kind: 'series', series: ['dap', 'potash'], weights: [0.5, 0.5], factor: 0.87 }, margin: { kind: 'pct', value: 0.11 }, season: PK_SEASON, inventory: 'position', storage: { component: 'dry-fert-plant', perUnit: 1 }, creditShare: 0.7 },
+  FERT_N: { id: 'FERT_N', division: 'AGRONOMY', label: 'Nitrogen (anhydrous, UAN, urea)', unit: 'ton', cost: { kind: 'series', series: ['anhydrous', 'uan28', 'urea'], weights: [0.6, 0.25 * (0.82 / 0.28), 0.15 * (0.82 / 0.46)], factor: 0.87 }, margin: { kind: 'pct', value: 0.1 }, season: N_SEASON, inventory: 'position', storage: { component: 'dry-fert-plant|nh3-storage|liquid-fert-tanks', perUnit: 1 }, creditShare: 0.7 },
+  FERT_PK: { id: 'FERT_PK', division: 'AGRONOMY', label: 'Phosphate & potash', unit: 'ton', cost: { kind: 'series', series: ['dap', 'potash'], weights: [0.5, 0.5], factor: 0.87 }, margin: { kind: 'pct', value: 0.1 }, season: PK_SEASON, inventory: 'position', storage: { component: 'dry-fert-plant', perUnit: 1 }, creditShare: 0.7 },
   CROP_PROTECTION: { id: 'CROP_PROTECTION', division: 'AGRONOMY', label: 'Crop protection', unit: '$', cost: { kind: 'fixed2024', perUnit: 1 }, margin: { kind: 'pct', value: 0.08 }, season: CP_SEASON, inventory: 'flow', creditShare: 0.75 },
-  SEED: { id: 'SEED', division: 'AGRONOMY', label: 'Seed', unit: '$', cost: { kind: 'fixed2024', perUnit: 1 }, margin: { kind: 'pct', value: 0.1 }, season: SEED_SEASON, inventory: 'flow', creditShare: 0.75 },
+  SEED: { id: 'SEED', division: 'AGRONOMY', label: 'Seed', unit: '$', cost: { kind: 'fixed2024', perUnit: 1 }, margin: { kind: 'pct', value: 0.09 }, season: SEED_SEASON, inventory: 'flow', creditShare: 0.75 },
   APPLICATION: { id: 'APPLICATION', division: 'AGRONOMY', label: 'Custom application', unit: 'acre', cost: { kind: 'service' }, margin: { kind: 'perUnit', value: 9 }, season: [0, 0, 0.12, 0.25, 0.25, 0.12, 0.04, 0, 0, 0.1, 0.12, 0], inventory: 'flow', creditShare: 0.8 },
   FEED_SWINE: { id: 'FEED_SWINE', division: 'FEED', label: 'Swine feed', unit: 'ton', cost: { kind: 'ration' }, margin: { kind: 'perUnit', value: 45 }, season: FLAT, inventory: 'flow', creditShare: 0.85 },
   FEED_DAIRY: { id: 'FEED_DAIRY', division: 'FEED', label: 'Dairy feed', unit: 'ton', cost: { kind: 'ration' }, margin: { kind: 'perUnit', value: 45 }, season: FLAT, inventory: 'flow', creditShare: 0.85 },
@@ -246,7 +246,7 @@ export const SUPPLIER_VOLUME = {
   /** Top discount off wholesale cost, by year, at the top volume. */
   maxDiscount: ap([[1970, 0.01], [1980, 0.015], [1990, 0.025], [2000, 0.035], [2010, 0.05], [2024, 0.06]], 'low', 'Volume programs and freight-paid tiers grew as fertilizer, fuel and feed suppliers consolidated'),
   /** Share of the top discount each division's suppliers give (fuel is a thin-margin commodity). */
-  divisionWeight: s<Record<SupplyDivision, number>>({ AGRONOMY: 1, FEED: 0.7, ENERGY: 0.3, RETAIL: 0.8 }, 'low'),
+  divisionWeight: s<Record<SupplyDivision, number>>({ AGRONOMY: 0.6, FEED: 0.4, ENERGY: 0.3, RETAIL: 0.6 }, 'low'),
   /** Annual purchases (2024 $) where discounts start, and where the top discount is reached. */
   floor2024: s(500_000, 'low'),
   top2024: s(50_000_000, 'low'),
