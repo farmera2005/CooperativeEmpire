@@ -71,15 +71,15 @@ Internal checkpoints (commit each): M3a Agronomy → M3b Feed → M3c Energy →
 - Accessibility and keyboard navigation; performance check at 5,000 members × 60 years.
 - **Playtest:** a full 1970–2025 campaign.
 
-**M8 status (50 seeds, 55 years each; drift history unless noted; after D-095–D-103):**
+**M8 status (50 seeds, 55 years each; drift history unless noted; after D-095–D-104):**
 
 | Run | Survived | Median net savings | Target |
 |---|---|---|---|
 | Baseline from 1970 | 44/50 (88%) | 3.6% | met |
-| Baseline from 1985 | 47/50 (94%) | 3.9% | met |
-| Baseline from 2010 | 45/50 (90%) | 4.0% | met |
-| Reckless from 1970 | 6/50 | 1.2% | fails in the 1980s: met (33 of 44 failures 1976–92) |
-| Reckless from 2000, strict history | 23/50 | 1.9% | fails around 2008: met (14 of 27 failures in 2008–10) |
+| Baseline from 1985 | 47/50 (94%) | 4.0% | met |
+| Baseline from 2010 | 44/50 (88%) | 4.0% | met |
+| Reckless from 1970 | 5/50 | 1.3% | fails in the 1980s: met (32 of 45 failures 1976–92) |
+| Reckless from 2000, strict history | 25/50 | 1.9% | fails around 2008: met (17 of 25 failures in 2008–10) |
 
 Farm-supply divisions (D-103, prudent bot, 10 seeds × 25 years): feed profitable in 96–100% of
 division-years (median 3.6–4.7% of sales), energy 61–94% (4.6–6.3%), agronomy 85–100%
