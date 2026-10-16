@@ -71,16 +71,20 @@ Internal checkpoints (commit each): M3a Agronomy → M3b Feed → M3c Energy →
 - Accessibility and keyboard navigation; performance check at 5,000 members × 60 years.
 - **Playtest:** a full 1970–2025 campaign.
 
-**M8 status (50 seeds, 55 years each; drift history unless noted; after D-095–D-100):**
+**M8 status (50 seeds, 55 years each; drift history unless noted; after D-095–D-103):**
 
 | Run | Survived | Median net savings | Target |
 |---|---|---|---|
-| Baseline from 1970 | 44/50 (88%) | 3.5% | ≥ 80% survival: met (was 60%) |
-| Baseline from 1985 | 47/50 (94%) | 4.1% | survival met; savings slightly above 4% |
-| Baseline from 2010 | 45/50 (90%) | 4.2% | survival met; savings slightly above 4% |
-| Reckless from 1970 | 0/50 | 1.2% | fails in the 1980s: met (42 of 50 fail 1976–92) |
-| Reckless from 2000 | 23/50 | 1.8% | 8 of 27 failures in 2008–10, 11 in 2008–14; the rest spread to 2053 |
-| Reckless from 2000, strict history | 24/50 | 1.7% | fails around 2008: met (12 of 26 failures in 2008–10, the largest cluster; was spread 2008–2054) |
+| Baseline from 1970 | 44/50 (88%) | 3.6% | met |
+| Baseline from 1985 | 47/50 (94%) | 3.9% | met |
+| Baseline from 2010 | 45/50 (90%) | 4.0% | met |
+| Reckless from 1970 | 6/50 | 1.2% | fails in the 1980s: met (33 of 44 failures 1976–92) |
+| Reckless from 2000, strict history | 23/50 | 1.9% | fails around 2008: met (14 of 27 failures in 2008–10) |
 
-Engine errors: 0 in every run. Open balance work: trimming 1985- and 2010-era savings back
-under 4%, and the reckless co-ops that ride out 2008 and fail decades later.
+Farm-supply divisions (D-103, prudent bot, 10 seeds × 25 years): feed profitable in 96–100% of
+division-years (median 3.6–4.7% of sales), energy 61–94% (4.6–6.3%), agronomy 85–100%
+(3.6% from 1970, 8.2% from 2000). Retail is not built by the bots; a test co-op's retail earns
+2–8% of sales across eras.
+
+Engine errors: 0 in every run. Open balance work: the reckless co-ops that ride out 2008 and
+fail decades later; agronomy in the 2000s at the top of its plausible range.
