@@ -57,6 +57,11 @@ export interface ComponentDef {
   requires?: 'rail' | 'mainline';
   /** Staff (FTE at 2024 productivity) per unit of this component; elevators use their own formula. */
   ftePerUnit?: number;
+  /**
+   * Share of that crew hired for the work, not the year (D-103): seasonal drivers, applicator
+   * operators and mill shifts. It is paid in proportion to how busy the division's equipment is.
+   */
+  variableFteShare?: number;
 }
 
 const c = (x: ComponentDef): ComponentDef => x;
@@ -82,19 +87,19 @@ export const COMPONENTS: Record<ComponentId, ComponentDef> = {
   'liquid-fert-tanks': c({ id: 'liquid-fert-tanks', label: 'Liquid fertilizer tanks', division: 'AGRONOMY', unit: 'tons', cost2024: s([120, 220], 'low'), account: '1520', lifeYears: 25, buildMonths: 3, permitMonths: 3, availableFrom: 1965, decayPerYear: 1.2, repairRate: 0.015, ftePerUnit: 0.0001 }),
   'chem-warehouse': c({ id: 'chem-warehouse', label: 'Crop protection warehouse with containment', division: 'AGRONOMY', unit: 'each', cost2024: s([600_000, 1_200_000], 'low'), account: '1510', lifeYears: 30, buildMonths: 6, permitMonths: 3, availableFrom: 1960, decayPerYear: 1, repairRate: 0.012, ftePerUnit: 0.3 }),
   'seed-warehouse': c({ id: 'seed-warehouse', label: 'Seed warehouse & treater', division: 'AGRONOMY', unit: 'each', cost2024: s([400_000, 900_000], 'low'), account: '1510', lifeYears: 30, buildMonths: 5, permitMonths: 2, availableFrom: 1950, decayPerYear: 1, repairRate: 0.012, ftePerUnit: 0.2 }),
-  applicator: c({ id: 'applicator', label: 'Custom application rig (floater / sprayer / toolbar)', division: 'AGRONOMY', unit: 'each', cost2024: s([350_000, 700_000], 'low', 'Prompt anchor: modern self-propelled machine $350K–700K'), account: '1520', lifeYears: 8, buildMonths: 1, permitMonths: 0, availableFrom: 1960, decayPerYear: 8, repairRate: 0.06, ftePerUnit: 0.5 }),
+  applicator: c({ id: 'applicator', label: 'Custom application rig (floater / sprayer / toolbar)', division: 'AGRONOMY', unit: 'each', cost2024: s([350_000, 700_000], 'low', 'Prompt anchor: modern self-propelled machine $350K–700K'), account: '1520', lifeYears: 8, buildMonths: 1, permitMonths: 0, availableFrom: 1960, decayPerYear: 8, repairRate: 0.06, ftePerUnit: 0.5, variableFteShare: 0.6 }),
   // ---- Feed ----
-  'feed-mill': c({ id: 'feed-mill', label: 'Feed mill (grind & mix, bagging)', division: 'FEED', unit: 'tonsPerYr', cost2024: s([60, 110], 'low', 'Per ton of annual capacity'), account: '1510', lifeYears: 30, buildMonths: 12, permitMonths: 4, availableFrom: 1920, decayPerYear: 1.2, repairRate: 0.02, ftePerUnit: 0.00012 }),
+  'feed-mill': c({ id: 'feed-mill', label: 'Feed mill (grind & mix, bagging)', division: 'FEED', unit: 'tonsPerYr', cost2024: s([60, 110], 'low', 'Per ton of annual capacity'), account: '1510', lifeYears: 30, buildMonths: 12, permitMonths: 4, availableFrom: 1920, decayPerYear: 1.2, repairRate: 0.02, ftePerUnit: 0.00012, variableFteShare: 0.5 }),
   'pellet-mill': c({ id: 'pellet-mill', label: 'Pellet mill', division: 'FEED', unit: 'each', cost2024: s([800_000, 1_500_000], 'low'), account: '1520', lifeYears: 20, buildMonths: 4, permitMonths: 1, availableFrom: 1950, decayPerYear: 2, repairRate: 0.03, ftePerUnit: 1 }),
-  'bulk-feed-truck': c({ id: 'bulk-feed-truck', label: 'Bulk feed delivery truck', division: 'FEED', unit: 'each', cost2024: s([180_000, 260_000], 'low'), account: '1520', lifeYears: 10, buildMonths: 1, permitMonths: 0, availableFrom: 1950, decayPerYear: 6, repairRate: 0.05, ftePerUnit: 1 }),
+  'bulk-feed-truck': c({ id: 'bulk-feed-truck', label: 'Bulk feed delivery truck', division: 'FEED', unit: 'each', cost2024: s([180_000, 260_000], 'low'), account: '1520', lifeYears: 10, buildMonths: 1, permitMonths: 0, availableFrom: 1950, decayPerYear: 6, repairRate: 0.05, ftePerUnit: 1, variableFteShare: 0.6 }),
   // ---- Energy ----
   'bulk-fuel-plant': c({ id: 'bulk-fuel-plant', label: 'Bulk fuel plant (diesel & gasoline tanks)', division: 'ENERGY', unit: 'gal', cost2024: s([3, 6], 'low'), account: '1510', lifeYears: 25, buildMonths: 6, permitMonths: 4, availableFrom: 1920, decayPerYear: 1.5, repairRate: 0.02, ftePerUnit: 0.000008 }),
   'propane-storage': c({ id: 'propane-storage', label: 'Propane storage (30,000-gal tanks)', division: 'ENERGY', unit: 'gal', cost2024: s([3, 5], 'low'), account: '1520', lifeYears: 30, buildMonths: 4, permitMonths: 3, availableFrom: 1940, decayPerYear: 1, repairRate: 0.015, ftePerUnit: 0.000006 }),
-  'fuel-truck': c({ id: 'fuel-truck', label: 'Delivery truck (tankwagon / bobtail)', division: 'ENERGY', unit: 'each', cost2024: s([180_000, 260_000], 'low'), account: '1520', lifeYears: 10, buildMonths: 1, permitMonths: 0, availableFrom: 1920, decayPerYear: 6, repairRate: 0.05, ftePerUnit: 1.1 }),
+  'fuel-truck': c({ id: 'fuel-truck', label: 'Delivery truck (tankwagon / bobtail)', division: 'ENERGY', unit: 'each', cost2024: s([180_000, 260_000], 'low'), account: '1520', lifeYears: 10, buildMonths: 1, permitMonths: 0, availableFrom: 1920, decayPerYear: 6, repairRate: 0.05, ftePerUnit: 1.1, variableFteShare: 0.6 }),
   cardtrol: c({ id: 'cardtrol', label: 'Unattended cardtrol fueling site', division: 'ENERGY', unit: 'each', cost2024: s([250_000, 450_000], 'low'), account: '1520', lifeYears: 20, buildMonths: 3, permitMonths: 2, availableFrom: 1975, decayPerYear: 2, repairRate: 0.02, ftePerUnit: 0.1 }),
   // ---- Retail ----
-  'c-store': c({ id: 'c-store', label: 'Fuel station & convenience store', division: 'RETAIL', unit: 'sqft', cost2024: s([450, 800], 'low', 'Per sq ft incl. canopy, pumps and tanks'), account: '1510', lifeYears: 30, buildMonths: 8, permitMonths: 4, availableFrom: 1960, decayPerYear: 1.5, repairRate: 0.02, ftePerUnit: 0.0025 }),
-  'farm-store': c({ id: 'farm-store', label: 'Farm & home store', division: 'RETAIL', unit: 'sqft', cost2024: s([150, 260], 'low'), account: '1510', lifeYears: 39, buildMonths: 8, permitMonths: 3, availableFrom: 1900, decayPerYear: 1, repairRate: 0.015, ftePerUnit: 0.0006 }),
+  'c-store': c({ id: 'c-store', label: 'Fuel station & convenience store', division: 'RETAIL', unit: 'sqft', cost2024: s([450, 800], 'low', 'Per sq ft incl. canopy, pumps and tanks'), account: '1510', lifeYears: 30, buildMonths: 8, permitMonths: 4, availableFrom: 1960, decayPerYear: 1.5, repairRate: 0.02, ftePerUnit: 0.0014 }),
+  'farm-store': c({ id: 'farm-store', label: 'Farm & home store', division: 'RETAIL', unit: 'sqft', cost2024: s([150, 260], 'low'), account: '1510', lifeYears: 39, buildMonths: 8, permitMonths: 3, availableFrom: 1900, decayPerYear: 1, repairRate: 0.015, ftePerUnit: 0.00035 }),
 };
 
 /** Base staff (FTE) for any site of a kind besides its components (manager/clerk). */

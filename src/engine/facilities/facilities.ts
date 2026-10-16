@@ -158,6 +158,26 @@ export function facilityFte(f: Facility): number {
   return fte;
 }
 
+/** How busy a farm-supply division's equipment was this month (0..1): its busiest capacity line. */
+function divisionUtilization(state: GameState, division: DivisionId): number {
+  const report = division === 'GRAIN' || division === 'CORP' ? null : state.coop.supply[division as SupplyDivision]?.report;
+  if (!report || report.monthIndex !== state.clock.monthIndex) return 0;
+  return report.capacity.reduce((a, c) => Math.max(a, c.available > 0 ? Math.min(1, c.used / c.available) : 0), 0);
+}
+
+/** FTE paid this month: the year-round crew plus the seasonal crew in proportion to the work (D-103). */
+function paidFte(state: GameState, f: Facility): number {
+  if (f.kind === 'elevator') return elevatorFte(f);
+  const util = divisionUtilization(state, f.division);
+  let fte = KIND_BASE_FTE[f.kind];
+  for (const id of Object.keys(f.components) as ComponentId[]) {
+    const crew = (COMPONENTS[id].ftePerUnit ?? 0) * (f.components[id] ?? 0);
+    const v = COMPONENTS[id].variableFteShare ?? 0;
+    fte += crew * (1 - v + v * util);
+  }
+  return fte;
+}
+
 /** True if another of our operating sites in the same town (lower id) already carries the shared base costs. */
 function sharesSite(state: GameState, f: Facility): boolean {
   return state.coop.facilities.some((o) => o.id < f.id && o.townId === f.townId && o.status === 'operating');
@@ -195,7 +215,7 @@ export function stepFacilityCosts(ctx: TickContext): void {
     const mothballed = f.status === 'mothballed';
     const shared = sharesSite(state, f);
     if (!mothballed) {
-      let fte = facilityFte(f);
+      let fte = paidFte(state, f);
       if (shared) fte -= (f.kind === 'elevator' ? STAFF.fteBase.value : KIND_BASE_FTE[f.kind]) * CROSS_DIVISION.sharedSiteSaving.value;
       fte *= STAFF.levelFactor.value[f.staffing.level] * valueAt(STAFF.laborIntensity, yearOf(mi));
       const wage = f.division === 'GRAIN' ? STAFF.annualWage.value : SUPPLY_WAGES.value[f.division as SupplyDivision];

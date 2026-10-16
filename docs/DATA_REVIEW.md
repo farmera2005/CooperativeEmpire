@@ -448,7 +448,7 @@ Cost anchors are 2024 dollars scaled by the construction-cost index; other dolla
 | REBATES.tiers | [[0, 0.02], [1,000,000, 0.04], [5,000,000, 0.06], [15,000,000, 0.08]] | low |  |
 | RETAIL_DEMAND.galPerResident | 25 | low |  |
 | RETAIL_DEMAND.highwayFactor | 1.6 | low |  |
-| RETAIL_DEMAND.insidePerGal | 0.7 | low |  |
+| RETAIL_DEMAND.insidePerGal | 1.1 | low | NACS: rural c-stores sell roughly $1–1.5 inside per gallon pumped |
 | RETAIL_DEMAND.farmStorePerAcre | 14 | low |  |
 | RETAIL_DEMAND.farmStorePerResident | 40 | low |  |
 | RETAIL_DEMAND.memberShareRange | [0.05, 0.6] | low |  |
