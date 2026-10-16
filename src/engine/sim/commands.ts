@@ -4,6 +4,7 @@
 import { adoptTech } from '../world/tech';
 import { comply } from '../world/regulation';
 import { chooseOption } from '../world/events';
+import { applyDebug, type DebugAction } from './debug';
 import { formatCents } from '../core/format';
 import {
   buildElevator, buildFacility, buyOffer, closeFacility, dueDiligence, renovateFacility, setFacilityStatus, setStaffing, upgradeFacility,
@@ -82,7 +83,8 @@ export type Command =
   | { type: 'abandonDeal'; dealId: number }
   | { type: 'adoptTech'; techId: string }
   | { type: 'comply'; ruleId: string; facilityId: number }
-  | { type: 'chooseOption'; inboxId: number; optionId: string };
+  | { type: 'chooseOption'; inboxId: number; optionId: string }
+  | { type: 'debug'; action: DebugAction };
 
 export interface CommandMessage {
   level: 'info' | 'warning' | 'error';
@@ -244,6 +246,7 @@ function run(s: GameState, cmd: Command): CommandMessage[] {
     case 'adoptTech': return adoptTech(s, cmd.techId);
     case 'comply': return comply(s, cmd.ruleId, cmd.facilityId);
     case 'chooseOption': return chooseOption(s, cmd.inboxId, cmd.optionId);
+    case 'debug': return applyDebug(s, cmd.action);
     case 'proposeDivisionSale': return proposeDivisionSale(s, cmd.division);
     case 'respondDeal': return respondDeal(s, cmd.dealId, cmd.accept);
     case 'dealDiligence': return dealDiligence(s, cmd.dealId);

@@ -6,6 +6,7 @@ export { advanceMonth, advanceUntilAttention, DEFAULT_INTERRUPTS, InvariantError
 export type { TickResult, MonthSummary, Interrupt, InterruptConfig } from './sim/advance';
 export { applyCommand } from './sim/commands';
 export type { Command, CommandResult } from './sim/commands';
+export type { DebugAction } from './sim/debug';
 export { incomeStatement, balanceSheet, cashFlow } from './ledger/statements';
 export type { IncomeStatement, BalanceSheet, CashFlowStatement } from './ledger/statements';
 export { checkInvariants } from './ledger/invariants';

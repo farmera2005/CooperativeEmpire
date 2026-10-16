@@ -66,6 +66,7 @@ export const ACCOUNTS: Account[] = [
   a('3300', 'Allocated equity - nonqualified', 'equity', 'financing', { bsGroup: 'memberEquity' }),
   a('3400', 'Unallocated retained earnings', 'equity', 'financing', { bsGroup: 'memberEquity' }),
   a('3900', 'Net savings to be distributed', 'equity', 'financing', { bsGroup: 'memberEquity' }),
+  a('3950', 'Debug capital adjustments', 'equity', 'financing', { bsGroup: 'memberEquity' }),
   // Income statement
   a('4000', 'Sales', 'revenue', 'income', { isGroup: 'sales' }),
   a('5000', 'Cost of goods sold', 'cogs', 'income', { isGroup: 'cogs' }),

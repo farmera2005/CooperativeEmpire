@@ -39,6 +39,10 @@ export interface GameSetup {
   homeTownId?: number;
   /** Set when the game began as a scenario (DESIGN §19). */
   scenarioId?: string;
+  /** Debug mode (D-105): testing tools on the Debug screen. Chosen at creation only. */
+  debugMode?: boolean;
+  /** Debug: firing and liquidation are cancelled and play continues. */
+  debugNoGameOver?: boolean;
 }
 
 // ---------- World ----------

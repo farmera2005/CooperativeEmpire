@@ -17,6 +17,7 @@ import { holdBoardMeeting } from '../governance/votes';
 import { stepPeople } from '../people/staff';
 import { stepNotes } from '../people/notes';
 import { stepProposals } from '../people/proposals';
+import { suppressGameOver } from './debug';
 import { stepCompetitors } from '../competitors/ai';
 import { stepDeals } from '../deals/deals';
 import { stepBoardRelations } from '../governance/review';
@@ -155,7 +156,8 @@ export function advanceMonth(state: GameState, decisions: Command[] = [], opts: 
   const snap = snapshot(w);
   w.history.push(snap);
   if (w.inbox.length > INBOX_LIMIT) w.inbox = w.inbox.slice(w.inbox.length - INBOX_LIMIT);
-  // 29. loss conditions (the lender's forced action; governance in M5)
+  // 29. loss conditions (the lender's forced action; governance in M5); debug mode may cancel them
+  suppressGameOver(ctx);
   if (w.outcome) interrupts.push({ kind: 'gameOver', text: w.outcome.text });
   stepScenario(ctx);
   for (const item of w.inbox) if (item.monthIndex === ctx.mi && item.kind === 'alert') interrupts.push({ kind: 'alert', text: item.title });

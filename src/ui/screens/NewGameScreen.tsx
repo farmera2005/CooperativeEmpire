@@ -138,6 +138,10 @@ export function NewGameScreen() {
             <input type="checkbox" checked={setup.fictionalizeBrands} onChange={(e) => up({ fictionalizeBrands: e.target.checked })} />
             Use fictional names for all real companies and brands
           </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={!!setup.debugMode} onChange={(e) => up({ debugMode: e.target.checked })} />
+            Debug mode: testing tools (add money, set confidence and satisfaction, place managers, no game over)
+          </label>
         </section>
 
         <section className="panel space-y-3 p-4">

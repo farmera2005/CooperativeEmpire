@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { balance, formatMonth, fiscalYearOf, openDecisions, STATUS_LABEL } from '../../engine/index';
 import { money } from '../format';
 import { useStore, type Tab } from '../store';
@@ -20,6 +20,7 @@ import { DealsScreen } from './DealsScreen';
 import { OperationsScreen } from './OperationsScreen';
 import { ReportsScreen } from './ReportsScreen';
 import { GlossaryScreen } from './GlossaryScreen';
+import { DebugScreen } from './DebugScreen';
 
 const TABS: { id: Tab; label: string; key: string }[] = [
   { id: 'dashboard', label: 'Dashboard', key: '1' },
@@ -40,6 +41,8 @@ const TABS: { id: Tab; label: string; key: string }[] = [
   { id: 'glossary', label: 'Glossary', key: 'G' },
   { id: 'saves', label: 'Save / Load', key: 'S' },
 ];
+/** Shown only in a game created in debug mode. */
+const DEBUG_TAB: { id: Tab; label: string; key: string } = { id: 'debug', label: 'Debug tools', key: 'X' };
 
 export function GameShell() {
   const game = useStore((s) => s.game)!;
@@ -49,20 +52,22 @@ export function GameShell() {
   const advanceUntil = useStore((s) => s.advanceUntilAttention);
   const autosave = useStore((s) => s.autosaveStatus);
   const guideOn = useStore((s) => s.guide);
+  const debugMode = !!game.setup.debugMode;
+  const tabs = useMemo(() => (debugMode ? [...TABS, DEBUG_TAB] : TABS), [debugMode]);
   const setGuide = useStore((s) => s.setGuide);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
       if (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA' || e.metaKey || e.ctrlKey || e.altKey) return;
-      const t = TABS.find((x) => x.key === e.key.toUpperCase());
+      const t = tabs.find((x) => x.key === e.key.toUpperCase());
       if (t) setTab(t.id);
       else if (e.key === 'e' || e.key === 'E') endMonth();
       else if (e.key === 'a' || e.key === 'A') advanceUntil();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [setTab, endMonth, advanceUntil]);
+  }, [setTab, endMonth, advanceUntil, tabs]);
 
   const unread = game.inbox.filter((i) => !i.read).length;
   const decisions = openDecisions(game).length;
@@ -77,8 +82,9 @@ export function GameShell() {
         <div className="border-b border-stone-300 p-3">
           <div className="headline text-sm font-bold leading-tight">{game.coop.name}</div>
           <div className="text-xs text-stone-600">{game.world.towns[game.coop.homeTownId].name}</div>
+          {game.setup.debugMode && <div className="mt-1 inline-block rounded bg-amber-500 px-1.5 text-xs font-bold text-white">DEBUG GAME</div>}
         </div>
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)} aria-current={tab === t.id}
             className={`flex items-center justify-between px-3 py-2 text-left text-sm hover:bg-[#e0d8bf] ${tab === t.id ? 'bg-[#d9cfae] font-semibold' : ''}`}>
             <span>{t.label}</span>
@@ -126,6 +132,7 @@ export function GameShell() {
           {tab === 'board' && <BoardScreen />}
           {tab === 'glossary' && <GlossaryScreen />}
           {tab === 'saves' && <SavesScreen />}
+          {tab === 'debug' && game.setup.debugMode && <DebugScreen />}
         </main>
       </div>
     </div>
