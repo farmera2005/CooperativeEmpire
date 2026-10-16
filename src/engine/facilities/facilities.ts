@@ -4,7 +4,7 @@
 import { techFactor } from '../world/tech';
 import { COMPONENTS, KIND_BASE_FTE, KIND_DIVISION, LOADOUT_COMPONENTS, LOADOUT_RANK, STORAGE_COMPONENTS, midCost, type ComponentId, type FacilityKind, type LoadoutType } from '../../data/facilities';
 import { CROSS_DIVISION, SEASONAL_OVERTIME, SITE_UTILITIES, SUPPLY_WAGES, type SupplyDivision } from '../../data/supply';
-import { COMMODITIES, FACILITY_COSTS, STAFF } from '../../data/grain';
+import { COMMODITIES, FACILITY_COSTS, MAINTENANCE, STAFF } from '../../data/grain';
 import { DIVISION_ROLE, effect, holder } from '../people/leaders';
 import { vacancyShare, wageMarket } from '../people/staff';
 import { monthOf, yearOf } from '../core/calendar';
@@ -12,7 +12,7 @@ import { valueAt } from '../../data/types';
 import { allocateCents, roundCents, type Cents } from '../core/money';
 import { post } from '../ledger/ledger';
 import type { TickContext } from '../sim/context';
-import type { CapitalProject, DivisionId, Facility, FixedAsset, GameState, JournalLine } from '../types';
+import type { CapitalProject, DivisionId, Facility, FixedAsset, GameState, JournalLine, MaintenanceLevel } from '../types';
 import { constructionLevel, nominalCents } from '../world/macro';
 import type { MarketPath } from '../world/marketPath';
 
@@ -178,6 +178,18 @@ function paidFte(state: GameState, f: Facility): number {
   return fte;
 }
 
+export const maintenanceOf = (f: Facility): MaintenanceLevel => f.maintenance ?? 'routine';
+
+/** Chance multiplier for a breakdown: worn equipment fails more, and upkeep changes the odds. */
+export const breakdownRisk = (f: Facility): number => (1 + (100 - f.condition) / 25) * MAINTENANCE.breakdownFactor.value[maintenanceOf(f)];
+
+/** Post the emergency repair bill for a breakdown at a site. */
+export function postBreakdownRepair(ctx: TickContext, f: Facility): Cents {
+  const cost = roundCents(replacementCost(ctx.path, ctx.mi, f.components) * MAINTENANCE.emergencyRepairShare.value);
+  if (cost > 0) post(ctx.state, { source: 'breakdown', memo: `Emergency repair at ${f.name}`, lines: [{ account: '7200', division: f.division, amount: cost }, { account: '1000', division: f.division, amount: -cost }] });
+  return cost;
+}
+
 /** True if another of our operating sites in the same town (lower id) already carries the shared base costs. */
 function sharesSite(state: GameState, f: Facility): boolean {
   return state.coop.facilities.some((o) => o.id < f.id && o.townId === f.townId && o.status === 'operating');
@@ -242,14 +254,14 @@ export function stepFacilityCosts(ctx: TickContext): void {
       weight += w;
     }
     repairRate = weight ? repairRate / weight : 0;
-    const repairs = roundCents(((repl * repairRate) / 12) * (1 + (100 - f.condition) / 100) * (mothballed ? FACILITY_COSTS.mothballRepairShare.value : 1) * opexFactor(f.division));
+    const repairs = roundCents(((repl * repairRate) / 12) * (1 + (100 - f.condition) / 100) * (mothballed ? FACILITY_COSTS.mothballRepairShare.value : MAINTENANCE.repairFactor.value[maintenanceOf(f)]) * opexFactor(f.division));
     add('7200', repairs);
     add('7300', roundCents(((repl * FACILITY_COSTS.insuranceRate.value) / 12) * (1 + effect(state, 'safety.insurance'))));
     add('7640', roundCents((netBookValue(state, f.id) * FACILITY_COSTS.propertyTaxRate.value) / 12));
     // Condition decay.
     let decay = 0;
     for (const id of Object.keys(f.components) as ComponentId[]) decay += COMPONENTS[id].decayPerYear * midCost(id) * (f.components[id] ?? 0);
-    f.condition = Math.max(0, f.condition - (weight ? decay / weight : 0) / 12 * (mothballed ? FACILITY_COSTS.mothballDecayShare.value : 1) * decayFactor);
+    f.condition = Math.max(0, f.condition - (weight ? decay / weight : 0) / 12 * (mothballed ? FACILITY_COSTS.mothballDecayShare.value : MAINTENANCE.decayFactor.value[maintenanceOf(f)]) * decayFactor);
     // Hidden environmental problems surface eventually.
     if (f.envLiability && !f.envLiability.discovered && ctx.rng('facilities.env', f.id).chance(FACILITY_COSTS.envDiscoveryMonthly.value)) {
       f.envLiability.discovered = true;

@@ -12,7 +12,9 @@ import { techFactor } from '../world/tech';
 import { flagOn } from '../world/events';
 import { CHOICE_EFFECTS } from '../../data/events';
 import type { ComponentId, FacilityKind } from '../../data/facilities';
-import { DRYING } from '../../data/grain';
+import { DRYING, MAINTENANCE } from '../../data/grain';
+import { breakdownRisk, postBreakdownRepair } from '../facilities/facilities';
+import { formatCents } from '../core/format';
 import { REGIONS } from '../../data/regions/eccb';
 import {
   AGRONOMY_DEMAND, CROSS_DIVISION, CREDIT, DIVISION_CONFIG, ENERGY_DEMAND, FEED_DEMAND, FILL, LINES, LINES_BY_DIVISION, PREPAY,
@@ -49,6 +51,26 @@ const seasonShare = (id: LineId, month: number): number => {
 export const divisionOpen = (state: GameState, d: SupplyDivision): boolean => state.coop.facilities.some((f) => f.division === d && f.status === 'operating');
 
 const cap = (facs: Facility[], id: ComponentId): number => facs.reduce((a, f) => a + (f.components[id] ?? 0), 0);
+
+/** Equipment that breaks down (D-106): trucks, rigs and mill machinery, not tanks or buildings. */
+const BREAKDOWN_EQUIPMENT: ComponentId[] = ['applicator', 'feed-mill', 'pellet-mill', 'bulk-feed-truck', 'fuel-truck'];
+
+/** Working capacity this month: equipment at a site that broke down this month is partly out of service. */
+const workingCap = (facs: Facility[], id: ComponentId, mi: number): number =>
+  facs.reduce((a, f) => a + (f.components[id] ?? 0) * (f.downMonth === mi && BREAKDOWN_EQUIPMENT.includes(id) ? 1 - MAINTENANCE.supplyCapacityLoss.value : 1), 0);
+
+/** Busy-season breakdowns at farm-supply sites; worn equipment and deferred upkeep fail more. */
+function rollBreakdowns(ctx: TickContext, d: SupplyDivision, facs: Facility[]): void {
+  if (!(MAINTENANCE.busyMonths[d] ?? []).includes(monthOf(ctx.mi))) return;
+  const rng = ctx.rng('supply.breakdown', SUPPLY_DIVISIONS.indexOf(d));
+  for (const f of facs) {
+    if (!BREAKDOWN_EQUIPMENT.some((id) => (f.components[id] ?? 0) > 0)) continue;
+    if (!rng.chance(MAINTENANCE.supplyBreakdownMonthly.value * breakdownRisk(f))) continue;
+    f.downMonth = ctx.mi;
+    const bill = postBreakdownRepair(ctx, f);
+    ctx.inbox({ kind: 'alert', title: `Breakdown at ${f.name}`, body: `Equipment at ${f.name} is down for repairs at the busiest time of year; about ${Math.round(MAINTENANCE.supplyCapacityLoss.value * 100)}% of its capacity is out this month. Emergency repairs: ${formatCents(bill)}.${f.maintenance === 'preventive' ? '' : ' A preventive maintenance program makes breakdowns much rarer.'}` });
+  }
+}
 
 /** Annual demand per member, by line, in line units ($ lines in 2024 dollars). */
 function memberAnnualDemand(m: Member, year: number, hdd: number, harvestMoisture: number, onFarmShare: number, cornYield: number): Partial<Record<LineId, number>> {
@@ -155,6 +177,7 @@ export function stepSupply(ctx: TickContext): void {
     const cfg = DIVISION_CONFIG[d];
     const facs = state.coop.facilities.filter((f) => f.division === d && f.status === 'operating');
     const open = facs.length > 0;
+    rollBreakdowns(ctx, d, facs);
     const lines = LINES_BY_DIVISION(d).filter((id) => (LINES[id].availableFrom ?? 0) <= year);
     const prices = {} as Record<LineId, LinePrice>;
     for (const id of lines) prices[id] = linePrice(state, path, id, mi, idx, pl, pol.posture);
@@ -235,7 +258,7 @@ export function stepSupply(ctx: TickContext): void {
     const capacity: SupplyMonthReport['capacity'] = [];
     let lateShare = 0;
     if (d === 'AGRONOMY' && (acc.ours.APPLICATION ?? 0) > 0) {
-      const rigs = cap(facs, 'applicator');
+      const rigs = workingCap(facs, 'applicator', mi);
       const perDay = valueAt(AGRONOMY_DEMAND.acresPerRigDay, year) * (1 + effect(state, 'agronomy.application')) * techFactor(state, 'application') * (1 - (state.people.workforce.AGRONOMY?.vacancy ?? 0));
       const days = weather.fieldDays.reduce((a, b) => a + b, 0);
       const capAcres = rigs * perDay * days;
@@ -255,7 +278,7 @@ export function stepSupply(ctx: TickContext): void {
     }
     if (d === 'AGRONOMY') book.lateMemory = (1 - SS.lateMemoryWeight.value) * book.lateMemory + SS.lateMemoryWeight.value * lateShare * (sold.APPLICATION ? 1 : 0);
     if (d === 'FEED') {
-      const millCap = (cap(facs, 'feed-mill') / 12) * (1 + effect(state, 'feed.mill'));
+      const millCap = (workingCap(facs, 'feed-mill', mi) / 12) * (1 + effect(state, 'feed.mill'));
       const want = (['FEED_SWINE', 'FEED_DAIRY', 'FEED_BEEF'] as LineId[]).reduce((a, k) => a + (sold[k] ?? 0), 0);
       const ratio = want > millCap && want > 0 ? millCap / want : 1;
       for (const k of ['FEED_SWINE', 'FEED_DAIRY', 'FEED_BEEF'] as LineId[]) sold[k] = (sold[k] ?? 0) * ratio;
@@ -273,7 +296,7 @@ export function stepSupply(ctx: TickContext): void {
       capacity.push({ label: 'Feed mill', used: want * ratio + (sold.FEED_TOLL ?? 0), available: millCap, unit: 'tons' });
     }
     if (d === 'ENERGY') {
-      const trucks = cap(facs, 'fuel-truck');
+      const trucks = workingCap(facs, 'fuel-truck', mi);
       // Short of CDL drivers in a tight labor market, trucks sit.
       const truckCap = trucks * valueAt(ENERGY_DEMAND.truckGalPerMonth, year) * (1 + effect(state, 'energy.delivery')) * techFactor(state, 'delivery') * (1 - (state.people.workforce.ENERGY?.vacancy ?? 0));
       const gal = (['FUEL_DIESEL', 'FUEL_GAS', 'PROPANE'] as LineId[]).reduce((a, k) => a + (sold[k] ?? 0), 0);

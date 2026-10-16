@@ -215,6 +215,29 @@ export const STAFF = {
   harvestOvertime: s(0.35, 'low'),
 };
 
+/**
+ * Maintenance programs (D-106). Routine is the default and matches the costs and risks before
+ * D-106. Deferred maintenance saves on repairs now but breaks down more and wears faster;
+ * preventive maintenance (scheduled inspections, bearings and belts replaced before they fail,
+ * pre-season tune-ups) costs more and cuts breakdowns sharply.
+ */
+export const MAINTENANCE = {
+  /** Multiplier on a site's ordinary repair spending. */
+  repairFactor: s({ deferred: 0.5, routine: 1, preventive: 1.6 }, 'low'),
+  /** Multiplier on the chance of a breakdown. */
+  breakdownFactor: s({ deferred: 2.2, routine: 1, preventive: 0.35 }, 'low', 'Preventive programs cut unplanned downtime by roughly half to two-thirds'),
+  /** Multiplier on condition decay. */
+  decayFactor: s({ deferred: 1.4, routine: 1, preventive: 0.75 }, 'low'),
+  /** Emergency repair bill for a breakdown, as a share of the site's replacement cost. */
+  emergencyRepairShare: s(0.004, 'low', 'Parts, overtime and outside mechanics for an unplanned repair'),
+  /** Chance a farm-supply site's equipment breaks down in a busy month, at full condition and routine upkeep. */
+  supplyBreakdownMonthly: s(0.03, 'low'),
+  /** Share of the site's trucks, rigs or mill capacity lost for the month. */
+  supplyCapacityLoss: s(0.3, 'low', 'About a week to ten days out of service'),
+  /** Busy months by division, when breakdowns happen and hurt. */
+  busyMonths: { AGRONOMY: [3, 4, 5, 10, 11], FEED: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], ENERGY: [10, 11, 12, 1, 2] } as Record<string, number[]>,
+};
+
 export const FACILITY_COSTS = {
   insuranceRate: s(0.005, 'low', 'Annual property insurance as share of replacement cost'),
   propertyTaxRate: s(0.008, 'low', 'Annual property tax as share of net book value'),

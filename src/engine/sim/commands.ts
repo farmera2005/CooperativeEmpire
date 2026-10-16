@@ -21,7 +21,7 @@ import { addAgendaItem } from '../governance/votes';
 import type { Role } from '../../data/people';
 import { checkReferences, coach, fire, giveRaise, hire, interview, listInternal, poach, setBonusPlan, startSearch } from '../people/hiring';
 import { abandonDeal, dealDiligence, proposeAcquisition, proposeDivisionSale, proposeJv, proposeMerger, respondDeal, submitDeal } from '../deals/deals';
-import type { BylawChange, DealTerms, OpDivision, TrainingLevel, GameState, GrainPolicy, PatronageProposal, PayPosition, RedemptionPolicy, StaffLevel, SupplyPolicy } from '../types';
+import type { BylawChange, DealTerms, OpDivision, TrainingLevel, GameState, GrainPolicy, MaintenanceLevel, PatronageProposal, PayPosition, RedemptionPolicy, StaffLevel, SupplyPolicy } from '../types';
 import type { RegionalCategory } from '../../data/finance';
 import { validateProposal } from '../finance/patronage';
 import { setAffiliation } from '../finance/regionals';
@@ -48,6 +48,7 @@ export type Command =
   | { type: 'reopenFacility'; facilityId: number }
   | { type: 'closeFacility'; facilityId: number }
   | { type: 'setStaffing'; facilityId: number; level: StaffLevel; pay: PayPosition }
+  | { type: 'setMaintenance'; facilityId: number; level: MaintenanceLevel }
   | { type: 'setGrainPolicy'; policy: Partial<GrainPolicy> }
   | { type: 'setLineCommitment'; amount: number }
   | { type: 'prepayTermLoan'; loanId: number; amount: number }
@@ -173,6 +174,13 @@ function run(s: GameState, cmd: Command): CommandMessage[] {
     case 'reopenFacility': return setFacilityStatus(s, cmd.facilityId, 'operating');
     case 'closeFacility': return closeFacility(s, cmd.facilityId);
     case 'setStaffing': return setStaffing(s, cmd.facilityId, cmd.level, cmd.pay);
+    case 'setMaintenance': {
+      const f = s.coop.facilities.find((x) => x.id === cmd.facilityId && x.status !== 'closed');
+      if (!f) return [{ level: 'error', text: 'Unknown facility.' }];
+      if (!['deferred', 'routine', 'preventive'].includes(cmd.level)) return [{ level: 'error', text: 'Unknown maintenance level.' }];
+      f.maintenance = cmd.level;
+      return [];
+    }
     case 'setGrainPolicy': {
       const p = { ...s.coop.grainPolicy, ...cmd.policy };
       p.hedgeRatio = Math.max(0, Math.min(1.5, p.hedgeRatio));

@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { COMPONENTS, KIND_DIVISION, KIND_LABEL, TYPICAL_SITE, type ComponentId, type FacilityKind } from '../../data/facilities';
 import { LENDING } from '../../data/tuning';
+import { MAINTENANCE } from '../../data/grain';
 import {
   estimateProject, facilityBu, formatMonthShort, grainCapacity, netBookValue, renovationCost, yearOf,
-  type Components, type DivisionId, type Facility,
+  type Components, type DivisionId, type Facility, type MaintenanceLevel,
 } from '../../engine/index';
 import { money, num } from '../format';
 import { useStore } from '../store';
@@ -47,7 +48,7 @@ export function FacilitiesPanel({ division }: { division: DivisionId }) {
       <Panel title="Our facilities">
         {!list.length ? <p className="text-sm text-stone-500">None yet. Buy one that's for sale or build one below.</p> : (
           <table className="data">
-            <thead><tr><th>Facility</th><th>Status</th><th>Capacity</th>{division === 'GRAIN' && <th className="r">Inventory</th>}<th className="r">Condition</th><th>Staffing</th><th className="r">Book value</th><th></th></tr></thead>
+            <thead><tr><th>Facility</th><th>Status</th><th>Capacity</th>{division === 'GRAIN' && <th className="r">Inventory</th>}<th className="r">Condition</th><th>Staffing</th><th>Upkeep</th><th className="r">Book value</th><th></th></tr></thead>
             <tbody>
               {list.map((f) => {
                 const cap = grainCapacity(f.components);
@@ -66,6 +67,13 @@ export function FacilitiesPanel({ division }: { division: DivisionId }) {
                         <option value="below">Pay below market</option><option value="at">At market</option><option value="above">Above market</option>
                       </select>
                     </td>
+                    <td>
+                      <select className="input py-0 text-xs" aria-label="Maintenance" value={f.maintenance ?? 'routine'} onChange={(e) => command({ type: 'setMaintenance', facilityId: f.id, level: e.target.value as MaintenanceLevel })}
+                        title="Preventive upkeep costs more but cuts breakdowns and wear; deferring it saves money now and costs more later">
+                        <option value="deferred">Deferred</option><option value="routine">Routine</option><option value="preventive">Preventive</option>
+                      </select>
+                      {f.downMonth === game.clock.monthIndex && <div className="text-xs text-rust">broken down this month</div>}
+                    </td>
                     <td className="r">{money(netBookValue(game, f.id))}</td>
                     <td><button className="btn py-0" onClick={() => setSel(f.id)}>Manage</button></td>
                   </tr>
@@ -74,6 +82,7 @@ export function FacilitiesPanel({ division }: { division: DivisionId }) {
             </tbody>
           </table>
         )}
+        {list.length > 0 && <p className="mt-2 text-xs text-stone-500">Upkeep: preventive maintenance spends {Math.round((MAINTENANCE.repairFactor.value.preventive - 1) * 100)}% more on repairs and makes breakdowns about {Math.round(1 / MAINTENANCE.breakdownFactor.value.preventive)}× rarer, with slower wear; deferring it halves repair spending but doubles breakdowns and speeds wear. Breakdowns strike in the busy season, take equipment out of service and bring an emergency repair bill.</p>}
       </Panel>
       {projects.length > 0 && (
         <Panel title="Capital projects under way">

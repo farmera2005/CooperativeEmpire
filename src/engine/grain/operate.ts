@@ -10,6 +10,7 @@
 //   6. hedges rebalanced, inventory and DP liability marked to market, margin deposits
 //   7. fees, bond, report and margin breakdown
 
+import { formatCents } from '../core/format';
 import { GOV_STORAGE } from '../../data/grain';
 import { addGrievance } from '../members/grievances';
 import { GRIEVANCES } from '../../data/tuning';
@@ -35,7 +36,7 @@ import { addFyLine } from '../finance/defaults';
 import { effect, holder } from '../people/leaders';
 import { staffServicePenalty } from '../people/staff';
 import { MISCONDUCT } from '../../data/people';
-import { grainCapacity, isHarvestMonth } from '../facilities/facilities';
+import { breakdownRisk, grainCapacity, isHarvestMonth, postBreakdownRepair } from '../facilities/facilities';
 import type { TickContext } from '../sim/context';
 import type { CommodityPosition, Facility, GameState, GrainCommodityMonth, GrainMonthReport, Member } from '../types';
 import type { LoadoutType } from '../../data/facilities';
@@ -310,9 +311,10 @@ export function stepGrain(ctx: TickContext): void {
     shipPlan.set(f.id, plan);
     const remainingShip = { rail: shipCaps.railBu, truck: shipCaps.truckBu };
     for (let w = 0; w < 4; w++) {
-      if (isHarvestMonth(mi) && f.grain.downWeeks <= 0 && brng.chance(FACILITY_COSTS.breakdownWeekly.value * (1 + (100 - f.condition) / 25))) {
+      if (isHarvestMonth(mi) && f.grain.downWeeks <= 0 && brng.chance(FACILITY_COSTS.breakdownWeekly.value * breakdownRisk(f))) {
         f.grain.downWeeks = 1;
-        ctx.inbox({ kind: 'alert', title: `Breakdown at ${f.name}`, body: `The leg at ${f.name} is down for repairs this week. Trucks are being turned away.` });
+        const bill = postBreakdownRepair(ctx, f);
+        ctx.inbox({ kind: 'alert', title: `Breakdown at ${f.name}`, body: `The leg at ${f.name} is down for repairs this week. Trucks are being turned away. Emergency repairs: ${formatCents(bill)}.${f.maintenance === 'preventive' ? '' : ' A preventive maintenance program makes breakdowns much rarer.'}` });
       }
       const down = f.grain.downWeeks > 0;
       if (down) f.grain.downWeeks -= 1;

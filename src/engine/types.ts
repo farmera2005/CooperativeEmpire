@@ -443,6 +443,8 @@ export interface FiredEvent {
 export type Posture = 'aggressive' | 'market' | 'premium';
 export type StaffLevel = 'lean' | 'standard' | 'full';
 export type PayPosition = 'below' | 'at' | 'above';
+/** How much upkeep a site gets (D-106). */
+export type MaintenanceLevel = 'deferred' | 'routine' | 'preventive';
 
 export interface FacilityGrainState {
   /** Physical bushels in the house by commodity (owned + DP + open storage). */
@@ -473,6 +475,10 @@ export interface Facility {
   /** Installed component quantities in each component's unit (bu, bu/hr, count, acres). */
   components: Partial<Record<ComponentId, number>>;
   staffing: { level: StaffLevel; pay: PayPosition };
+  /** Maintenance program; routine when unset (D-106). */
+  maintenance?: MaintenanceLevel;
+  /** Month a farm-supply site's equipment last broke down (out of service that month). */
+  downMonth?: number;
   /** Known or hidden environmental liability (cents). */
   envLiability?: { cost: Cents; discovered: boolean };
   grain: FacilityGrainState;
