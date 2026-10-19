@@ -267,6 +267,26 @@ export const PROPOSALS = {
   reviewMonths: 8,
 };
 
+/**
+ * Sales force (D-109): salespeople per business unit — grain originators, sales agronomists,
+ * feed and energy territory reps, store sales staff. Coverage is reps per farm customer; the
+ * gain in farmers' preference has diminishing returns and scales with the division manager's
+ * sales skill. Pay is 2024 dollars a year; expenses cover a vehicle, phone and customer events.
+ */
+export const SALES_FORCE = {
+  wage2024: s<Record<string, number>>({ GRAIN: 78_000, AGRONOMY: 82_000, FEED: 70_000, ENERGY: 62_000, RETAIL: 42_000 }, 'low', 'Ag sales and grain origination salaries, mid-2020s, before commissions'),
+  expense2024: s(18_000, 'low', 'Vehicle, phone, travel and customer events per rep per year'),
+  /** Farm customers one rep can call on regularly. */
+  customersPerRep: s(120, 'low', 'A sales agronomist or originator calls on roughly 80–150 growers'),
+  /** Largest gain in preference, in service-quality units (as a top division manager's sales skill gives). */
+  maxBoost: s(0.6, 'low'),
+  /** Change per point of the division manager's sales skill above 10. */
+  skillFactorPerPoint: s(0.04, 'low'),
+  /** Salespeople also recruit members: join appeal added per unit of boost. */
+  joinBoost: s(0.6, 'low'),
+  maxReps: 40,
+};
+
 export const MISCONDUCT = {
   /** Chance a hire carries a hidden misconduct risk (embezzlement), lower with reference checks. */
   embezzleProb: s(0.03, 'low'),

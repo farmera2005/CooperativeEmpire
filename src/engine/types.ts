@@ -669,6 +669,8 @@ export interface CoopState {
   grainStats: { marketBu: number; offeredBu: number; priceAdvantage: number };
   supply: Record<SupplyDivision, SupplyBook>;
   supplyPolicy: Record<SupplyDivision, SupplyPolicy>;
+  /** Salespeople by business unit (D-109). */
+  salesForce?: Partial<Record<OpDivision, number>>;
   /** Fiscal-year-to-date sales to members and non-members by division (cents), for Capper-Volstead and patronage. */
   patronageStats: Record<DivisionId, { member: Cents; nonmember: Cents }>;
   equityProgram: EquityProgram;

@@ -5,6 +5,7 @@ import { adoptTech } from '../world/tech';
 import { comply } from '../world/regulation';
 import { chooseOption } from '../world/events';
 import { applyDebug, type DebugAction } from './debug';
+import { setSalesStaff } from '../people/sales';
 import { formatCents } from '../core/format';
 import {
   buildElevator, buildFacility, buyOffer, closeFacility, dueDiligence, renovateFacility, setFacilityStatus, setStaffing, upgradeFacility,
@@ -49,6 +50,7 @@ export type Command =
   | { type: 'closeFacility'; facilityId: number }
   | { type: 'setStaffing'; facilityId: number; level: StaffLevel; pay: PayPosition }
   | { type: 'setMaintenance'; facilityId: number; level: MaintenanceLevel }
+  | { type: 'setSalesStaff'; division: OpDivision; count: number }
   | { type: 'setGrainPolicy'; policy: Partial<GrainPolicy> }
   | { type: 'setLineCommitment'; amount: number }
   | { type: 'prepayTermLoan'; loanId: number; amount: number }
@@ -174,6 +176,7 @@ function run(s: GameState, cmd: Command): CommandMessage[] {
     case 'reopenFacility': return setFacilityStatus(s, cmd.facilityId, 'operating');
     case 'closeFacility': return closeFacility(s, cmd.facilityId);
     case 'setStaffing': return setStaffing(s, cmd.facilityId, cmd.level, cmd.pay);
+    case 'setSalesStaff': return setSalesStaff(s, cmd.division, cmd.count);
     case 'setMaintenance': {
       const f = s.coop.facilities.find((x) => x.id === cmd.facilityId && x.status !== 'closed');
       if (!f) return [{ level: 'error', text: 'Unknown facility.' }];

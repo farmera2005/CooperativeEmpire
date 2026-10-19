@@ -1,8 +1,9 @@
-import { EFFECTS, ROLE_DEFS, ROLES, SKILL_LABEL, SKILLS, TRAITS, type Role, type Skill } from '../../data/people';
+import { EFFECTS, ROLE_DEFS, ROLES, SALES_FORCE, SKILL_LABEL, SKILLS, TRAITS, type Role, type Skill } from '../../data/people';
 import {
-  effect, effectiveSkill, formatMonthShort, holder, marketSalary, siteFte, tightness, yearOf,
-  type Candidate, type Leader, type TrainingLevel,
+  effect, effectiveSkill, formatMonthShort, holder, marketSalary, pathFor, salesBoost, salesCost, salesCoverage, salesStaff, siteFte, tightness, yearOf,
+  type Candidate, type Leader, type OpDivision, type TrainingLevel,
 } from '../../engine/index';
+import { CommitNumber } from '../components/CommitNumber';
 import { Panel, Stat } from '../components/Panel';
 import { money, pct } from '../format';
 import { useStore } from '../store';
@@ -65,6 +66,7 @@ export function PeopleScreen() {
       </div>
       <LeadershipPanel />
       <CandidatesPanel />
+      <SalesForcePanel />
       <div className="grid grid-cols-2 gap-4">
         <NotesPanel />
         <WorkforcePanel />
@@ -241,6 +243,36 @@ function EffectsPanel() {
           })}
         </tbody>
       </table>
+    </Panel>
+  );
+}
+
+const SALES_LABEL: Record<OpDivision, string> = { GRAIN: 'Grain originators', AGRONOMY: 'Sales agronomists', FEED: 'Feed sales reps', ENERGY: 'Energy sales reps', RETAIL: 'Store sales staff' };
+
+/** Salespeople by business unit (D-109). */
+function SalesForcePanel() {
+  const game = useStore((s) => s.game)!;
+  const command = useStore((s) => s.command);
+  const divisions = (Object.keys(SALES_LABEL) as OpDivision[]).filter((d) => game.coop.facilities.some((f) => f.division === d && f.status !== 'closed'));
+  if (!divisions.length) return null;
+  const mi = game.clock.monthIndex;
+  return (
+    <Panel title="Sales force">
+      <table className="data">
+        <thead><tr><th>Business unit</th><th>Salespeople</th><th className="r">Coverage</th><th className="r">Preference gain</th><th className="r">Cost a year</th></tr></thead>
+        <tbody>
+          {divisions.map((d) => (
+            <tr key={d}>
+              <td>{SALES_LABEL[d]}</td>
+              <td><CommitNumber value={salesStaff(game, d)} min={0} max={SALES_FORCE.maxReps} step={1} onCommit={(n) => command({ type: 'setSalesStaff', division: d, count: n })} ariaLabel={`${SALES_LABEL[d]} headcount`} /></td>
+              <td className="r">{pct(Math.min(1, salesCoverage(game, d)), 0)}</td>
+              <td className="r">+{salesBoost(game, d).toFixed(2)}</td>
+              <td className="r">{money(salesCost(game, d, pathFor(game), mi), { compact: true })}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="mt-1 text-xs text-stone-500">A salesperson calls on about {SALES_FORCE.customersPerRep.value} farm customers. More coverage wins business and recruits members, with diminishing returns; a division manager strong in sales makes the team more effective. Preference gain is in the same units as service quality (a top division manager's sales skill is worth about +0.6).</p>
     </Panel>
   );
 }

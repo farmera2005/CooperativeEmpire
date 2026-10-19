@@ -10,6 +10,7 @@
 //   6. hedges rebalanced, inventory and DP liability marked to market, margin deposits
 //   7. fees, bond, report and margin breakdown
 
+import { salesBoost } from '../people/sales';
 import { formatCents } from '../core/format';
 import { GOV_STORAGE } from '../../data/grain';
 import { addGrievance } from '../members/grievances';
@@ -138,6 +139,8 @@ export function stepGrain(ctx: TickContext): void {
   const weather = state.world.weather;
   // People: the grain manager's merchandising and operations, and the crews' service.
   const merch = (effect(state, 'grain.basis') + techFactor(state, 'basis')) * idx;
+  // Grain originators calling on farmers (D-109).
+  const originators = salesBoost(state, 'GRAIN');
   const throughput = (1 + effect(state, 'grain.throughput')) * (1 - (state.people.workforce.GRAIN?.vacancy ?? 0));
   const crewPenalty = staffServicePenalty(state, 'GRAIN');
   const grainLead = holder(state, 'GRAIN');
@@ -205,7 +208,7 @@ export function stepGrain(ctx: TickContext): void {
     const bundleBonus = sm.bundle.value * Math.sqrt(bundled);
     for (const o of s.ours) {
       const price = posture - FARM_HAUL_PER_MILE.value * o.dist;
-      const service = (sm.staffingService.value[o.facility.staffing.level] - crewPenalty) * sm.serviceQuality.value
+      const service = (sm.staffingService.value[o.facility.staffing.level] - crewPenalty + originators) * sm.serviceQuality.value
         - sm.waitPerHour.value * o.facility.grain.waitMemory;
       const u = priceW * price + service + contracts * sm.contractOffered.value
         + (m.kind === 'member' ? sm.loyalty.value * m.loyalty + refundBu : 0) - sm.grievance.value * grievance + bundleBonus;

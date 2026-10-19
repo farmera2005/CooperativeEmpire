@@ -198,3 +198,26 @@ describe('save migration v5 → v6', () => {
     expect(checkInvariants(run(m, 12))).toEqual([]);
   });
 });
+
+describe('sales force (D-109)', () => {
+  it('more salespeople win more preference, with diminishing returns, and cost money through the books', async () => {
+    const { salesBoost } = await import('../src/engine/people/sales');
+    const s = fullCoop(2005, 6);
+    expect(salesBoost(s, 'AGRONOMY')).toBe(0);
+    const at = (n: number) => salesBoost(applyCommand(s, { type: 'setSalesStaff', division: 'AGRONOMY', count: n }).state, 'AGRONOMY');
+    expect(at(2)).toBeGreaterThan(0);
+    expect(at(6)).toBeGreaterThan(at(2));
+    expect(at(6) - at(2)).toBeLessThan(at(2) * 3);
+    expect(applyCommand(s, { type: 'setSalesStaff', division: 'AGRONOMY', count: 99 }).ok).toBe(false);
+    const w = run(applyCommand(s, { type: 'setSalesStaff', division: 'AGRONOMY', count: 4 }).state, 1);
+    expect(balance(w.ledger, '7690', 'AGRONOMY')).toBeGreaterThan(0);
+    expect(checkInvariants(w)).toEqual([]);
+  });
+
+  it('a sales force wins agronomy share', () => {
+    const s = fullCoop(2005, 6);
+    const none = run(s, 12);
+    const team = run(applyCommand(s, { type: 'setSalesStaff', division: 'AGRONOMY', count: 8 }).state, 12);
+    expect(team.coop.supply.AGRONOMY.report!.share).toBeGreaterThan(none.coop.supply.AGRONOMY.report!.share);
+  });
+});

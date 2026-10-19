@@ -6,6 +6,7 @@
 // Order per division: share of wallet → demand and sales by line → capacity limits →
 // purchases, inventory relief, LCM → prepay/prebuy → credit → report.
 
+import { salesBoost } from '../people/sales';
 import { addGrievance } from '../members/grievances';
 import { expectedRefundRate } from '../finance/selectors';
 import { techFactor } from '../world/tech';
@@ -188,7 +189,7 @@ export function stepSupply(ctx: TickContext): void {
     const ourAdv = -cfg.posturePct.value[pol.posture];
     const lateMem = book.lateMemory;
     // People: the division manager's selling and the crews' service.
-    const peopleU = effect(state, 'supply.share', d) + (d === 'AGRONOMY' ? techFactor(state, 'supplyShare') : 0) - staffServicePenalty(state, d);
+    const peopleU = effect(state, 'supply.share', d) + (d === 'AGRONOMY' ? techFactor(state, 'supplyShare') : 0) - staffServicePenalty(state, d) + salesBoost(state, d);
     const creditU = CREDIT.utility.value[pol.credit];
     // Members count on a patronage refund like last year's (percent of price).
     const refundPct = expectedRefundRate(state) * 100;
@@ -495,7 +496,7 @@ function retailDemand(ctx: TickContext, sites: { ours: boolean; posture: number;
   const { state, mi } = ctx;
   const month = monthOf(mi);
   const rd = RETAIL_DEMAND;
-  const peopleU = effect(state, 'supply.share', 'RETAIL') - staffServicePenalty(state, 'RETAIL');
+  const peopleU = effect(state, 'supply.share', 'RETAIL') - staffServicePenalty(state, 'RETAIL') + salesBoost(state, 'RETAIL');
   const acresByTown = new Map<number, number>();
   for (const m of state.members.list) if (m.status === 'active') acresByTown.set(m.townId, (acresByTown.get(m.townId) ?? 0) + (m.acres.corn + m.acres.soybeans + m.acres.wheat + m.acres.other) * m.weight);
   const dist = state.world.distances;
@@ -540,7 +541,7 @@ function townEnergyDemand(ctx: TickContext, sites: SupplierSite[], acc: Acc, boo
   const { state, mi } = ctx;
   const month = monthOf(mi);
   const ed = ENERGY_DEMAND;
-  const peopleU = effect(state, 'supply.share', 'ENERGY') - staffServicePenalty(state, 'ENERGY');
+  const peopleU = effect(state, 'supply.share', 'ENERGY') - staffServicePenalty(state, 'ENERGY') + salesBoost(state, 'ENERGY');
   const dist = state.world.distances;
   for (const t of state.world.towns) {
     let best: number | null = null;

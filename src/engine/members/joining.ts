@@ -3,7 +3,9 @@
 // refund worth having; members who are unhappy and have taken their business elsewhere resign,
 // and the co-op redeems their membership stock at par.
 
+import { SALES_FORCE } from '../../data/people';
 import { MEMBERSHIP } from '../../data/tuning';
+import { SALES_DIVISIONS, salesBoost } from '../people/sales';
 import { clamp } from '../core/math';
 import { expectedRefundRate } from '../finance/selectors';
 import { post } from '../ledger/ledger';
@@ -20,14 +22,16 @@ export function businessShare(m: Member): number {
 }
 
 /** How attractive joining is to a customer: satisfaction and the refund they expect (0..maxAppeal). */
-export function joinAppeal(satisfaction: number, refundRate: number): number {
-  return clamp((satisfaction - 50) / 20 + 1 + M.refundAppealPerPoint.value * refundRate * 100, 0, M.maxAppeal);
+export function joinAppeal(satisfaction: number, refundRate: number, recruiting = 0): number {
+  return clamp((satisfaction - 50) / 20 + 1 + M.refundAppealPerPoint.value * refundRate * 100 + recruiting, 0, M.maxAppeal);
 }
 
 export function stepJoining(ctx: TickContext): void {
   const { state, mi } = ctx;
   const rng = ctx.rng('members.join');
   const refund = expectedRefundRate(state);
+  // Salespeople recruit members as they call on customers (D-109).
+  const recruiting = SALES_FORCE.joinBoost.value * Math.max(0, ...SALES_DIVISIONS.map((d) => salesBoost(state, d)));
   const directors = new Set(state.governance.directors.map((d) => d.memberId));
   let joined = 0;
   let left = 0;
@@ -36,7 +40,7 @@ export function stepJoining(ctx: TickContext): void {
     const share = businessShare(m);
     if (m.kind === 'nonmember') {
       if (m.satisfaction < M.joinSatisfactionMin.value || share < M.joinShareMin.value) continue;
-      if (rng.chance(M.joinBase.value * joinAppeal(m.satisfaction, refund))) {
+      if (rng.chance(M.joinBase.value * joinAppeal(m.satisfaction, refund, recruiting))) {
         m.kind = 'member';
         subscribeStock(ctx, m);
         joined++;

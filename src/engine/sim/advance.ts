@@ -17,6 +17,7 @@ import { holdBoardMeeting } from '../governance/votes';
 import { stepPeople } from '../people/staff';
 import { stepNotes } from '../people/notes';
 import { stepProposals } from '../people/proposals';
+import { stepSalesForce } from '../people/sales';
 import { suppressGameOver } from './debug';
 import { stepCompetitors } from '../competitors/ai';
 import { stepDeals } from '../deals/deals';
@@ -110,6 +111,7 @@ export function advanceMonth(state: GameState, decisions: Command[] = [], opts: 
   // 14. cross-division effects — M3
   // 15. working capital: facility and corporate overhead
   stepFacilityCosts(ctx);
+  stepSalesForce(ctx);
   postOverhead(ctx);
   // 16. valuation happens inside the grain step; 17. depreciation
   stepDepreciation(ctx);
