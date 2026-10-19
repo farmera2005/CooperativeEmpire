@@ -20,6 +20,7 @@ import { stepProposals } from '../people/proposals';
 import { stepSalesForce } from '../people/sales';
 import { stepTeam } from '../people/team';
 import { stepLivestock } from '../supply/livestock';
+import { stepInvestments } from '../deals/investments';
 import { suppressGameOver } from './debug';
 import { stepCompetitors } from '../competitors/ai';
 import { stepDeals } from '../deals/deals';
@@ -140,6 +141,7 @@ export function advanceMonth(state: GameState, decisions: Command[] = [], opts: 
   // 26. competitors move; deals advance (closings post entries, so before invariants)
   stepCompetitors(ctx);
   stepDeals(ctx);
+  stepInvestments(ctx);
   // 25. governance: board meeting, directors' goals and the GM review, annual meeting, petitions
   holdBoardMeeting(ctx);
   stepBoardRelations(ctx);

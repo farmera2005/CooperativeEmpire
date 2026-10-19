@@ -75,7 +75,7 @@ function applyChoice(s: GameState, item: InboxItem, optionId: string, rng: Rng):
       if (cost > liquidity(s)) return [{ level: 'error', text: `Not enough cash and line of credit for ${formatCents(cost)}.` }];
       const name = `${s.world.towns[s.coop.homeTownId].name} Renewable Fuels LLC`;
       post(s, { source: 'ethanol-stake', memo: `Investment in ${name}`, lines: [{ account: '1450', division: 'GRAIN', amount: cost }, { account: '1000', division: 'CORP', amount: -cost }] });
-      s.jvs = [...s.jvs, { id: 100000 + item.id, ethanol: true, name, partnerName: 'local investors', division: 'GRAIN', sharePct: CHOICE_EFFECTS.ethanolSharePct.value, investment: cost, scale: cost, formedMonth: mi, earningsYtd: 0 }];
+      s.jvs = [...s.jvs, { id: 100000 + item.id, ethanol: true, investmentType: 'ethanol', name, partnerName: 'local investors', division: 'GRAIN', sharePct: CHOICE_EFFECTS.ethanolSharePct.value, investment: cost, scale: cost, formedMonth: mi, earningsYtd: 0 }];
       return [{ level: 'info', text: `Invested ${formatCents(cost)} in ${name}.` }];
     }
     case 'lawsuit': {

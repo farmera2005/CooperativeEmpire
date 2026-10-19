@@ -263,3 +263,35 @@ describe('save migration v6 → v7', () => {
     expect(checkInvariants(run(m, 6))).toEqual([]);
   });
 });
+
+describe('investments in larger ag businesses (D-112)', () => {
+  it('offers stakes that fit the era; a stake earns with its industry and can be sold', async () => {
+    const { investmentReturn } = await import('../src/engine/deals/investments');
+    let s = coop(2004, 3);
+    // Run Januaries until an offer appears (ethanol offers are common in 2001–2008).
+    for (let i = 0; i < 36 && !(s.investOffers ?? []).length; i++) s = run(s, 1);
+    const o = (s.investOffers ?? [])[0];
+    expect(o).toBeDefined();
+    expect(applyCommand(s, { type: 'investInVenture', offerId: o.id, amount: o.maxStake + 1 }).ok).toBe(false);
+    const r = applyCommand(s, { type: 'investInVenture', offerId: o.id, amount: o.minStake }, { boardApproved: true });
+    expect(r.ok, r.messages.map((m) => m.text).join()).toBe(true);
+    const jv = r.state.jvs.find((j) => j.investmentType === o.type)!;
+    expect(jv.investment).toBe(o.minStake);
+    s = run(r.state, 6);
+    const after = s.jvs.find((j) => j.id === jv.id);
+    if (!after) return; // the plant failed: also a legitimate outcome
+    expect(after.earningsYtd !== 0 || investmentReturn(s, o.type, 2005) === 0).toBe(true);
+    const sold = applyCommand(s, { type: 'sellStake', jvId: jv.id });
+    expect(sold.ok).toBe(true);
+    expect(sold.state.jvs.some((j) => j.id === jv.id)).toBe(false);
+    expect(checkInvariants(advanceMonth(sold.state).state)).toEqual([]);
+  });
+
+  it('known industry years drive returns: the 2014 ethanol record, the 2008 bust', async () => {
+    const { investmentReturn } = await import('../src/engine/deals/investments');
+    const s = coop(2004, 3);
+    expect(investmentReturn(s, 'ethanol', 2014)).toBeGreaterThan(0.3);
+    expect(investmentReturn(s, 'ethanol', 2008)).toBeLessThan(0);
+    expect(investmentReturn(s, 'biodiesel', 2009)).toBeLessThan(0);
+  });
+});

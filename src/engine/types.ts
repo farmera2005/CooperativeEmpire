@@ -1,6 +1,7 @@
 // Core game state. Plain, JSON-serializable data only (no classes, Maps or typed arrays),
 // so saves are simple and cloning is predictable.
 
+import type { InvestmentType } from '../data/investments';
 import type { Cents } from './core/money';
 import type { SeriesId } from '../data/markets';
 import type { CropId, SpeciesId } from '../data/regions/eccb';
@@ -1147,6 +1148,8 @@ export interface JointVenture {
   id: number;
   /** An investment in a local ethanol plant rather than a combined division. */
   ethanol?: boolean;
+  /** An equity stake in a larger ag business (D-112); its returns follow that industry. */
+  investmentType?: InvestmentType;
   name: string;
   partnerName: string;
   division: OpDivision;
@@ -1157,6 +1160,20 @@ export interface JointVenture {
   scale: Cents;
   formedMonth: number;
   earningsYtd: Cents;
+}
+
+export interface InvestOffer {
+  id: number;
+  type: InvestmentType;
+  name: string;
+  townId: number;
+  /** Stake range (nominal cents when offered). */
+  minStake: Cents;
+  maxStake: Cents;
+  /** Total equity in the plant (nominal cents), for our ownership share. */
+  plantEquity: Cents;
+  offeredMonth: number;
+  expiresMonth: number;
 }
 
 // ---------- Annual reports (DESIGN §18) ----------
@@ -1226,6 +1243,8 @@ export interface GameState {
   people: PeopleState;
   deals: Deal[];
   jvs: JointVenture[];
+  /** Open offers to invest in larger ag businesses (D-112). */
+  investOffers?: InvestOffer[];
   /** Months of merger integration remaining (service suffers while systems combine). */
   integrationUntil: number | null;
   tech: TechState;

@@ -190,13 +190,4 @@ export const CHOICE_EFFECTS = {
   ethanolSharePct: s(0.08, 'low'),
 };
 
-/**
- * Annual return on a minority stake in a farmer-owned ethanol plant, by year (share of the
- * original investment). Shape follows the published crush margin: the 2006 boom, the 2008
- * squeeze, 2012 drought, 2014 record, 2019–2020 losses, 2021–2022 rebound.
- */
-export const ETHANOL_RETURN = s<Record<number, number>>(
-  { 2006: 0.35, 2007: 0.25, 2008: 0.02, 2009: 0.08, 2010: 0.2, 2011: 0.18, 2012: -0.1, 2013: 0.1, 2014: 0.4, 2015: 0.08, 2016: 0.08, 2017: 0.06, 2018: 0, 2019: -0.04, 2020: -0.08, 2021: 0.25, 2022: 0.2, 2023: 0.12, 2024: 0.05 },
-  'low', 'Years not listed earn 6%', 'Shape of Iowa State ethanol profitability model margins; magnitudes illustrative',
-);
-export const ETHANOL_RETURN_FALLBACK = 0.06;
+// Ethanol returns by year now live with the other investments (D-112, src/data/investments.ts).

@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import {
-  competitorName, dealTitle, forecastDealVote, formatMonth, forSale, integrationPenalty, nominalCents, pathFor, sellerAcceptance,
+  competitorName, dealTitle, forecastDealVote, formatMonth, forSale, integrationPenalty, investmentTypeOf, nominalCents, pathFor, sellerAcceptance, stakeSalePrice,
   type Competitor, type Deal, type DealStage, type DealTerms, type OpDivision,
 } from '../../engine/index';
 import { DEALS } from '../../data/competition';
+import { INVESTMENTS } from '../../data/investments';
 import { LENDING } from '../../data/tuning';
 import { Term } from '../components/Term';
 import { Panel, Stat } from '../components/Panel';
@@ -67,24 +68,35 @@ export function DealsScreen() {
           ) : <p className="text-sm text-stone-500">We have no farm-supply divisions to sell.</p>}
           <p className="mt-2 text-xs text-stone-500">Advisers find a buyer and bring a price. The board and then the members must approve; the gain or loss is booked at closing.</p>
         </Panel>
-        <Panel title={<Term id="joint-venture">Joint ventures</Term>}>
+        <Panel title={<><Term id="joint-venture">Joint ventures</Term> and investments</>}>
           {game.jvs.length ? (
             <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase text-stone-500"><tr><th>Venture</th><th>Our share</th><th className="text-right">Investment</th><th className="text-right">Earnings this year</th></tr></thead>
+              <thead className="text-left text-xs uppercase text-stone-500"><tr><th>Venture</th><th>Our share</th><th className="text-right">Investment</th><th className="text-right">Earnings this year</th><th /></tr></thead>
               <tbody>
-                {game.jvs.map((j) => (
-                  <tr key={j.id} className="border-t border-stone-100">
-                    <td className="py-1">{j.name}<div className="text-xs text-stone-500">with {j.partnerName}, since {formatMonth(j.formedMonth)}</div></td>
-                    <td>{pct(j.sharePct, 0)}</td>
-                    <td className="num text-right">{money(j.investment)}</td>
-                    <td className={`num text-right ${j.earningsYtd < 0 ? 'text-rust' : ''}`}>{money(j.earningsYtd)}</td>
-                  </tr>
-                ))}
+                {game.jvs.map((j) => {
+                  const type = investmentTypeOf(j);
+                  return (
+                    <tr key={j.id} className="border-t border-stone-100">
+                      <td className="py-1">{j.name}<div className="text-xs text-stone-500">{type ? INVESTMENTS.value[type].label : `with ${j.partnerName}`}, since {formatMonth(j.formedMonth)}</div></td>
+                      <td>{pct(j.sharePct, j.sharePct < 0.1 ? 1 : 0)}</td>
+                      <td className="num text-right">{money(j.investment)}</td>
+                      <td className={`num text-right ${j.earningsYtd < 0 ? 'text-rust' : ''}`}>{money(j.earningsYtd)}</td>
+                      <td className="text-right">{type && <button className="btn py-0 text-xs" onClick={() => command({ type: 'sellStake', jvId: j.id })} title="A buyer pays book value, more after a good year and less after a bad one">Sell for {money(stakeSalePrice(game, j), { compact: true })}</button>}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
-          ) : <p className="text-sm text-stone-500">None yet. Combine a division with a neighboring co-op's to share plants and cut costs.</p>}
+          ) : <p className="text-sm text-stone-500">None yet. Combine a division with a neighboring co-op's to share plants and cut costs, or take a stake in one of the investment offers.</p>}
         </Panel>
       </div>
+
+      <Panel title="Investment opportunities">
+        {(game.investOffers ?? []).length ? (
+          <div className="space-y-3">{(game.investOffers ?? []).map((o) => <InvestOfferRow key={o.id} id={o.id} />)}</div>
+        ) : <p className="text-sm text-stone-500">No offers open. Local investors bring offers each January when a kind of plant is being built in the era: ethanol, biodiesel, soybean crushing, shuttle-train terminals, packing plants, wind, sugar.</p>}
+        <p className="mt-2 text-xs text-stone-500">A stake is carried at cost plus our share of earnings; half of each year's earnings is paid out in cash. Returns swing with the industry, and young plants can fail. Stakes above the board's capital limit go to the board.</p>
+      </Panel>
 
       {past.length > 0 && (
         <Panel title="Recent deals">
@@ -226,6 +238,29 @@ function VoteForecast({ d, terms }: { d: Deal; terms: DealTerms }) {
         {f.basedOnEstimates ? ' Based on our estimates of their books; due diligence shows members audited figures.' : ''}
         {!theirsOk ? ' Their members want more: more board seats or a new name for the combined co-op help.' : ''}
       </p>
+    </div>
+  );
+}
+
+/** One investment offer, with a stake to choose (D-112). */
+function InvestOfferRow({ id }: { id: number }) {
+  const game = useStore((s) => s.game)!;
+  const command = useStore((s) => s.command);
+  const o = (game.investOffers ?? []).find((x) => x.id === id)!;
+  const d = INVESTMENTS.value[o.type];
+  const [stake, setStake] = useState(Math.round(o.minStake / 100));
+  const cents = Math.round(stake * 100);
+  return (
+    <div className="rounded border border-stone-200 p-3">
+      <div className="font-semibold">{o.name} <span className="text-xs font-normal text-stone-500">· {d.label} · open until {formatMonth(o.expiresMonth)}</span></div>
+      <p className="mt-1 text-sm text-stone-600">{d.description}</p>
+      <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
+        <span>Stake {money(o.minStake, { compact: true })}–{money(o.maxStake, { compact: true })}</span>
+        <span>Typical return {Math.round(d.mean * 100)}% ± {Math.round(d.sd * 100)}% a year</span>
+        <label>Our stake $ <input className="input ml-1 w-32" type="number" step={10000} value={stake} onChange={(e) => setStake(Number(e.target.value))} /></label>
+        <span className="text-xs text-stone-500">{pct(cents / o.plantEquity, 1)} of the plant</span>
+        <button className="btn btn-primary" onClick={() => command({ type: 'investInVenture', offerId: o.id, amount: cents })}>Invest</button>
+      </div>
     </div>
   );
 }

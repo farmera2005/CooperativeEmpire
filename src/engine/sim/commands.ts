@@ -1,12 +1,14 @@
 // Player commands (DESIGN §18.2). Each is applied by applyCommand, purely and
 // deterministically. The list grows milestone by milestone.
 
+import type { Cents } from '../core/money';
 import { adoptTech } from '../world/tech';
 import { comply } from '../world/regulation';
 import { chooseOption } from '../world/events';
 import { applyDebug, type DebugAction } from './debug';
 import { setSalesStaff } from '../people/sales';
 import { setLivestockProgram } from '../supply/livestock';
+import { investInVenture, sellStake } from '../deals/investments';
 import { giveTimeOff, holdRetreat, payTeamToMarket, setTeamBonusPlans, setTeamPolicy } from '../people/team';
 import { formatCents } from '../core/format';
 import {
@@ -54,6 +56,8 @@ export type Command =
   | { type: 'setMaintenance'; facilityId: number; level: MaintenanceLevel }
   | { type: 'setSalesStaff'; division: OpDivision; count: number }
   | { type: 'payTeamToMarket' }
+  | { type: 'investInVenture'; offerId: number; amount: Cents }
+  | { type: 'sellStake'; jvId: number }
   | { type: 'setLivestockProgram'; kind: LivestockKind; headPerMonth: number; marketing: LivestockMarketing }
   | { type: 'setTeamBonusPlans'; on: boolean }
   | { type: 'holdRetreat' }
@@ -186,6 +190,8 @@ function run(s: GameState, cmd: Command): CommandMessage[] {
     case 'setStaffing': return setStaffing(s, cmd.facilityId, cmd.level, cmd.pay);
     case 'setSalesStaff': return setSalesStaff(s, cmd.division, cmd.count);
     case 'payTeamToMarket': return payTeamToMarket(s);
+    case 'investInVenture': return investInVenture(s, cmd.offerId, cmd.amount);
+    case 'sellStake': return sellStake(s, cmd.jvId);
     case 'setLivestockProgram': return setLivestockProgram(s, cmd.kind, cmd.headPerMonth, cmd.marketing);
     case 'setTeamBonusPlans': return setTeamBonusPlans(s, cmd.on);
     case 'holdRetreat': return holdRetreat(s);

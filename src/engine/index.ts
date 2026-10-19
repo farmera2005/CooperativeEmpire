@@ -4,6 +4,7 @@ export * from './types';
 export { businessShare, joinAppeal } from './members/joining';
 export { salesBoost, salesCost, salesCoverage, salesStaff, SALES_DIVISIONS } from './people/sales';
 export { flightRisk, moraleDrivers, payGapPct } from './people/team';
+export { investmentReturn, investmentTypeOf, INVESTMENT_TYPES, stakeSalePrice } from './deals/investments';
 export { feederPrice, livestockBlocked, LIVESTOCK_KINDS, monthsOnFeed, projectedMargin } from './supply/livestock';
 export { newGame, previewTerritory, suggestCoopNames, availableLenders, availableRegionals, startingCapital, territoryCustomers, defaultHomeTown, DEFAULT_SETUP } from './sim/newGame';
 export { advanceMonth, advanceUntilAttention, DEFAULT_INTERRUPTS, InvariantError } from './sim/advance';

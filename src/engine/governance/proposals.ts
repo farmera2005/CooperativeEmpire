@@ -1,6 +1,7 @@
 // Board proposals (DESIGN §14.3): which GM actions need a board vote, and each proposal
 // type's evaluator, which produces the merit vector directors react to.
 
+import { INVESTMENTS } from '../../data/investments';
 import { toMonthIndex } from '../core/calendar';
 import { techById, techCost } from '../world/tech';
 import { KIND_DIVISION, KIND_LABEL } from '../../data/facilities';
@@ -45,6 +46,7 @@ export function capitalCost(s: GameState, cmd: Command): Cents | null {
       const t = techById(cmd.techId);
       return t ? techCost(s, t) : null;
     }
+    case 'investInVenture': return cmd.amount;
     default: return null;
   }
 }
@@ -59,7 +61,8 @@ export function boardGate(s: GameState, cmd: Command): { type: ProposalType; tit
     case 'buildFacility':
     case 'upgradeFacility':
     case 'renovateFacility':
-    case 'adoptTech': {
+    case 'adoptTech':
+    case 'investInVenture': {
       const cost = capitalCost(s, cmd);
       if (cost === null || cost < nominalCents(pathFor(s), s.clock.monthIndex, s.governance.bylaws.capitalApproval)) return null;
       return { type: 'capitalProject', title: capitalTitle(s, cmd, cost) };
@@ -96,6 +99,7 @@ export function boardGate(s: GameState, cmd: Command): { type: ProposalType; tit
       case 'upgradeFacility': return `Expand ${st.coop.facilities.find((x) => x.id === c.facilityId)?.name} (${m})`;
       case 'renovateFacility': return `Renovate ${st.coop.facilities.find((x) => x.id === c.facilityId)?.name} (${m})`;
       case 'adoptTech': return `Adopt ${techById(c.techId)?.name ?? 'technology'} (${m})`;
+      case 'investInVenture': return `Invest ${m} in ${(st.investOffers ?? []).find((o) => o.id === c.offerId)?.name ?? 'a venture'}`;
       default: return 'Capital project';
     }
   }
@@ -162,6 +166,14 @@ export function evaluate(s: GameState, item: AgendaItem): MeritVector {
         division = cmd.type === 'buildElevator' ? 'GRAIN' : KIND_DIVISION[cmd.kind];
         const owned = s.coop.facilities.some((f) => f.status !== 'closed' && KIND_DIVISION[f.kind] === division);
         strategic += owned ? 0.05 : 0.3;
+      } else if (cmd.type === 'investInVenture') {
+        // Directors weigh the industry's record: its average return against how much it swings.
+        const o = (s.investOffers ?? []).find((x) => x.id === cmd.offerId);
+        if (o) {
+          const d = INVESTMENTS.value[o.type];
+          strategic += 3 * (d.mean - 0.06) - d.sd;
+          v.notes.push(`${d.label}: such plants earn about ${Math.round(d.mean * 100)}% a year on equity, swinging ±${Math.round(d.sd * 100)}%`);
+        }
       } else if (cmd.type === 'upgradeFacility' || cmd.type === 'renovateFacility') {
         const f = s.coop.facilities.find((x) => x.id === cmd.facilityId);
         if (f) {

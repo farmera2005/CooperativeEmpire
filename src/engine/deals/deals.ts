@@ -4,7 +4,7 @@
 // An acquisition buys a private company's plants and working capital for cash and a term loan;
 // its owner, not a board or members, decides whether to sell (D-102).
 
-import { ETHANOL_RETURN, ETHANOL_RETURN_FALLBACK } from '../../data/events';
+import { investmentReturn, investmentTypeOf } from './investments';
 import { DEALS, MERGER_VOTE } from '../../data/competition';
 import { dealAppeal, theirYes } from './vote';
 import type { SupplyDivision } from '../../data/supply';
@@ -611,9 +611,10 @@ function stepJointVentures(ctx: TickContext): void {
   if (!state.jvs.length) return;
   const rng = ctx.rng('deals.jv');
   state.jvs = state.jvs.map((jv) => {
-    // An ethanol stake earns with the crush margin; a division JV with its plants.
-    const monthly = jv.ethanol
-      ? (jv.scale * (ETHANOL_RETURN.value[yearOf(mi)] ?? ETHANOL_RETURN_FALLBACK)) / 12 / jv.sharePct
+    // A stake in a larger ag business earns with its industry (D-112); a division JV with its plants.
+    const type = investmentTypeOf(jv);
+    const monthly = type
+      ? (jv.scale * investmentReturn(state, type, yearOf(mi))) / 12 / jv.sharePct
       : (jv.scale * DEALS.jvReturn.value * (1 + DEALS.jvSynergy.value)) / 12;
     const earnings = Math.max(-jv.investment, roundCents(monthly * jv.sharePct * clamp(1 + rng.normal(0, 0.5), -1, 3)));
     let x = { ...jv, investment: jv.investment + earnings, earningsYtd: jv.earningsYtd + earnings };
