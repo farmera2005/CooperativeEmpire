@@ -71,20 +71,22 @@ Internal checkpoints (commit each): M3a Agronomy → M3b Feed → M3c Energy →
 - Accessibility and keyboard navigation; performance check at 5,000 members × 60 years.
 - **Playtest:** a full 1970–2025 campaign.
 
-**M8 status (50 seeds, 55 years each; drift history unless noted; after D-095–D-107):**
+**M8 status (50 seeds, 55 years each; drift history unless noted; after D-095–D-112):**
 
 | Run | Survived | Median net savings | Target |
 |---|---|---|---|
-| Baseline from 1970 | 43/50 (86%) | 3.6% | met |
-| Baseline from 1985 | 47/50 (94%) | 4.0% | met |
-| Baseline from 2010 | 44/50 (88%) | 4.0% | met |
-| Reckless from 1970 | 3/50 | 1.2% | fails in the 1980s: met (36 of 47 failures 1976–92) |
-| Reckless from 2000, strict history | 26/50 | 2.0% | fails around 2008: met (16 of 24 failures in 2008–10) |
+| Baseline from 1970 | 47/50 (94%) | 3.5% | met |
+| Baseline from 1985 | 49/50 (98%) | 3.8% | met |
+| Baseline from 2010 | 44/50 (88%) | 3.9% | met |
+| Reckless from 1970 | 15/50 | 1.4% | mostly met: 27 of 35 failures 1975–92, but 30% now survive (was 6%) |
+| Reckless from 2000, strict history | 31/50 | 1.9% | partly met: 10 of 19 failures in 2008–10, the largest cluster, but fewer fail |
 
 Farm-supply divisions (D-103, prudent bot, 10 seeds × 25 years): feed profitable in 96–100% of
 division-years (median 3.6–4.7% of sales), energy 61–94% (4.6–6.3%), agronomy 85–100%
 (3.6% from 1970, 8.2% from 2000). Retail is not built by the bots; a test co-op's retail earns
 2–8% of sales across eras.
+
+Since D-108 the default trade area holds 60% more farm customers than founding members (was 25%), which strengthens every co-op, the reckless one included; the reckless bot now fails less often than intended.
 
 Engine errors: 0 in every run. Open balance work: the reckless co-ops that ride out 2008 and
 fail decades later; agronomy in the 2000s at the top of its plausible range.
