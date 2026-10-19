@@ -671,6 +671,8 @@ export interface CoopState {
   supplyPolicy: Record<SupplyDivision, SupplyPolicy>;
   /** Salespeople by business unit (D-109). */
   salesForce?: Partial<Record<OpDivision, number>>;
+  /** Livestock the co-op owns, in the feed division (D-111). */
+  livestock?: LivestockBook;
   /** Fiscal-year-to-date sales to members and non-members by division (cents), for Capper-Volstead and patronage. */
   patronageStats: Record<DivisionId, { member: Cents; nonmember: Cents }>;
   equityProgram: EquityProgram;
@@ -681,6 +683,35 @@ export interface CoopState {
 // ---------- Patronage, tax, equity (DESIGN §11) ----------
 
 export type OpDivision = Exclude<DivisionId, 'CORP'>;
+
+// ---------- Livestock (D-111) ----------
+
+export type LivestockKind = 'hogs' | 'cattle';
+/** Spot: the day's packer bid. Formula: a contract paying a quality premium. Fixed: a price locked at placement. */
+export type LivestockMarketing = 'spot' | 'formula' | 'fixed';
+
+export interface LivestockCohort {
+  id: number;
+  kind: LivestockKind;
+  head: number;
+  placedMonth: number;
+  sellMonth: number;
+  /** Cost carried in inventory (account 1250): animals, feed and fees so far. */
+  cost: Cents;
+  marketing: LivestockMarketing;
+  /** $/cwt live locked with the packer at placement (fixed contracts). */
+  lockedPrice?: number;
+  /** Share expected to die before sale. */
+  deathLoss: number;
+}
+
+export interface LivestockBook {
+  program: Record<LivestockKind, { headPerMonth: number; marketing: LivestockMarketing }>;
+  cohorts: LivestockCohort[];
+  nextId: number;
+  /** Groups sold (last 36). */
+  sales: { monthIndex: number; kind: LivestockKind; head: number; revenue: Cents; cost: Cents }[];
+}
 export const OP_DIVISIONS: OpDivision[] = ['GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'RETAIL'];
 export type PatronageBasis = 'units' | 'sales' | 'margin';
 export type LossTreatment = 'absorbUnallocated' | 'carryForward' | 'chargeAllocated' | 'netAgainstPools';

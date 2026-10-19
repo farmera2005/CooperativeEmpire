@@ -19,6 +19,7 @@ import { stepNotes } from '../people/notes';
 import { stepProposals } from '../people/proposals';
 import { stepSalesForce } from '../people/sales';
 import { stepTeam } from '../people/team';
+import { stepLivestock } from '../supply/livestock';
 import { suppressGameOver } from './debug';
 import { stepCompetitors } from '../competitors/ai';
 import { stepDeals } from '../deals/deals';
@@ -109,6 +110,7 @@ export function advanceMonth(state: GameState, decisions: Command[] = [], opts: 
   // 10–13. competitor prices, demand, share of wallet and divisions (grain; others in M3)
   stepGrain(ctx);
   stepSupply(ctx);
+  stepLivestock(ctx);
   stepCapperVolstead(ctx);
   // 14. cross-division effects — M3
   // 15. working capital: facility and corporate overhead

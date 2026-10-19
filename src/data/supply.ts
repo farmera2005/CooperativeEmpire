@@ -253,6 +253,54 @@ export const SUPPLIER_VOLUME = {
   excludedLines: ['CROP_PROTECTION'] as LineId[],
 };
 
+/**
+ * Livestock the co-op owns (D-111): hogs finished by contract growers and steers fed in a custom
+ * feedlot, sold to packers. Dollar amounts are 2024 dollars scaled by the price level; weights
+ * and feed efficiency follow the industry's trend. Sources: Iowa State Estimated Livestock
+ * Returns, ISU/Purdue contract-production budgets, KSU Focus on Feedlots, UNL custom feeding
+ * surveys, USDA AMS LMR; figures to be tuned (see docs/DECISIONS.md D-111).
+ */
+export const LIVESTOCK = {
+  hogs: {
+    label: 'Hogs (feeder-to-finish, contract growers)',
+    /** Production contracts spread in the Midwest from the late 1980s; common by 1995. */
+    from: 1990,
+    inWeight: 50,
+    outWeight: ap([[1970, 220], [2024, 288]], 'medium', 'Market weight rose about 1.25 lb a year'),
+    days: ap([[1970, 130], [2024, 115]], 'medium'),
+    feedConversion: ap([[1970, 3.6], [1995, 3.1], [2024, 2.7]], 'medium', 'Pounds of feed per pound of gain, feeder to finish'),
+    /** Feeder pig price per head as a multiple of the live hog price per cwt. */
+    feederRatio: s(1.18, 'low', 'ISU/USDA direct feeder pig reports: a 40–50 lb pig ≈ 1.0–1.3 × live hog $/cwt'),
+    deathLoss: s(0.035, 'medium'),
+    /** Disease years with heavier losses (PEDv). */
+    deathLossShock: s<Record<number, number>>({ 2013: 0.07, 2014: 0.08 }, 'medium'),
+    growerFee2024: s(15, 'medium', '≈ $42 per pig space a year; grower supplies barn, utilities, labor'),
+    otherCost2024: s(12, 'low', 'Vet, medicine, transport and marketing per head'),
+    /** Formula contracts pay a carcass-merit premium (share of value). */
+    formulaPremium: s(0.02, 'medium', 'Lean premiums ≈ $2–4/cwt carcass'),
+    maxPerMonth: 5000,
+  },
+  cattle: {
+    label: 'Cattle (custom-fed steers)',
+    from: 1970,
+    inWeight: ap([[1970, 650], [2024, 775]], 'medium', 'Placement weights rose with the market weight'),
+    outWeight: ap([[1970, 1100], [2024, 1475]], 'medium'),
+    days: ap([[1970, 135], [2024, 170]], 'medium'),
+    /** Feed per head, tons as fed. */
+    feedTons: ap([[1970, 2.4], [2024, 3.1]], 'medium', 'About 2.2 t dry matter (3.1 t as fed) in 2024'),
+    /** A finishing ration costs this share of a hog ration (corn, distillers, silage, supplement); the lot charges yardage, not a markup. */
+    rationFactor: s(0.8, 'low'),
+    feederRatio: ap([[1970, 1.05], [1990, 1.12], [2010, 1.18], [2024, 1.2]], 'medium', 'Feeder steer $/cwt ≈ 1.20 × fed steer $/cwt in the 2010s–2020s (sd 0.12), lower in earlier decades'),
+    deathLoss: s(0.015, 'medium'),
+    yardagePerDay2024: s(0.5, 'medium', 'UNL 2025 custom feeding survey: $0.35–0.65/head/day'),
+    otherCost2024: s(45, 'low', 'Processing and trucking per head'),
+    formulaPremium: s(0.01, 'low', 'Grid premiums, net of discounts'),
+    maxPerMonth: 1000,
+  },
+  /** Feed bought outside when our mill is full costs this much more than our own ration. */
+  commercialFeedMarkup: s(0.15, 'low'),
+};
+
 /** Competitor dealers by division: chance per town (county seats higher), and national chains by era. */
 export const SUPPLY_COMPETITORS = {
   AGRONOMY: { probTown: 0.3, probSeat: 0.8 },

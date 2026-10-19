@@ -6,6 +6,7 @@ import { comply } from '../world/regulation';
 import { chooseOption } from '../world/events';
 import { applyDebug, type DebugAction } from './debug';
 import { setSalesStaff } from '../people/sales';
+import { setLivestockProgram } from '../supply/livestock';
 import { giveTimeOff, holdRetreat, payTeamToMarket, setTeamBonusPlans, setTeamPolicy } from '../people/team';
 import { formatCents } from '../core/format';
 import {
@@ -23,7 +24,7 @@ import { addAgendaItem } from '../governance/votes';
 import type { Role } from '../../data/people';
 import { checkReferences, coach, fire, giveRaise, hire, interview, listInternal, poach, setBonusPlan, startSearch } from '../people/hiring';
 import { abandonDeal, dealDiligence, proposeAcquisition, proposeDivisionSale, proposeJv, proposeMerger, respondDeal, submitDeal } from '../deals/deals';
-import type { BylawChange, DealTerms, OpDivision, TrainingLevel, GameState, GrainPolicy, MaintenanceLevel, PatronageProposal, PayPosition, RedemptionPolicy, StaffLevel, SupplyPolicy } from '../types';
+import type { BylawChange, DealTerms, OpDivision, TrainingLevel, GameState, GrainPolicy, LivestockKind, LivestockMarketing, MaintenanceLevel, PatronageProposal, PayPosition, RedemptionPolicy, StaffLevel, SupplyPolicy } from '../types';
 import type { RegionalCategory } from '../../data/finance';
 import { validateProposal } from '../finance/patronage';
 import { setAffiliation } from '../finance/regionals';
@@ -53,6 +54,7 @@ export type Command =
   | { type: 'setMaintenance'; facilityId: number; level: MaintenanceLevel }
   | { type: 'setSalesStaff'; division: OpDivision; count: number }
   | { type: 'payTeamToMarket' }
+  | { type: 'setLivestockProgram'; kind: LivestockKind; headPerMonth: number; marketing: LivestockMarketing }
   | { type: 'setTeamBonusPlans'; on: boolean }
   | { type: 'holdRetreat' }
   | { type: 'giveTimeOff'; leaderId: number }
@@ -184,6 +186,7 @@ function run(s: GameState, cmd: Command): CommandMessage[] {
     case 'setStaffing': return setStaffing(s, cmd.facilityId, cmd.level, cmd.pay);
     case 'setSalesStaff': return setSalesStaff(s, cmd.division, cmd.count);
     case 'payTeamToMarket': return payTeamToMarket(s);
+    case 'setLivestockProgram': return setLivestockProgram(s, cmd.kind, cmd.headPerMonth, cmd.marketing);
     case 'setTeamBonusPlans': return setTeamBonusPlans(s, cmd.on);
     case 'holdRetreat': return holdRetreat(s);
     case 'giveTimeOff': return giveTimeOff(s, cmd.leaderId);

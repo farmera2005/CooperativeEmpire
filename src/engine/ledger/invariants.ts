@@ -112,6 +112,10 @@ export function checkInvariants(state: GameState): string[] {
   const jv = state.jvs.reduce((a, x) => a + x.investment, 0);
   if (jv !== glOf('1450')) errors.push(`Joint ventures ${jv} != GL ${glOf('1450')}`);
 
+  // 10b. Livestock inventory ties to the groups on feed (D-111).
+  const herd = (state.coop.livestock?.cohorts ?? []).reduce((a, c) => a + c.cost, 0);
+  if (herd !== glOf('1250')) errors.push(`Livestock ${herd} != GL ${glOf('1250')}`);
+
   // 10. Goodwill, net of amortization, ties to the purchases that created it.
   const n = DEALS.goodwillMonths;
   let gw = 0;

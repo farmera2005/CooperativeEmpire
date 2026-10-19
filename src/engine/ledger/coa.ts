@@ -34,6 +34,7 @@ export const ACCOUNTS: Account[] = [
   a('1220', 'Feed inventory', 'asset', 'operating', { bsGroup: 'currentAssets' }),
   a('1230', 'Energy inventory', 'asset', 'operating', { bsGroup: 'currentAssets' }),
   a('1240', 'Retail inventory', 'asset', 'operating', { bsGroup: 'currentAssets' }),
+  a('1250', 'Livestock inventory', 'asset', 'operating', { bsGroup: 'currentAssets' }),
   a('1300', 'Prepaid supplier deposits', 'asset', 'operating', { bsGroup: 'currentAssets' }),
   a('1310', 'Margin deposits', 'asset', 'operating', { bsGroup: 'currentAssets' }),
   a('1320', 'Open grain contracts - gains', 'asset', 'operating', { bsGroup: 'currentAssets' }),
@@ -69,7 +70,9 @@ export const ACCOUNTS: Account[] = [
   a('3950', 'Debug capital adjustments', 'equity', 'financing', { bsGroup: 'memberEquity' }),
   // Income statement
   a('4000', 'Sales', 'revenue', 'income', { isGroup: 'sales' }),
+  a('4050', 'Livestock sales', 'revenue', 'income', { isGroup: 'sales' }),
   a('5000', 'Cost of goods sold', 'cogs', 'income', { isGroup: 'cogs' }),
+  a('5050', 'Cost of livestock sold', 'cogs', 'income', { isGroup: 'cogs' }),
   a('6000', 'Service & other operating income', 'revenue', 'income', { isGroup: 'serviceIncome' }),
   a('7000', 'Salaries & wages', 'expense', 'income', { isGroup: 'personnel' }),
   a('7010', 'Benefits & payroll taxes', 'expense', 'income', { isGroup: 'personnel' }),

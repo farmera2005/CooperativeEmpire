@@ -5,6 +5,7 @@ import { DIVISION_LABEL, LINES, LINES_BY_DIVISION, type LineId, type SupplyDivis
 import { fiscalYearOf, fiscalYearStart, formatMonthShort, incomeStatement, supplierTerms, type SupplyPolicy } from '../../engine/index';
 import { BreakdownView } from '../components/BreakdownView';
 import { BuildSupplySite, FacilitiesPanel, OffersPanel } from '../components/FacilityPanels';
+import { LivestockPanel } from '../components/LivestockPanel';
 import { CommitNumber } from '../components/CommitNumber';
 import { Panel, Stat } from '../components/Panel';
 import { Term } from '../components/Term';
@@ -13,7 +14,7 @@ import { useStore } from '../store';
 
 const DIVS: SupplyDivision[] = ['AGRONOMY', 'FEED', 'ENERGY', 'RETAIL'];
 const KINDS: Record<SupplyDivision, Exclude<FacilityKind, 'elevator'>[]> = { AGRONOMY: ['agronomy'], FEED: ['feedmill'], ENERGY: ['energy'], RETAIL: ['station', 'farmstore'] };
-type Sub = 'overview' | 'facilities' | 'policies' | 'buy';
+type Sub = 'overview' | 'facilities' | 'policies' | 'buy' | 'livestock';
 
 export function SupplyScreen() {
   const [div, setDiv] = useState<SupplyDivision>('AGRONOMY');
@@ -27,7 +28,7 @@ export function SupplyScreen() {
           return <button key={d} className={`btn ${div === d ? 'btn-primary' : ''}`} onClick={() => setDiv(d)}>{DIVISION_LABEL[d]}{open ? '' : ' (not yet)'}</button>;
         })}
         <span className="mx-2 h-6 w-px bg-stone-300" />
-        {([['overview', 'Overview'], ['facilities', 'Facilities'], ['policies', 'Policies'], ['buy', 'Buy or build']] as [Sub, string][]).map(([id, l]) => (
+        {([['overview', 'Overview'], ['facilities', 'Facilities'], ['policies', 'Policies'], ['buy', 'Buy or build'], ...(div === 'FEED' ? [['livestock', 'Livestock']] : [])] as [Sub, string][]).map(([id, l]) => (
           <button key={id} className={`btn ${sub === id ? 'btn-primary' : ''}`} onClick={() => setSub(id)}>{l}</button>
         ))}
       </div>
@@ -35,6 +36,7 @@ export function SupplyScreen() {
       {sub === 'facilities' && <FacilitiesPanel division={div} />}
       {sub === 'policies' && <Policies d={div} />}
       {sub === 'buy' && <Buy d={div} />}
+      {sub === 'livestock' && div === 'FEED' && <LivestockPanel />}
     </div>
   );
 }

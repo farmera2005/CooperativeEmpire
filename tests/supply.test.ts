@@ -93,3 +93,42 @@ describe('supplier volume pricing', () => {
     expect(linePrice(s, path, 'CROP_PROTECTION', mi, pl, pl, 'market', 0.04).cost).toBe(linePrice(s, path, 'CROP_PROTECTION', mi, pl, pl, 'market').cost);
   });
 });
+
+describe('livestock (D-111)', () => {
+  /** A co-op with a feed mill running, built in place. */
+  function withMill(year: number, seed = 3): GameState {
+    let s = newGame({ ...DEFAULT_SETUP, startYear: year, startingMembers: 400, gameSeed: seed, mapSeed: seed, capitalPreset: 'well' });
+    s = applyCommand(s, { type: 'buyFacility', offerId: s.coop.offers.find((o) => o.kind === 'elevator')!.id, financePct: 0.5 }, { boardApproved: true }).state;
+    s = applyCommand(s, { type: 'buildFacility', kind: 'feedmill', townId: s.coop.homeTownId, components: TYPICAL_SITE.feedmill, financePct: 0.5 }, { boardApproved: true }).state;
+    const w = cloneState(s);
+    for (const p of w.coop.projects) w.coop.facilities.find((f) => f.id === p.facilityId)!.components = { ...p.components };
+    for (const f of w.coop.facilities) f.status = 'operating';
+    w.coop.projects = [];
+    return w;
+  }
+
+  it('needs a feed mill, and hogs need the contract-production era', () => {
+    const plain = newGame({ ...DEFAULT_SETUP, startYear: 2000, startingMembers: 300 });
+    expect(applyCommand(plain, { type: 'setLivestockProgram', kind: 'cattle', headPerMonth: 100, marketing: 'spot' }).ok).toBe(false);
+    expect(applyCommand(withMill(1980), { type: 'setLivestockProgram', kind: 'hogs', headPerMonth: 500, marketing: 'spot' }).ok).toBe(false);
+    expect(applyCommand(withMill(1980), { type: 'setLivestockProgram', kind: 'cattle', headPerMonth: 100, marketing: 'spot' }).ok).toBe(true);
+  });
+
+  it('places, feeds and sells groups through the books', () => {
+    let s = withMill(2005);
+    s = applyCommand(s, { type: 'setLivestockProgram', kind: 'hogs', headPerMonth: 1000, marketing: 'formula' }).state;
+    s = applyCommand(s, { type: 'setLivestockProgram', kind: 'cattle', headPerMonth: 200, marketing: 'fixed' }).state;
+    for (let i = 0; i < 9; i++) {
+      s = advanceMonth(s).state;
+      expect(checkInvariants(s)).toEqual([]);
+    }
+    const book = s.coop.livestock!;
+    expect(book.cohorts.length).toBeGreaterThan(0);
+    expect(book.sales.some((x) => x.kind === 'hogs')).toBe(true);
+    expect(book.sales.some((x) => x.kind === 'cattle')).toBe(true);
+    expect(book.cohorts.every((c) => c.kind !== 'cattle' || c.lockedPrice! > 0)).toBe(true);
+    let sales = 0;
+    for (const m of s.ledger.months) for (const [k, v] of Object.entries(m.activity)) if (k.startsWith('4050')) sales -= v;
+    expect(sales).toBeGreaterThan(0);
+  });
+});
