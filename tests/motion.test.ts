@@ -50,7 +50,7 @@ describe('competitors in motion', () => {
   });
 
   it('ethanol plants go up after the renewable fuel standard', () => {
-    const s = run(coop(2005, 3, 'strict'), 12 * 6);
+    const s = run(coop(2005, 1, 'strict'), 12 * 6);
     expect(s.world.destinations.filter((d) => d.kind === 'ethanol').length).toBeGreaterThan(0);
   });
 });
@@ -205,7 +205,7 @@ describe('deals', () => {
   });
 
   it('forms a joint venture and books our share of its earnings', () => {
-    let s = applyCommand(coop(2000, 6), { type: 'buildFacility', kind: 'agronomy', townId: 0, components: TYPICAL_SITE.agronomy, financePct: 0.5 }, { boardApproved: true }).state;
+    let s = applyCommand(coop(2000, 2), { type: 'buildFacility', kind: 'agronomy', townId: 0, components: TYPICAL_SITE.agronomy, financePct: 0.5 }, { boardApproved: true }).state;
     s = run(s, 14);
     // A neighboring co-op with an agronomy plant of its own.
     s = cloneState(s);

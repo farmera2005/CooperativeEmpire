@@ -3,7 +3,7 @@ import { brandName, type SupplyLine } from '../../data/brands';
 import { DATA_END_YEAR } from '../../data/markets';
 import { SETUP } from '../../data/tuning';
 import {
-  availableLenders, availableRegionals, DEFAULT_SETUP, defaultHomeTown, MONTH_NAMES, previewTerritory, startingCapital,
+  availableLenders, availableRegionals, DEFAULT_SETUP, defaultHomeTown, MONTH_NAMES, previewTerritory, startingCapital, territoryCustomers,
   suggestCoopNames, type CapitalPreset, type GameSetup,
 } from '../../engine/index';
 import { TerritoryMap } from '../components/TerritoryMap';
@@ -30,8 +30,8 @@ export function NewGameScreen() {
   const up = (p: Partial<GameSetup>) => setSetup((s) => ({ ...s, ...p }));
 
   const territory = useMemo(
-    () => previewTerritory({ mapSeed: setup.mapSeed, regionId: setup.regionId, startYear: setup.startYear, startingMembers: Math.max(SETUP.membersRange[0], Math.min(SETUP.membersRange[1], setup.startingMembers)) }),
-    [setup.mapSeed, setup.regionId, setup.startYear, setup.startingMembers],
+    () => previewTerritory({ mapSeed: setup.mapSeed, regionId: setup.regionId, startYear: setup.startYear, startingMembers: Math.max(SETUP.membersRange[0], Math.min(SETUP.membersRange[1], setup.startingMembers)), territoryCustomers: setup.territoryCustomers }),
+    [setup.mapSeed, setup.regionId, setup.startYear, setup.startingMembers, setup.territoryCustomers],
   );
   const homeTownId = setup.homeTownId !== undefined && setup.homeTownId < territory.towns.length ? setup.homeTownId : defaultHomeTown(territory).id;
   const suggestions = useMemo(() => suggestCoopNames(territory, setup.startYear, setup.mapSeed + nameSeed * 7919, 6), [territory, setup.startYear, setup.mapSeed, nameSeed]);
@@ -53,7 +53,9 @@ export function NewGameScreen() {
     up({ regionalAffiliations: rest });
   };
 
-  const valid = setup.startingMembers >= SETUP.membersRange[0] && setup.startingMembers <= SETUP.membersRange[1] && capital > 0;
+  const customers = territoryCustomers(setup);
+  const valid = setup.startingMembers >= SETUP.membersRange[0] && setup.startingMembers <= SETUP.membersRange[1] && capital > 0
+    && (setup.territoryCustomers === undefined || (setup.territoryCustomers >= setup.startingMembers && setup.territoryCustomers <= SETUP.customersRange[1]));
   const go = () => start({
     ...setup, lenderId, homeTownId, coopName: setup.coopName.trim() || suggestions[0],
     ...(setup.capitalPreset === 'custom' ? { customCapital: capital } : {}),
@@ -85,7 +87,13 @@ export function NewGameScreen() {
               <span className="text-sm font-semibold">Founding members</span>
               <input type="number" className="input mt-1 w-full" min={SETUP.membersRange[0]} max={SETUP.membersRange[1]} value={setup.startingMembers}
                 onChange={(e) => up({ startingMembers: Number(e.target.value) || 0 })} />
-              <span className="text-xs text-stone-500">{SETUP.membersRange[0]}–{SETUP.membersRange[1]}; sets the size of the trade territory</span>
+              <span className="text-xs text-stone-500">{SETUP.membersRange[0]}–{SETUP.membersRange[1]}; they put up the starting capital</span>
+            </label>
+            <label className="block">
+              <span className="text-sm font-semibold">Farm customers in the trade area</span>
+              <input type="number" className="input mt-1 w-full" min={setup.startingMembers} max={SETUP.customersRange[1]} value={setup.territoryCustomers ?? customers}
+                onChange={(e) => up({ territoryCustomers: Number(e.target.value) || undefined })} />
+              <span className="text-xs text-stone-500">Members and non-members; sets the size of the territory. {Math.round((100 * setup.startingMembers) / Math.max(1, customers))}% start as members. Membership grows when the co-op serves people well and pays patronage, and shrinks when it does not.</span>
             </label>
           </div>
           <fieldset>

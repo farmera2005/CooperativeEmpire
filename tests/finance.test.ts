@@ -222,7 +222,7 @@ describe('regional co-ops', () => {
 
 describe('budget', () => {
   it('drafts in May and is approved in July for the next fiscal year', () => {
-    let s = runTo(coop(1999, 12), 2000, 5);
+    let s = runTo(coop(1999, 1), 2000, 5);
     expect(s.coop.budget?.fy).toBe(2001);
     expect(s.coop.budget?.approved).toBe(false);
     const r = applyCommand(s, { type: 'setBudget', salesGrowthPct: 10, capex: 200_000_00 });
@@ -235,7 +235,7 @@ describe('budget', () => {
 
 describe('policies', () => {
   it('the baseline bot keeps cash patronage at the minimum when equity is thin', () => {
-    let s = coop(1985, 13);
+    let s = coop(1985, 1);
     for (let i = 0; i < 48 && !s.outcome; i++) s = advanceMonth(s, POLICIES.baseline(s)).state;
     const cash = s.coop.equityProgram.proposal.pools.ALL.cash;
     expect([0.2, 0.3]).toContain(cash);

@@ -1,7 +1,8 @@
 // Public engine API. The UI imports from here only.
 
 export * from './types';
-export { newGame, previewTerritory, suggestCoopNames, availableLenders, availableRegionals, startingCapital, defaultHomeTown, DEFAULT_SETUP } from './sim/newGame';
+export { businessShare, joinAppeal } from './members/joining';
+export { newGame, previewTerritory, suggestCoopNames, availableLenders, availableRegionals, startingCapital, territoryCustomers, defaultHomeTown, DEFAULT_SETUP } from './sim/newGame';
 export { advanceMonth, advanceUntilAttention, DEFAULT_INTERRUPTS, InvariantError } from './sim/advance';
 export type { TickResult, MonthSummary, Interrupt, InterruptConfig } from './sim/advance';
 export { applyCommand } from './sim/commands';

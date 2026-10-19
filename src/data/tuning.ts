@@ -17,10 +17,31 @@ export const SETUP = {
   minCapital: s(250_000, 'low'),
   membersRange: [50, 5000] as [number, number],
   defaultMembers: 400,
-  /** Non-member customers as a share of member count. */
-  nonMemberShare: s(0.25, 'low', 'Non-member customers relative to members; more near highway towns'),
+  /** Non-member customers as a share of member count, when the setup does not name the trade area's customers (D-108). */
+  nonMemberShare: s(0.6, 'low', 'Local co-ops typically count roughly half to two-thirds of the farms they serve as members'),
+  /** Farm customers in the trade area (members and non-members). */
+  customersRange: [50, 8000] as [number, number],
   /** Membership (common) stock par value per member (2024 $). */
   membershipStockPar: s(1000, 'low'),
+};
+
+/**
+ * Membership over time (D-108). A non-member customer who does real business with us and likes
+ * it joins with a monthly chance that rises with satisfaction and with the patronage refund they
+ * expect. A member who is unhappy and has stopped doing business resigns; the co-op redeems their
+ * membership stock at par, and their allocated equity stays and revolves as usual.
+ */
+export const MEMBERSHIP = {
+  joinBase: s(0.01, 'low', 'Monthly chance at the reference appeal'),
+  /** Average share of their business with us before a customer considers joining. */
+  joinShareMin: s(0.2, 'low'),
+  joinSatisfactionMin: s(45, 'low'),
+  /** Appeal: (satisfaction − 50) ÷ 20, plus this much per percentage point of expected refund. */
+  refundAppealPerPoint: s(0.6, 'low', 'The patronage refund is the economic reason to join'),
+  maxAppeal: 3,
+  leaveBase: s(0.006, 'low'),
+  leaveSatisfactionBelow: s(38, 'low'),
+  leaveShareBelow: s(0.15, 'low'),
 };
 
 export const GOVERNANCE_SETUP = {

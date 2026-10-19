@@ -27,7 +27,7 @@ export function cloneState(s: GameState): GameState {
   months.push(deepClone(ledger.months[ledger.months.length - 1]));
   c.ledger = { balances: { ...ledger.balances }, months, nextEntryId: ledger.nextEntryId, firstMonth: ledger.firstMonth };
   c.history = history.slice();
-  c.members = { list: members.list.map(cloneMember), nextId: members.nextId };
+  c.members = { list: members.list.map(cloneMember), nextId: members.nextId, ...(members.flow ? { flow: members.flow.slice() } : {}) };
   c.world = { ...world, weather: { ...world.weather, fieldDays: world.weather.fieldDays.slice() }, rail: world.rail.map((r) => ({ ...r })) };
   const { grain, ...coopRest } = coop;
   c.coop = { ...deepClone(coopRest), grain: { ...deepClone({ ...grain, reports: [] }), reports: grain.reports.slice() } } as GameState['coop'];

@@ -85,12 +85,12 @@ export function newFarmRecord(a: NewFarmArgs): Member {
   };
 }
 
-export function generateMembers(seed: number, towns: Town[], region: RegionDef, year: number, monthIndex: number, count: number): Member[] {
+export function generateMembers(seed: number, towns: Town[], region: RegionDef, year: number, monthIndex: number, count: number, customers?: number): Member[] {
   const rng = stream(seed, -1, 'members.generate');
   const ageMean = valueAt(region.operatorAgeMean, year);
   const ageSd = region.operatorAgeSd.value;
   const out: Member[] = [];
-  const nonMembers = Math.round(count * SETUP.nonMemberShare.value);
+  const nonMembers = customers !== undefined ? Math.max(0, customers - count) : Math.round(count * SETUP.nonMemberShare.value);
   for (let i = 0; i < count + nonMembers; i++) {
     const kind: Member['kind'] = i < count ? 'member' : 'nonmember';
     const town = rng.weighted(towns, (t) => townFarmWeight(t) * (kind === 'nonmember' && t.onHighway ? 1.5 : 1));

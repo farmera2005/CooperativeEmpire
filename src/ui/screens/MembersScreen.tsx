@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
-import { totalAcres, yearOf, type Member } from '../../engine/index';
-import { Panel } from '../components/Panel';
+import { MEMBERSHIP } from '../../data/tuning';
+import { businessShare, totalAcres, yearOf, type Member } from '../../engine/index';
+import { Panel, Stat } from '../components/Panel';
 import { Term } from '../components/Term';
-import { money, num } from '../format';
+import { money, num, pct } from '../format';
 import { useStore } from '../store';
 
 const PAGE = 50;
@@ -61,8 +62,20 @@ export function MembersScreen() {
   const th = (k: SortKey, label: string, right = false) => (
     <th className={`${right ? 'r' : ''} cursor-pointer`} onClick={() => setSort(k)}>{label}{sort === k ? ' ▾' : ''}</th>
   );
+  const activeAll = game.members.list.filter((m) => m.status === 'active');
+  const memberCount = activeAll.filter((m) => m.kind === 'member').length;
+  const flow12 = (game.members.flow ?? []).filter((f) => game.clock.monthIndex - f.monthIndex < 12);
+  const joined = flow12.reduce((a, f) => a + f.joined, 0);
+  const left = flow12.reduce((a, f) => a + f.left, 0);
+  const prospects = activeAll.filter((m) => m.kind === 'nonmember' && businessShare(m) >= MEMBERSHIP.joinShareMin.value).length;
   return (
     <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Stat label="Farm customers" value={num(activeAll.length)} sub="members and non-members in the trade area" />
+        <Stat label="Members" value={num(memberCount)} sub={`${pct(memberCount / Math.max(1, activeAll.length), 0)} of customers`} />
+        <Stat label="Joined / resigned, 12 months" value={`${joined} / ${left}`} tone={joined > left ? 'good' : left > joined ? 'bad' : 'neutral'} sub="satisfied customers join when patronage is worth having" />
+        <Stat label="Prospective members" value={num(prospects)} sub="non-members doing real business with us" />
+      </div>
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         {(['district', 'size'] as const).map((seg) => (
           <Panel key={seg} title={seg === 'district' ? 'Active members by district' : 'Active members by farm size'}>

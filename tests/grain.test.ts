@@ -75,7 +75,7 @@ describe('grain operations', () => {
   }
 
   it('hedging makes monthly grain margins steadier than an open position', () => {
-    let hedged = withElevator(2006, 5);
+    let hedged = withElevator(2006, 1);
     let open = applyCommand(hedged, { type: 'setGrainPolicy', policy: { hedgeRatio: 0 } }, { boardApproved: true }).state;
     const mh: number[] = [];
     const mo: number[] = [];

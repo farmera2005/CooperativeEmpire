@@ -44,3 +44,43 @@ describe('a realistic co-op economy (D-082 to D-084)', () => {
     expect(expectedRefundRate(w)).toBeGreaterThan(expectedRefundRate(s));
   });
 });
+
+describe('membership grows and shrinks (D-108)', () => {
+  it('sets the trade area\'s customers, with only the founders as members', async () => {
+    const { newGame, DEFAULT_SETUP } = await import('../src/engine/index');
+    const s = newGame({ ...DEFAULT_SETUP, startYear: 1990, startingMembers: 300, territoryCustomers: 900, gameSeed: 4, mapSeed: 4 });
+    const active = s.members.list.filter((m) => m.status === 'active');
+    expect(active).toHaveLength(900);
+    expect(active.filter((m) => m.kind === 'member')).toHaveLength(300);
+  });
+
+  it('joining is more attractive with satisfaction and an expected refund', async () => {
+    const { joinAppeal } = await import('../src/engine/members/joining');
+    expect(joinAppeal(70, 0.02)).toBeGreaterThan(joinAppeal(70, 0));
+    expect(joinAppeal(70, 0)).toBeGreaterThan(joinAppeal(50, 0));
+    expect(joinAppeal(30, 0)).toBe(0);
+  });
+
+  it('an unhappy member who took their business elsewhere resigns and their stock is redeemed', async () => {
+    const { advanceMonth, checkInvariants, newGame, DEFAULT_SETUP } = await import('../src/engine/index');
+    const { cloneState } = await import('../src/engine/sim/clone');
+    let s = cloneState(newGame({ ...DEFAULT_SETUP, startYear: 1990, startingMembers: 300, gameSeed: 5, mapSeed: 5 }));
+    const directors = new Set(s.governance.directors.map((d) => d.memberId));
+    const members = s.members.list.filter((m) => m.kind === 'member' && !directors.has(m.id));
+    for (const m of members) {
+      m.satisfaction = 5;
+      for (const k of Object.keys(m.share)) m.share[k] = 0;
+    }
+    const before = s.members.list.filter((m) => m.kind === 'member').length;
+    for (let i = 0; i < 6; i++) {
+      s = cloneState(advanceMonth(s).state);
+      for (const m of s.members.list) if (m.kind === 'member' && !directors.has(m.id)) m.satisfaction = 5;
+    }
+    const after = s.members.list.filter((m) => m.kind === 'member').length;
+    expect(after).toBeLessThan(before);
+    expect((s.members.flow ?? []).reduce((a, f) => a + f.left, 0)).toBe(before - after);
+    const resigned = s.members.list.find((m) => m.kind === 'nonmember' && members.some((x) => x.id === m.id))!;
+    expect(s.equity.commonStock[resigned.id] ?? 0).toBe(0);
+    expect(checkInvariants(s)).toEqual([]);
+  });
+});

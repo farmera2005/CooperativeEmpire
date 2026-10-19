@@ -46,9 +46,17 @@ export const DEFAULT_SETUP: GameSetup = {
   regionalAffiliations: [],
 };
 
-/** Territory preview for the setup screen (town names for the name generator, home town). */
-export function previewTerritory(setup: Pick<GameSetup, 'mapSeed' | 'regionId' | 'startYear' | 'startingMembers'>): Territory {
-  const t = generateTerritory(setup.mapSeed, REGIONS[setup.regionId], setup.startYear, setup.startingMembers);
+/** Farm customers in the trade area: as set, or founding members plus the usual share of non-members (D-108). */
+export function territoryCustomers(setup: Pick<GameSetup, 'startingMembers' | 'territoryCustomers'>): number {
+  const [lo, hi] = SETUP.customersRange;
+  const members = Math.round(setup.startingMembers);
+  const wanted = setup.territoryCustomers ?? Math.round(members * (1 + SETUP.nonMemberShare.value));
+  return Math.max(members, Math.max(lo, Math.min(hi, Math.round(wanted))));
+}
+
+/** Territory preview for the setup screen (town names for the name generator, home town). The map is sized to the farms it holds. */
+export function previewTerritory(setup: Pick<GameSetup, 'mapSeed' | 'regionId' | 'startYear' | 'startingMembers' | 'territoryCustomers'>): Territory {
+  const t = generateTerritory(setup.mapSeed, REGIONS[setup.regionId], setup.startYear, territoryCustomers(setup));
   t.districts = makeDistricts(t, GOVERNANCE_SETUP.districts, townFarmWeight);
   return t;
 }
@@ -110,18 +118,19 @@ export function newGame(setupIn: GameSetup): GameState {
 
   const territory = previewTerritory({ ...setup, startingMembers: members });
   const homeTown = setup.homeTownId !== undefined ? territory.towns[setup.homeTownId] : defaultHomeTown(territory);
-  const list = generateMembers(setup.gameSeed, territory.towns, region, setup.startYear, startMonth, members);
+  const customers = territoryCustomers({ ...setup, startingMembers: members });
+  const list = generateMembers(setup.gameSeed, territory.towns, region, setup.startYear, startMonth, members, customers);
   const governance = electFoundingBoard(stream(setup.gameSeed, -1, 'governance.founding'), list, territory.districts.length, setup.startYear);
   const name = setup.coopName.trim() || suggestCoopNames(territory, setup.startYear, setup.gameSeed, 1)[0];
 
   const state: GameState = {
     schemaVersion: SCHEMA_VERSION,
-    setup: { ...setup, startingMembers: members, coopName: name },
+    setup: { ...setup, startingMembers: members, territoryCustomers: customers, coopName: name },
     clock: { monthIndex: startMonth, startMonth, commandsThisMonth: 0 },
     drift,
     world: { ...territory, weather: weatherFor(setup.gameSeed, setup.regionId, startMonth) },
     markets: { current: {}, previous: {} },
-    members: { list, nextId: list.length + 1 },
+    members: { list, nextId: list.length + 1, flow: [] },
     ledger: emptyLedger(startMonth),
     equity: { commonStock: {}, preferredStock: {}, allocated: {} },
     governance,

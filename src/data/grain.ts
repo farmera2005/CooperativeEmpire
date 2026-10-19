@@ -348,8 +348,6 @@ export const SATISFACTION = {
   pricePerDollar: s(300, 'low', 'Satisfaction points per 2024 $/bu of net price advantage'),
   waitPerHour: s(3, 'low'),
   grievancePerSeverity: s(4, 'low'),
-  /** Monthly chance a satisfied non-member customer joins. */
-  joinProb: s(0.01, 'low'),
   /** Satisfaction points a fully loyal member gives the co-op regardless of results. */
   loyaltyBonus: s(10, 'low'),
 };

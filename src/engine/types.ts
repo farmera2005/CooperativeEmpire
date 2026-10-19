@@ -23,6 +23,11 @@ export interface GameSetup {
   coopName: string;
   startYear: number;
   startingMembers: number;
+  /**
+   * Farm customers in the trade area, members and non-members together (D-108). Founding
+   * members are part of it; the rest start as non-member customers. Defaults from the members.
+   */
+  territoryCustomers?: number;
   capitalPreset: CapitalPreset;
   /** Used when capitalPreset is 'custom' (nominal dollars, in cents). */
   customCapital?: Cents;
@@ -194,6 +199,8 @@ export interface Member {
 export interface MemberStore {
   list: Member[];
   nextId: number;
+  /** Customers who joined and members who resigned, by month (last 24 months; D-108). */
+  flow?: { monthIndex: number; joined: number; left: number }[];
 }
 
 // ---------- Ledger ----------
