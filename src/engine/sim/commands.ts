@@ -6,6 +6,7 @@ import { comply } from '../world/regulation';
 import { chooseOption } from '../world/events';
 import { applyDebug, type DebugAction } from './debug';
 import { setSalesStaff } from '../people/sales';
+import { giveTimeOff, holdRetreat, payTeamToMarket, setTeamBonusPlans, setTeamPolicy } from '../people/team';
 import { formatCents } from '../core/format';
 import {
   buildElevator, buildFacility, buyOffer, closeFacility, dueDiligence, renovateFacility, setFacilityStatus, setStaffing, upgradeFacility,
@@ -51,6 +52,11 @@ export type Command =
   | { type: 'setStaffing'; facilityId: number; level: StaffLevel; pay: PayPosition }
   | { type: 'setMaintenance'; facilityId: number; level: MaintenanceLevel }
   | { type: 'setSalesStaff'; division: OpDivision; count: number }
+  | { type: 'payTeamToMarket' }
+  | { type: 'setTeamBonusPlans'; on: boolean }
+  | { type: 'holdRetreat' }
+  | { type: 'giveTimeOff'; leaderId: number }
+  | { type: 'setTeamPolicy'; policy: { autoPayMarket: boolean; autoBonus: boolean } }
   | { type: 'setGrainPolicy'; policy: Partial<GrainPolicy> }
   | { type: 'setLineCommitment'; amount: number }
   | { type: 'prepayTermLoan'; loanId: number; amount: number }
@@ -177,6 +183,11 @@ function run(s: GameState, cmd: Command): CommandMessage[] {
     case 'closeFacility': return closeFacility(s, cmd.facilityId);
     case 'setStaffing': return setStaffing(s, cmd.facilityId, cmd.level, cmd.pay);
     case 'setSalesStaff': return setSalesStaff(s, cmd.division, cmd.count);
+    case 'payTeamToMarket': return payTeamToMarket(s);
+    case 'setTeamBonusPlans': return setTeamBonusPlans(s, cmd.on);
+    case 'holdRetreat': return holdRetreat(s);
+    case 'giveTimeOff': return giveTimeOff(s, cmd.leaderId);
+    case 'setTeamPolicy': return setTeamPolicy(s, cmd.policy);
     case 'setMaintenance': {
       const f = s.coop.facilities.find((x) => x.id === cmd.facilityId && x.status !== 'closed');
       if (!f) return [{ level: 'error', text: 'Unknown facility.' }];

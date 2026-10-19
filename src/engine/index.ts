@@ -3,6 +3,7 @@
 export * from './types';
 export { businessShare, joinAppeal } from './members/joining';
 export { salesBoost, salesCost, salesCoverage, salesStaff, SALES_DIVISIONS } from './people/sales';
+export { flightRisk, moraleDrivers, payGapPct } from './people/team';
 export { newGame, previewTerritory, suggestCoopNames, availableLenders, availableRegionals, startingCapital, territoryCustomers, defaultHomeTown, DEFAULT_SETUP } from './sim/newGame';
 export { advanceMonth, advanceUntilAttention, DEFAULT_INTERRUPTS, InvariantError } from './sim/advance';
 export type { TickResult, MonthSummary, Interrupt, InterruptConfig } from './sim/advance';

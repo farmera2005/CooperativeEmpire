@@ -287,6 +287,22 @@ export const SALES_FORCE = {
   maxReps: 40,
 };
 
+/**
+ * Managing the leadership team (D-110). A yearly retreat lifts everyone's morale for a year;
+ * time off clears burnout; a standing policy keeps pay at market and bonus plans on each January.
+ * A leader whose yearly chance of leaving passes `flightRiskHigh` triggers a one-time alert.
+ */
+export const TEAM = {
+  retreatCost2024: s(6_000, 'low', 'Off-site leadership retreat and facilitator, per leader'),
+  retreatMorale: s(6, 'low'),
+  retreatMonths: 12,
+  timeOffBurnout: s(25, 'low'),
+  timeOffMorale: s(3, 'low'),
+  /** Yearly chance of leaving above which a leader is a flight risk to watch, and a high risk. */
+  flightRiskWatch: s(0.1, 'low'),
+  flightRiskHigh: s(0.2, 'low'),
+};
+
 export const MISCONDUCT = {
   /** Chance a hire carries a hidden misconduct risk (embezzlement), lower with reference checks. */
   embezzleProb: s(0.03, 'low'),

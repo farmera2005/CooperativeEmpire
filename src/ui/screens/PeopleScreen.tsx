@@ -1,6 +1,6 @@
-import { EFFECTS, ROLE_DEFS, ROLES, SALES_FORCE, SKILL_LABEL, SKILLS, TRAITS, type Role, type Skill } from '../../data/people';
+import { EFFECTS, ROLE_DEFS, ROLES, SALES_FORCE, SKILL_LABEL, SKILLS, TEAM, TRAITS, type Role, type Skill } from '../../data/people';
 import {
-  effect, effectiveSkill, formatMonthShort, holder, marketSalary, pathFor, salesBoost, salesCost, salesCoverage, salesStaff, siteFte, tightness, yearOf,
+  effect, effectiveSkill, flightRisk, formatMonthShort, holder, marketSalary, moraleDrivers, pathFor, payGapPct, salesBoost, salesCost, salesCoverage, salesStaff, siteFte, tightness, yearOf,
   type Candidate, type Leader, type OpDivision, type TrainingLevel,
 } from '../../engine/index';
 import { CommitNumber } from '../components/CommitNumber';
@@ -90,6 +90,7 @@ function LeadershipPanel() {
   const p = game.people;
   return (
     <Panel title="Leadership team">
+      <TeamToolbar />
       <table className="data">
         <thead><tr><th>Role</th><th>Who</th><th>Skills (what we know)</th><th>Traits</th><th className="r">Salary</th><th className="r">Morale</th><th></th></tr></thead>
         <tbody>
@@ -125,9 +126,10 @@ function LeadershipPanel() {
                 <td><Skills l={l} role={role} /></td>
                 <td><Traits l={l} /></td>
                 <td className={`r text-sm ${l.salary < market * 0.95 ? 'text-rust' : ''}`}>{money(l.salary, { compact: true })}<div className="text-xs text-stone-500">market {money(market, { compact: true })}</div></td>
-                <td className={`r ${l.morale < 45 ? 'text-rust' : ''}`}>{Math.round(l.morale)}{l.burnout > 40 && <div className="text-xs text-rust">burnout {Math.round(l.burnout)}</div>}</td>
+                <MoraleCell l={l} />
                 <td className="whitespace-nowrap">
                   <button className="btn py-0 text-xs" onClick={() => command({ type: 'coach', leaderId: l.id })}>Coach</button>
+                  {l.burnout >= 20 && <button className="btn ml-1 py-0 text-xs" onClick={() => command({ type: 'giveTimeOff', leaderId: l.id })} title="Clears burnout">Time off</button>}
                   <button className="btn ml-1 py-0 text-xs" onClick={() => command({ type: 'giveRaise', leaderId: l.id })}>Raise 5%</button>
                   <label className="ml-1 text-xs"><input type="checkbox" checked={l.bonusPlan} onChange={(e) => command({ type: 'setBonusPlan', leaderId: l.id, on: e.target.checked })} /> bonus plan</label>
                   <button className="btn ml-1 py-0 text-xs" onClick={() => command({ type: 'fireLeader', leaderId: l.id })}>Let go</button>
@@ -274,5 +276,50 @@ function SalesForcePanel() {
       </table>
       <p className="mt-1 text-xs text-stone-500">A salesperson calls on about {SALES_FORCE.customersPerRep.value} farm customers. More coverage wins business and recruits members, with diminishing returns; a division manager strong in sales makes the team more effective. Preference gain is in the same units as service quality (a top division manager's sales skill is worth about +0.6).</p>
     </Panel>
+  );
+}
+
+const RISK_STYLE = { low: 'text-stone-500', watch: 'text-amber-700', high: 'font-semibold text-rust' } as const;
+
+/** Morale with its drivers on hover, and the leader's chance of leaving (D-110). */
+function MoraleCell({ l }: { l: Leader }) {
+  const game = useStore((s) => s.game)!;
+  const { target, drivers } = moraleDrivers(game, l);
+  const risk = flightRisk(game, l);
+  const why = drivers.filter((d) => d.points !== 0).map((d) => `${d.label}: ${d.points > 0 ? '+' : ''}${Math.round(d.points)}`).join('\n');
+  return (
+    <td className={`r ${l.morale < 45 ? 'text-rust' : ''}`} title={`Heading toward ${Math.round(target)}\n${why}`}>
+      {Math.round(l.morale)} <span className="text-xs text-stone-500">→ {Math.round(target)}</span>
+      <div className={`text-xs ${RISK_STYLE[risk.level]}`}>{risk.level === 'low' ? 'settled' : risk.level === 'watch' ? 'watch' : 'flight risk'} · {pct(risk.annual, 0)}/yr</div>
+      {l.burnout > 40 && <div className="text-xs text-rust">burnout {Math.round(l.burnout)}</div>}
+    </td>
+  );
+}
+
+/** Team-wide actions and the standing January policy (D-110). */
+function TeamToolbar() {
+  const game = useStore((s) => s.game)!;
+  const command = useStore((s) => s.command);
+  const team = game.people.leaders;
+  if (!team.length) return null;
+  const mi = game.clock.monthIndex;
+  const underpaid = team.filter((l) => payGapPct(game, l) < 0);
+  const raise = underpaid.reduce((a, l) => a + (l.salary * -payGapPct(game, l)) / 100, 0);
+  const retreatReady = game.people.retreatMonth === undefined || mi - game.people.retreatMonth >= TEAM.retreatMonths;
+  const atRisk = team.filter((l) => flightRisk(game, l).level !== 'low').length;
+  const pol = game.people.teamPolicy ?? { autoPayMarket: false, autoBonus: false };
+  const avgMorale = team.reduce((a, l) => a + l.morale, 0) / team.length;
+  return (
+    <div className="mb-3 rounded border border-stone-200 bg-stone-50 p-2 text-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <span>Team morale <b>{Math.round(avgMorale)}</b>{atRisk ? <span className="ml-1 text-rust">· {atRisk} to watch</span> : ''}</span>
+        <button className="btn py-0 text-xs" disabled={!underpaid.length} onClick={() => command({ type: 'payTeamToMarket' })}>Pay everyone at market{underpaid.length ? ` (+${money(raise, { compact: true })}/yr)` : ''}</button>
+        <button className="btn py-0 text-xs" disabled={team.every((l) => l.bonusPlan)} onClick={() => command({ type: 'setTeamBonusPlans', on: true })}>Bonus plans for all</button>
+        <button className="btn py-0 text-xs" disabled={!retreatReady} onClick={() => command({ type: 'holdRetreat' })} title="Lifts morale for a year">Leadership retreat{retreatReady ? '' : ' (held this year)'}</button>
+        <label className="ml-2 flex items-center gap-1 text-xs"><input type="checkbox" checked={pol.autoPayMarket} onChange={(e) => command({ type: 'setTeamPolicy', policy: { ...pol, autoPayMarket: e.target.checked } })} /> keep pay at market each January</label>
+        <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={pol.autoBonus} onChange={(e) => command({ type: 'setTeamPolicy', policy: { ...pol, autoBonus: e.target.checked } })} /> keep everyone on bonus plans</label>
+      </div>
+      <div className="mt-1 text-xs text-stone-500">Hover a morale number to see what drives it. You get an alert when someone becomes a flight risk.</div>
+    </div>
   );
 }

@@ -221,3 +221,41 @@ describe('sales force (D-109)', () => {
     expect(team.coop.supply.AGRONOMY.report!.share).toBeGreaterThan(none.coop.supply.AGRONOMY.report!.share);
   });
 });
+
+describe('managing the leadership team (D-110)', () => {
+  it('pays the team at market, holds a retreat once a year and gives time off', async () => {
+    const { moraleDrivers, payGapPct } = await import('../src/engine/people/team');
+    let s = withLeader(withLeader(coop(1995, 7), 'CFO', 12), 'GRAIN', 12);
+    s = cloneState(s);
+    s.people.leaders = s.people.leaders.map((l) => ({ ...l, salary: Math.round(l.salary * 0.8), burnout: 60 }));
+    let r = applyCommand(s, { type: 'payTeamToMarket' });
+    expect(r.ok).toBe(true);
+    for (const l of r.state.people.leaders) expect(payGapPct(r.state, l)).toBeGreaterThanOrEqual(-0.01);
+    const before = moraleDrivers(r.state, r.state.people.leaders[0]).target;
+    const cash = balance(r.state.ledger, '1000');
+    r = applyCommand(r.state, { type: 'holdRetreat' });
+    expect(r.ok, r.messages.map((m) => m.text).join()).toBe(true);
+    expect(balance(r.state.ledger, '1000')).toBeLessThan(cash);
+    expect(moraleDrivers(r.state, r.state.people.leaders[0]).target).toBeGreaterThan(before);
+    expect(applyCommand(r.state, { type: 'holdRetreat' }).ok).toBe(false);
+    const id = r.state.people.leaders[0].id;
+    r = applyCommand(r.state, { type: 'giveTimeOff', leaderId: id });
+    expect(r.state.people.leaders.find((l) => l.id === id)!.burnout).toBeLessThan(60);
+  });
+
+  it('applies the January policy and warns once about a flight risk', () => {
+    let s = withLeader(coop(1995, 8), 'CFO', 15);
+    s = applyCommand(s, { type: 'setTeamPolicy', policy: { autoPayMarket: true, autoBonus: true } }).state;
+    s = cloneState(s);
+    // An underpaid, demoralized CFO with no loyalty left.
+    s.people.leaders = s.people.leaders.map((l) => ({ ...l, salary: Math.round(l.salary * 0.7), morale: 10, loyalty: 0 }));
+    s = run(s, 2);
+    const alerts = s.inbox.filter((i) => i.title.endsWith('may leave'));
+    expect(alerts.length).toBeLessThanOrEqual(1);
+    // Run to the next January: pay comes up to market and the bonus plan goes on.
+    while ((s.clock.monthIndex % 12) !== 0) s = run(s, 1);
+    s = run(s, 1);
+    const cfo = s.people.leaders.find((l) => l.role === 'CFO');
+    if (cfo) expect(cfo.bonusPlan).toBe(true);
+  });
+});

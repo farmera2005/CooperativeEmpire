@@ -983,7 +983,7 @@ export interface Leader {
   bonusPlan: boolean;
   coachedMonth: number | null;
   /** Hidden flags revealed by audits or events. */
-  flags: { embezzling?: boolean; hiddenPosition?: boolean; proposed?: number; approved?: number; right?: number };
+  flags: { embezzling?: boolean; hiddenPosition?: boolean; proposed?: number; approved?: number; right?: number; riskWarned?: number };
   retiring?: number;
 }
 
@@ -1045,6 +1045,10 @@ export interface PeopleState {
   notes: LeaderNote[];
   /** Month each role last listed internal candidates. */
   internalListed: Partial<Record<Role, number>>;
+  /** Month of the last leadership retreat (D-110). */
+  retreatMonth?: number;
+  /** Standing team policy: keep pay at market and everyone on bonus plans, each January (D-110). */
+  teamPolicy?: { autoPayMarket: boolean; autoBonus: boolean };
 }
 
 // ---------- Deals (DESIGN §14.6) ----------

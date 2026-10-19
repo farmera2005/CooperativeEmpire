@@ -2,6 +2,7 @@
 // departures and misconduct; the workforce by division (turnover, vacancies, morale);
 // training & safety spending; workplace incidents.
 
+import { moraleDrivers, quitChanceMonthly } from './team';
 import { techFactor } from '../world/tech';
 import { STAFF } from '../../data/grain';
 import { INCIDENTS, LABOR_MARKET, MISCONDUCT, PEOPLE, ROLE_DEFS, SKILLS, STAFFING, TRAINING } from '../../data/people';
@@ -64,7 +65,7 @@ function leaderMonth(ctx: TickContext, l: Leader): Leader | null {
   const lean = state.coop.facilities.some((f) => f.status === 'operating' && (d === 'CORP' || f.division === d) && f.staffing.level === 'lean');
   const crunch = isHarvestMonth(mi) && (d === 'GRAIN' || x.role === 'COO');
   x.burnout = clamp(x.burnout + (lean ? 2 : 0) + (crunch ? 3 : 0) - 2, 0, 100);
-  const target = 60 + clamp(payGap, -20, 15) + (x.bonusPlan ? 5 : 0) + TRAINING.morale[state.people.training] - x.burnout / 3 + (x.coachedMonth !== null && mi - x.coachedMonth < 6 ? 5 : 0);
+  const { target } = moraleDrivers(state, x);
   x.morale = clamp(x.morale + 0.15 * (target - x.morale), 0, 100);
   x.loyalty = clamp(x.loyalty + 0.05 * (x.morale - 55), 0, 100);
   // Growth: younger, ambitious, trained and coached leaders get better; coasters slide.
@@ -86,7 +87,7 @@ function leaderMonth(ctx: TickContext, l: Leader): Leader | null {
   if ((mi - x.hiredMonth) % 12 === 11) narrow(rng, x, Math.max(0.5, PEOPLE.revealWidth.none - PEOPLE.revealPerYear * Math.ceil(years)));
   // Quits and poaching: unhappy or underpaid strong people leave.
   const strong = Math.max(...ROLE_DEFS[x.role].primary.map((k) => x.skills[k])) >= 13;
-  const pQuit = 0.002 + 0.012 * Math.max(0, (45 - x.morale) / 45) + (strong && payGap < -5 ? 0.006 : 0) + 0.004 * Math.max(0, (40 - x.loyalty) / 40);
+  const pQuit = quitChanceMonthly(state, x);
   if (rng.chance(pQuit)) {
     ctx.inbox({ kind: 'alert', title: `${x.name} resigns`, body: `${x.name}, our ${ROLE_DEFS[x.role].label.toLowerCase()}, ${strong && payGap < 0 ? 'took a better-paying job with a competitor' : 'has resigned'}. The position is open.` });
     return null;

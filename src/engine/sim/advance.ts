@@ -18,6 +18,7 @@ import { stepPeople } from '../people/staff';
 import { stepNotes } from '../people/notes';
 import { stepProposals } from '../people/proposals';
 import { stepSalesForce } from '../people/sales';
+import { stepTeam } from '../people/team';
 import { suppressGameOver } from './debug';
 import { stepCompetitors } from '../competitors/ai';
 import { stepDeals } from '../deals/deals';
@@ -101,6 +102,7 @@ export function advanceMonth(state: GameState, decisions: Command[] = [], opts: 
   stepMarketplace(ctx);
   // 8. people: leaders, hiring, workforce, incidents
   stepPeople(ctx);
+  stepTeam(ctx);
   // 9. member demographics
   demographicsMonthly(ctx);
   stepJoining(ctx);
