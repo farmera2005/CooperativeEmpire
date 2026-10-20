@@ -75,13 +75,15 @@ Internal checkpoints (commit each): M3a Agronomy → M3b Feed → M3c Energy →
 
 | Run | Survived | Median net savings | Target |
 |---|---|---|---|
-| Baseline from 1970 | 47/50 (94%) | 3.5% | met |
-| Baseline from 1985 | 49/50 (98%) | 3.8% | met |
-| Baseline from 2010 | 43/50 (86%) | 3.8% | met |
-| Reckless from 1970 | 4/50 | 1.5% | met: 36 of 46 failures 1975–93 |
-| Reckless from 2000, strict history | 24/50 | 1.9% | met: 12 of 26 failures in 2008–10, the largest cluster |
+| Baseline from 1970 | 48/50 (96%) | 3.9% | met |
+| Baseline from 1985 | 48/50 (96%) | 4.0% | met |
+| Baseline from 2010 | 43/50 (86%) | 3.9% | met |
+| Reckless from 1970 | 9/50 | 1.4% | mostly met: 28 of 41 failures 1975–93; 18% survive since D-114 (8% after D-113) |
+| Reckless from 2000, strict history | 24/50 | 2.0% | met: 12 of 26 failures in 2008–10, the largest cluster |
 
-Farm-supply divisions (D-103, prudent bot, 10 seeds × 25 years): feed profitable in 96–100% of
+Farm-supply divisions after D-114 (baseline bot, 10 seeds × 25 years): agronomy profitable in 91% of division-years from 1970 (median 4.8% of sales) and 100% from 2000 (8.9%); feed 100% (7.1%) and 90% (5.1%); energy 87% (4.6%) and 96% (6.3%). A passive player co-op (elevator, agronomy center and feed mill at the typical size, nothing else managed) earns 2.7% on agronomy and 2.8% on feed from 1970, 4.7% and 6.1% from 1985; before D-114 it lost money on agronomy 10 years in 11 from 1970 and was liquidated or its GM fired by 1975.
+
+Earlier (D-103, prudent bot, 10 seeds × 25 years): feed profitable in 96–100% of
 division-years (median 3.6–4.7% of sales), energy 61–94% (4.6–6.3%), agronomy 85–100%
 (3.6% from 1970, 8.2% from 2000). Retail is not built by the bots; a test co-op's retail earns
 2–8% of sales across eras.
