@@ -77,16 +77,16 @@ Internal checkpoints (commit each): M3a Agronomy → M3b Feed → M3c Energy →
 |---|---|---|---|
 | Baseline from 1970 | 47/50 (94%) | 3.5% | met |
 | Baseline from 1985 | 49/50 (98%) | 3.8% | met |
-| Baseline from 2010 | 44/50 (88%) | 3.9% | met |
-| Reckless from 1970 | 15/50 | 1.4% | mostly met: 27 of 35 failures 1975–92, but 30% now survive (was 6%) |
-| Reckless from 2000, strict history | 31/50 | 1.9% | partly met: 10 of 19 failures in 2008–10, the largest cluster, but fewer fail |
+| Baseline from 2010 | 43/50 (86%) | 3.8% | met |
+| Reckless from 1970 | 4/50 | 1.5% | met: 36 of 46 failures 1975–93 |
+| Reckless from 2000, strict history | 24/50 | 1.9% | met: 12 of 26 failures in 2008–10, the largest cluster |
 
 Farm-supply divisions (D-103, prudent bot, 10 seeds × 25 years): feed profitable in 96–100% of
 division-years (median 3.6–4.7% of sales), energy 61–94% (4.6–6.3%), agronomy 85–100%
 (3.6% from 1970, 8.2% from 2000). Retail is not built by the bots; a test co-op's retail earns
 2–8% of sales across eras.
 
-Since D-108 the default trade area holds 60% more farm customers than founding members (was 25%), which strengthens every co-op, the reckless one included; the reckless bot now fails less often than intended.
+D-108's larger default trade area strengthened every co-op, the reckless one included; D-113 restored the reckless failure rates (the bot speculates in proportion to its receipts, and lenders move a co-op with equity under 25% of assets straight to special credit).
 
 Engine errors: 0 in every run. Open balance work: the reckless co-ops that ride out 2008 and
 fail decades later; agronomy in the 2000s at the top of its plausible range.
