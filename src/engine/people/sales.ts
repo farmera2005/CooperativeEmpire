@@ -1,10 +1,11 @@
 // Sales force (D-109). The GM sets how many salespeople each business unit carries. They raise
-// farmers' preference for us — with diminishing returns as coverage of the trade area's
-// customers fills in — scaled by the division manager's sales skill, and they recruit members.
+// farmers' preference for us — with diminishing returns as coverage of the division's
+// prospects fills in — scaled by the division manager's sales skill, and they recruit members.
 // Their pay, benefits and expenses post monthly to the division.
 
 import { PEOPLE, SALES_FORCE } from '../../data/people';
 import { STAFF } from '../../data/grain';
+import { DIVISION_CONFIG } from '../../data/supply';
 import { clamp } from '../core/math';
 import { roundCents } from '../core/money';
 import { post } from '../ledger/ledger';
@@ -19,12 +20,27 @@ export const SALES_DIVISIONS: OpDivision[] = ['GRAIN', 'AGRONOMY', 'FEED', 'ENER
 
 export const salesStaff = (s: GameState, d: OpDivision): number => s.coop.salesForce?.[d] ?? 0;
 
-/** Active farm customers in the trade area (members and non-members). */
-const customers = (s: GameState): number => s.members.list.filter((m) => m.status === 'active').length;
+/**
+ * The division's prospects (D-114): active farms within reach of one of its sites, and for feed
+ * only those with livestock. A rep calls on growers who can buy from us, not the whole territory.
+ */
+function prospects(s: GameState, d: OpDivision): number {
+  const reach = d === 'GRAIN' ? null : DIVISION_CONFIG[d].reachMiles;
+  const towns = [...new Set(s.coop.facilities.filter((f) => f.division === d && f.status === 'operating').map((f) => f.townId))].sort((a, b) => a - b);
+  const dist = s.world.distances;
+  let n = 0;
+  for (const m of s.members.list) {
+    if (m.status !== 'active') continue;
+    if (d === 'FEED' && m.livestock.hogs + m.livestock.dairy + m.livestock.beefCows + m.livestock.cattleOnFeed <= 0) continue;
+    if (reach !== null && !towns.some((t) => dist[m.townId][t] <= reach)) continue;
+    n++;
+  }
+  return n;
+}
 
-/** Coverage: how many reps there are per the customers one rep can serve. */
+/** Coverage: how many reps there are per the prospects one rep can serve. */
 export function salesCoverage(s: GameState, d: OpDivision): number {
-  return (salesStaff(s, d) * S.customersPerRep.value) / Math.max(1, customers(s));
+  return (salesStaff(s, d) * S.customersPerRep.value) / Math.max(1, prospects(s, d));
 }
 
 /** Gain in farmers' preference for this division, in service-quality units. */

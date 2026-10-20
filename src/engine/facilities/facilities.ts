@@ -41,16 +41,16 @@ export const totalCapacityBu = (f: Facility): number => {
 };
 export const facilityBu = (f: Facility): number => COMMODITIES.reduce((s, c) => s + f.grain.bu[c], 0);
 
-/** Replacement cost in 2024 dollars (midpoint anchors). */
-export function replacementCost2024(c: Components): number {
+/** Replacement cost in 2024 dollars (midpoint anchors) of equipment as built in `year`. */
+export function replacementCost2024(c: Components, year?: number): number {
   let t = 0;
-  for (const id of Object.keys(c) as ComponentId[]) t += midCost(id) * (c[id] ?? 0);
+  for (const id of Object.keys(c) as ComponentId[]) t += midCost(id, year) * (c[id] ?? 0);
   return t;
 }
 
 /** Replacement cost in nominal cents for month mi. */
 export function replacementCost(path: MarketPath, mi: number, c: Components): Cents {
-  return roundCents(replacementCost2024(c) * constructionLevel(path, mi) * 100);
+  return roundCents(replacementCost2024(c, yearOf(mi)) * constructionLevel(path, mi) * 100);
 }
 
 export function emptyGrainState(): Facility['grain'] {
@@ -75,7 +75,7 @@ export function newFacility(state: GameState, townId: number, name: string, comp
 export function capitalize(state: GameState, facilityId: number, components: Components, total: Cents, label: string, remainingLifeShare = 1): JournalLine[] {
   const division = state.coop.facilities.find((f) => f.id === facilityId)?.division ?? 'GRAIN';
   const ids = (Object.keys(components) as ComponentId[]).filter((id) => (components[id] ?? 0) > 0).sort();
-  const weights = ids.map((id) => midCost(id) * (components[id] ?? 0));
+  const weights = ids.map((id) => midCost(id, yearOf(state.clock.monthIndex)) * (components[id] ?? 0));
   const parts = allocateCents(total, weights);
   const lines: JournalLine[] = [];
   ids.forEach((id, i) => {
@@ -249,7 +249,7 @@ export function stepFacilityCosts(ctx: TickContext): void {
     let repairRate = 0;
     let weight = 0;
     for (const id of Object.keys(f.components) as ComponentId[]) {
-      const w = midCost(id) * (f.components[id] ?? 0);
+      const w = midCost(id, yearOf(mi)) * (f.components[id] ?? 0);
       repairRate += COMPONENTS[id].repairRate * w;
       weight += w;
     }

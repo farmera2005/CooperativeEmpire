@@ -125,6 +125,7 @@ function fullCoop(year: number, seed = 1): GameState {
   let s = coop(year, seed);
   for (const k of ['agronomy', 'feedmill', 'energy'] as const) s = applyCommand(s, { type: 'buildFacility', kind: k, townId: s.coop.homeTownId, components: TYPICAL_SITE[k], financePct: 0.5 }, { boardApproved: true }).state;
   const w = cloneState(s);
+  for (const p of w.coop.projects) w.coop.facilities.find((f) => f.id === p.facilityId)!.components = { ...p.components };
   for (const f of w.coop.facilities) f.status = 'operating';
   w.coop.projects = [];
   return w;

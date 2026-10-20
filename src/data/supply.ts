@@ -3,6 +3,7 @@
 // cost index (D-031); product costs come from market series where one exists, otherwise from
 // 2024 anchors scaled by CPI. All values are low confidence unless noted.
 
+import type { ComponentId } from './facilities';
 import type { SeriesId } from './markets';
 import { s, type AnnualPoint, type Sourced } from './types';
 
@@ -43,6 +44,8 @@ export interface LineDef {
   /** Share of sales on account (rest cash). */
   creditShare: number;
   availableFrom?: number;
+  /** Equipment the division needs at one of its sites to carry the line at all (D-114). */
+  requires?: ComponentId;
 }
 
 const N_SEASON = [0, 0.02, 0.15, 0.3, 0.12, 0.08, 0, 0, 0, 0.13, 0.17, 0.03];
@@ -56,12 +59,12 @@ const RETAIL_SEASON = [0.075, 0.07, 0.08, 0.085, 0.09, 0.09, 0.095, 0.09, 0.085,
 export const LINES: Record<LineId, LineDef> = {
   FERT_N: { id: 'FERT_N', division: 'AGRONOMY', label: 'Nitrogen (anhydrous, UAN, urea)', unit: 'ton', cost: { kind: 'series', series: ['anhydrous', 'uan28', 'urea'], weights: [0.6, 0.25 * (0.82 / 0.28), 0.15 * (0.82 / 0.46)], factor: 0.87 }, margin: { kind: 'pct', value: 0.1 }, season: N_SEASON, inventory: 'position', storage: { component: 'dry-fert-plant|nh3-storage|liquid-fert-tanks', perUnit: 1 }, creditShare: 0.7 },
   FERT_PK: { id: 'FERT_PK', division: 'AGRONOMY', label: 'Phosphate & potash', unit: 'ton', cost: { kind: 'series', series: ['dap', 'potash'], weights: [0.5, 0.5], factor: 0.87 }, margin: { kind: 'pct', value: 0.1 }, season: PK_SEASON, inventory: 'position', storage: { component: 'dry-fert-plant', perUnit: 1 }, creditShare: 0.7 },
-  CROP_PROTECTION: { id: 'CROP_PROTECTION', division: 'AGRONOMY', label: 'Crop protection', unit: '$', cost: { kind: 'fixed2024', perUnit: 1 }, margin: { kind: 'pct', value: 0.08 }, season: CP_SEASON, inventory: 'flow', creditShare: 0.75 },
-  SEED: { id: 'SEED', division: 'AGRONOMY', label: 'Seed', unit: '$', cost: { kind: 'fixed2024', perUnit: 1 }, margin: { kind: 'pct', value: 0.09 }, season: SEED_SEASON, inventory: 'flow', creditShare: 0.75 },
+  CROP_PROTECTION: { id: 'CROP_PROTECTION', division: 'AGRONOMY', label: 'Crop protection', unit: '$', cost: { kind: 'fixed2024', perUnit: 1 }, margin: { kind: 'pct', value: 0.08 }, season: CP_SEASON, inventory: 'flow', creditShare: 0.75, requires: 'chem-warehouse' },
+  SEED: { id: 'SEED', division: 'AGRONOMY', label: 'Seed', unit: '$', cost: { kind: 'fixed2024', perUnit: 1 }, margin: { kind: 'pct', value: 0.09 }, season: SEED_SEASON, inventory: 'flow', creditShare: 0.75, requires: 'seed-warehouse' },
   APPLICATION: { id: 'APPLICATION', division: 'AGRONOMY', label: 'Custom application', unit: 'acre', cost: { kind: 'service' }, margin: { kind: 'perUnit', value: 9 }, season: [0, 0, 0.12, 0.25, 0.25, 0.12, 0.04, 0, 0, 0.1, 0.12, 0], inventory: 'flow', creditShare: 0.8 },
-  FEED_SWINE: { id: 'FEED_SWINE', division: 'FEED', label: 'Swine feed', unit: 'ton', cost: { kind: 'ration' }, margin: { kind: 'perUnit', value: 45 }, season: FLAT, inventory: 'flow', creditShare: 0.85 },
-  FEED_DAIRY: { id: 'FEED_DAIRY', division: 'FEED', label: 'Dairy feed', unit: 'ton', cost: { kind: 'ration' }, margin: { kind: 'perUnit', value: 45 }, season: FLAT, inventory: 'flow', creditShare: 0.85 },
-  FEED_BEEF: { id: 'FEED_BEEF', division: 'FEED', label: 'Beef feed & supplements', unit: 'ton', cost: { kind: 'ration' }, margin: { kind: 'perUnit', value: 55 }, season: [1.3, 1.3, 1.2, 1, 0.8, 0.7, 0.7, 0.7, 0.8, 1, 1.2, 1.3], inventory: 'flow', creditShare: 0.85 },
+  FEED_SWINE: { id: 'FEED_SWINE', division: 'FEED', label: 'Swine feed', unit: 'ton', cost: { kind: 'ration' }, margin: { kind: 'perUnit', value: 50 }, season: FLAT, inventory: 'flow', creditShare: 0.85 },
+  FEED_DAIRY: { id: 'FEED_DAIRY', division: 'FEED', label: 'Dairy feed', unit: 'ton', cost: { kind: 'ration' }, margin: { kind: 'perUnit', value: 50 }, season: FLAT, inventory: 'flow', creditShare: 0.85 },
+  FEED_BEEF: { id: 'FEED_BEEF', division: 'FEED', label: 'Beef feed & supplements', unit: 'ton', cost: { kind: 'ration' }, margin: { kind: 'perUnit', value: 60 }, season: [1.3, 1.3, 1.2, 1, 0.8, 0.7, 0.7, 0.7, 0.8, 1, 1.2, 1.3], inventory: 'flow', creditShare: 0.85 },
   FEED_TOLL: { id: 'FEED_TOLL', division: 'FEED', label: 'Toll milling for integrators', unit: 'ton', cost: { kind: 'service' }, margin: { kind: 'perUnit', value: 15 }, season: FLAT, inventory: 'flow', creditShare: 1 },
   FUEL_DIESEL: { id: 'FUEL_DIESEL', division: 'ENERGY', label: 'Farm diesel (delivered)', unit: 'gal', cost: { kind: 'series', series: ['diesel'], weights: [1], factor: 1 }, margin: { kind: 'perUnit', value: 0.25 }, season: DIESEL_SEASON, inventory: 'flow', creditShare: 0.6 },
   FUEL_GAS: { id: 'FUEL_GAS', division: 'ENERGY', label: 'Farm gasoline (delivered)', unit: 'gal', cost: { kind: 'series', series: ['gasoline'], weights: [1], factor: 1 }, margin: { kind: 'perUnit', value: 0.25 }, season: DIESEL_SEASON, inventory: 'flow', creditShare: 0.6 },

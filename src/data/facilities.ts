@@ -3,7 +3,7 @@
 // magnitude 2024 dollars, scaled by the construction-cost index for the year. All anchors
 // are low confidence until reviewed (docs/DATA_REVIEW.md).
 
-import { s, type Sourced } from './types';
+import { s, valueAt, type AnnualPoint, type Sourced } from './types';
 
 export type FacilityDivision = 'GRAIN' | 'AGRONOMY' | 'FEED' | 'ENERGY' | 'RETAIL' | 'CORP';
 
@@ -62,6 +62,11 @@ export interface ComponentDef {
    * operators and mill shifts. It is paid in proportion to how busy the division's equipment is.
    */
   variableFteShare?: number;
+  /**
+   * Real cost against the 2024 anchor by year, for equipment that grew bigger and more elaborate
+   * over the decades (D-114). Omitted = the same real cost in every year.
+   */
+  realCost?: AnnualPoint[];
 }
 
 const c = (x: ComponentDef): ComponentDef => x;
@@ -82,12 +87,12 @@ export const COMPONENTS: Record<ComponentId, ComponentDef> = {
   'loadout-unit75': c({ id: 'loadout-unit75', label: '75-car unit train loadout', division: 'GRAIN', unit: 'each', cost2024: s([4_000_000, 6_000_000], 'low'), account: '1520', lifeYears: 30, buildMonths: 9, permitMonths: 4, availableFrom: 1980, decayPerYear: 1, repairRate: 0.015, loadout: 'unit75', requires: 'mainline' }),
   'loadout-shuttle': c({ id: 'loadout-shuttle', label: '110-car shuttle loader & loop track', division: 'GRAIN', unit: 'each', cost2024: s([10_000_000, 16_000_000], 'low', 'Loop/7,000+ ft track and high-speed loadout added to an existing site; a greenfield shuttle facility with storage and receiving is $25–40M'), account: '1520', lifeYears: 30, buildMonths: 12, permitMonths: 6, availableFrom: 1990, decayPerYear: 0.8, repairRate: 0.012, loadout: 'shuttle', requires: 'mainline' }),
   // ---- Agronomy ----
-  'dry-fert-plant': c({ id: 'dry-fert-plant', label: 'Dry fertilizer plant (storage & blend tower)', division: 'AGRONOMY', unit: 'tons', cost2024: s([250, 450], 'low', 'Per ton of dry storage, incl. blender and load-out'), account: '1510', lifeYears: 30, buildMonths: 8, permitMonths: 4, availableFrom: 1950, decayPerYear: 1.5, repairRate: 0.02, ftePerUnit: 0.0001 }),
+  'dry-fert-plant': c({ id: 'dry-fert-plant', label: 'Dry fertilizer plant (storage & blend tower)', division: 'AGRONOMY', unit: 'tons', cost2024: s([250, 450], 'low', 'Per ton of dry storage, incl. blender and load-out'), account: '1510', lifeYears: 30, buildMonths: 8, permitMonths: 4, availableFrom: 1950, decayPerYear: 1.5, repairRate: 0.02, ftePerUnit: 0.0001 , realCost: [{ year: 1970, value: 0.7, confidence: 'low', source: 'Bulk blend plants grew from simple bins and a mixer to towers with automated blending' }, { year: 1990, value: 0.85, confidence: 'low' }, { year: 2005, value: 1, confidence: 'low' }] }),
   'nh3-storage': c({ id: 'nh3-storage', label: 'Anhydrous ammonia storage & nurse tanks', division: 'AGRONOMY', unit: 'tons', cost2024: s([600, 1000], 'low'), account: '1520', lifeYears: 25, buildMonths: 5, permitMonths: 4, availableFrom: 1955, decayPerYear: 1.5, repairRate: 0.025, ftePerUnit: 0.0005 }),
   'liquid-fert-tanks': c({ id: 'liquid-fert-tanks', label: 'Liquid fertilizer tanks', division: 'AGRONOMY', unit: 'tons', cost2024: s([120, 220], 'low'), account: '1520', lifeYears: 25, buildMonths: 3, permitMonths: 3, availableFrom: 1965, decayPerYear: 1.2, repairRate: 0.015, ftePerUnit: 0.0001 }),
-  'chem-warehouse': c({ id: 'chem-warehouse', label: 'Crop protection warehouse with containment', division: 'AGRONOMY', unit: 'each', cost2024: s([600_000, 1_200_000], 'low'), account: '1510', lifeYears: 30, buildMonths: 6, permitMonths: 3, availableFrom: 1960, decayPerYear: 1, repairRate: 0.012, ftePerUnit: 0.3 }),
-  'seed-warehouse': c({ id: 'seed-warehouse', label: 'Seed warehouse & treater', division: 'AGRONOMY', unit: 'each', cost2024: s([400_000, 900_000], 'low'), account: '1510', lifeYears: 30, buildMonths: 5, permitMonths: 2, availableFrom: 1950, decayPerYear: 1, repairRate: 0.012, ftePerUnit: 0.2 }),
-  applicator: c({ id: 'applicator', label: 'Custom application rig (floater / sprayer / toolbar)', division: 'AGRONOMY', unit: 'each', cost2024: s([350_000, 700_000], 'low', 'Prompt anchor: modern self-propelled machine $350K–700K'), account: '1520', lifeYears: 8, buildMonths: 1, permitMonths: 0, availableFrom: 1960, decayPerYear: 8, repairRate: 0.06, ftePerUnit: 0.5, variableFteShare: 0.6 }),
+  'chem-warehouse': c({ id: 'chem-warehouse', label: 'Crop protection warehouse with containment', division: 'AGRONOMY', unit: 'each', cost2024: s([600_000, 1_200_000], 'low'), account: '1510', lifeYears: 30, buildMonths: 6, permitMonths: 3, availableFrom: 1960, decayPerYear: 1, repairRate: 0.012, ftePerUnit: 0.3 , realCost: [{ year: 1970, value: 0.35, confidence: 'low', source: 'Secondary containment and mixing-load pads were required by state rules from the late 1980s and the 2006 EPA containment rule' }, { year: 1985, value: 0.5, confidence: 'low' }, { year: 1995, value: 0.8, confidence: 'low' }, { year: 2005, value: 1, confidence: 'low' }] }),
+  'seed-warehouse': c({ id: 'seed-warehouse', label: 'Seed warehouse & treater', division: 'AGRONOMY', unit: 'each', cost2024: s([400_000, 900_000], 'low'), account: '1510', lifeYears: 30, buildMonths: 5, permitMonths: 2, availableFrom: 1950, decayPerYear: 1, repairRate: 0.012, ftePerUnit: 0.2 , realCost: [{ year: 1970, value: 0.5, confidence: 'low', source: 'Bulk seed tenders and on-site treaters came with biotech seed from the late 1990s' }, { year: 1995, value: 0.7, confidence: 'low' }, { year: 2010, value: 1, confidence: 'low' }] }),
+  applicator: c({ id: 'applicator', label: 'Custom application rig (floater / sprayer / toolbar)', division: 'AGRONOMY', unit: 'each', cost2024: s([350_000, 700_000], 'low', 'Prompt anchor: modern self-propelled machine $350K–700K'), account: '1520', lifeYears: 8, buildMonths: 1, permitMonths: 0, availableFrom: 1960, decayPerYear: 8, repairRate: 0.06, ftePerUnit: 0.5, variableFteShare: 0.6 , realCost: [{ year: 1970, value: 0.35, confidence: 'low', source: 'A 1970s pull-type sprayer or early floater cost ~$25-50K (about $150-300K in 2024 dollars)' }, { year: 1985, value: 0.5, confidence: 'low' }, { year: 2000, value: 0.75, confidence: 'low' }, { year: 2015, value: 1, confidence: 'low' }] }),
   // ---- Feed ----
   'feed-mill': c({ id: 'feed-mill', label: 'Feed mill (grind & mix, bagging)', division: 'FEED', unit: 'tonsPerYr', cost2024: s([60, 110], 'low', 'Per ton of annual capacity'), account: '1510', lifeYears: 30, buildMonths: 12, permitMonths: 4, availableFrom: 1920, decayPerYear: 1.2, repairRate: 0.02, ftePerUnit: 0.00012, variableFteShare: 0.5 }),
   'pellet-mill': c({ id: 'pellet-mill', label: 'Pellet mill', division: 'FEED', unit: 'each', cost2024: s([800_000, 1_500_000], 'low'), account: '1520', lifeYears: 20, buildMonths: 4, permitMonths: 1, availableFrom: 1950, decayPerYear: 2, repairRate: 0.03, ftePerUnit: 1 }),
@@ -118,7 +123,9 @@ export const STORAGE_COMPONENTS: ComponentId[] = ['storage-wood', 'storage-concr
 export const LOADOUT_COMPONENTS: ComponentId[] = ['loadout-single', 'loadout-unit25', 'loadout-unit50', 'loadout-unit75', 'loadout-shuttle'];
 export const LOADOUT_RANK: Record<LoadoutType, number> = { truck: 0, single: 1, unit25: 2, unit50: 3, unit75: 4, shuttle: 5 };
 
-export const midCost = (id: ComponentId): number => {
-  const [lo, hi] = COMPONENTS[id].cost2024.value;
-  return (lo + hi) / 2;
+/** Midpoint cost per unit in 2024 dollars of equipment as built in `year` (2024 when omitted). */
+export const midCost = (id: ComponentId, year?: number): number => {
+  const def = COMPONENTS[id];
+  const [lo, hi] = def.cost2024.value;
+  return ((lo + hi) / 2) * (year !== undefined && def.realCost ? valueAt(def.realCost, year) : 1);
 };

@@ -279,7 +279,7 @@ export const SALES_FORCE = {
   /** Farm customers one rep can call on regularly. */
   customersPerRep: s(120, 'low', 'A sales agronomist or originator calls on roughly 80–150 growers'),
   /** Largest gain in preference, in service-quality units (as a top division manager's sales skill gives). */
-  maxBoost: s(0.6, 'low'),
+  maxBoost: s(1, 'low'),
   /** Change per point of the division manager's sales skill above 10. */
   skillFactorPerPoint: s(0.04, 'low'),
   /** Salespeople also recruit members: join appeal added per unit of boost. */

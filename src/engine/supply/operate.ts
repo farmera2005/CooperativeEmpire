@@ -179,7 +179,8 @@ export function stepSupply(ctx: TickContext): void {
     const facs = state.coop.facilities.filter((f) => f.division === d && f.status === 'operating');
     const open = facs.length > 0;
     rollBreakdowns(ctx, d, facs);
-    const lines = LINES_BY_DIVISION(d).filter((id) => (LINES[id].availableFrom ?? 0) <= year);
+    // A line needing equipment we lack (crop protection without a chemical warehouse) is not carried.
+    const lines = LINES_BY_DIVISION(d).filter((id) => (LINES[id].availableFrom ?? 0) <= year && (!open || !LINES[id].requires || cap(facs, LINES[id].requires!) > 0));
     const prices = {} as Record<LineId, LinePrice>;
     const discount = open ? supplierTerms(state, d).pct : 0;
     for (const id of lines) prices[id] = linePrice(state, path, id, mi, idx, pl, pol.posture, discount);
@@ -441,7 +442,7 @@ export function stepSupply(ctx: TickContext): void {
     // ---- variable operating costs: delivery, mill power, tank rent, prepay intake ----
     if (open) operatingExtras(ctx, d, book, sold, acc, idx, pl, month, prices, revenueTot + serviceTot);
     if (d === 'AGRONOMY' && open && pol.prepayProgram && PREPAY.months.includes(month)) {
-      const springShare = [3, 4, 5, 6].reduce((a, m) => a + (['FERT_N', 'FERT_PK', 'CROP_PROTECTION', 'SEED'] as LineId[]).reduce((b, id) => b + (acc.annualOurs[id] ?? 0) * seasonShare(id, m) * prices[id].ours, 0), 0);
+      const springShare = [3, 4, 5, 6].reduce((a, m) => a + (['FERT_N', 'FERT_PK', 'CROP_PROTECTION', 'SEED'] as LineId[]).reduce((b, id) => b + (prices[id] ? (acc.annualOurs[id] ?? 0) * seasonShare(id, m) * prices[id].ours : 0), 0), 0);
       const w = month === 12 ? PREPAY.decemberWeight.value : (1 - PREPAY.decemberWeight.value) / 2;
       const amt = roundCents(springShare * valueAt(PREPAY.share, year) * w * (1 - PREPAY.discountPct.value / 100) * 100);
       if (amt > 0) {

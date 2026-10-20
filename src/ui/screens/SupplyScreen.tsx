@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Bar, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { KIND_LABEL, type FacilityKind } from '../../data/facilities';
+import { COMPONENTS } from '../../data/facilities';
 import { DIVISION_LABEL, LINES, LINES_BY_DIVISION, type LineId, type SupplyDivision } from '../../data/supply';
 import { fiscalYearOf, fiscalYearStart, formatMonthShort, incomeStatement, supplierTerms, type SupplyPolicy } from '../../engine/index';
 import { BreakdownView } from '../components/BreakdownView';
@@ -81,6 +82,8 @@ function Overview({ d }: { d: SupplyDivision }) {
               <tbody>
                 {LINES_BY_DIVISION(d).map((id) => {
                   const l = r.lines[id];
+                  const needs = LINES[id].requires;
+                  if (!l && needs) return <tr key={id}><td>{LINES[id].label}</td><td colSpan={7} className="text-stone-500">Not carried: build a {COMPONENTS[needs].label.toLowerCase()} at one of our {DIVISION_LABEL[d].toLowerCase()} sites.</td></tr>;
                   if (!l) return null;
                   const isDollar = LINES[id].unit === '$';
                   return (

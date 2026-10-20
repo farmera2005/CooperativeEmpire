@@ -132,3 +132,33 @@ describe('livestock (D-111)', () => {
     expect(sales).toBeGreaterThan(0);
   });
 });
+
+describe('agronomy equipment (D-114)', () => {
+  it('prices equipment as built in its era: a 1970 rig and chemical shed cost far less in real terms', async () => {
+    const { replacementCost2024 } = await import('../src/engine/facilities/facilities');
+    const site = TYPICAL_SITE.agronomy;
+    expect(replacementCost2024(site, 1970)).toBeLessThan(replacementCost2024(site, 2024) * 0.7);
+    expect(replacementCost2024({ 'feed-mill': 30_000 }, 1970)).toBe(replacementCost2024({ 'feed-mill': 30_000 }, 2024));
+  });
+
+  it('crop protection and seed are carried only with their warehouses', () => {
+    const built = (components: Partial<Record<string, number>>) => {
+      let s = newGame({ ...DEFAULT_SETUP, startYear: 2005, startingMembers: 400, gameSeed: 2, mapSeed: 2, capitalPreset: 'well' });
+      s = applyCommand(s, { type: 'buildFacility', kind: 'agronomy', townId: s.coop.homeTownId, components: components as never, financePct: 0.5 }, { boardApproved: true }).state;
+      const w = cloneState(s);
+      for (const p of w.coop.projects) w.coop.facilities.find((f) => f.id === p.facilityId)!.components = { ...p.components };
+      for (const f of w.coop.facilities) f.status = 'operating';
+      w.coop.projects = [];
+      return run(w, 6).coop.supply.AGRONOMY.reports;
+    };
+    const sold = (reps: GameState['coop']['supply']['AGRONOMY']['reports'], id: 'CROP_PROTECTION' | 'SEED' | 'FERT_N') => reps.reduce((a, r) => a + (r.lines[id]?.sold ?? 0), 0);
+    const full = built(TYPICAL_SITE.agronomy);
+    const { 'chem-warehouse': _c, 'seed-warehouse': _s, ...bare } = TYPICAL_SITE.agronomy;
+    const plain = built(bare);
+    expect(sold(full, 'CROP_PROTECTION')).toBeGreaterThan(0);
+    expect(sold(full, 'SEED')).toBeGreaterThan(0);
+    expect(sold(plain, 'CROP_PROTECTION')).toBe(0);
+    expect(sold(plain, 'SEED')).toBe(0);
+    expect(sold(plain, 'FERT_N')).toBeGreaterThan(0);
+  });
+});
