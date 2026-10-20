@@ -64,7 +64,7 @@ interface Style {
 
 const STYLES: Record<Exclude<PolicyId, 'idle'>, Style> = {
   baseline: { posture: 'market', hedgeRatio: 1, financePct: 0.6, maxPriceToEquity: 2.5, maxFacilities: 3, expand: true, minEquityRatio: 0.4, diligence: true, supplyKinds: ['agronomy', 'energy', 'feedmill'], maxSupplySites: 3, supplyScale: 0.6, manageEquity: true, cashPatronage: 0.3, redemptionPct: 0.2 },
-  reckless: { posture: 'aggressive', hedgeRatio: 0.2, financePct: 0.7, maxPriceToEquity: 4, maxFacilities: 8, expand: true, minEquityRatio: 0, diligence: false, supplyKinds: ['agronomy', 'energy', 'feedmill', 'station', 'farmstore'], maxSupplySites: 8, supplyScale: 1.2, manageEquity: false, cashPatronage: 0.5, redemptionPct: 0.4, positionLimit: 400_000, positionShare: 0.15 },
+  reckless: { posture: 'aggressive', hedgeRatio: 0.2, financePct: 0.85, maxPriceToEquity: 4, maxFacilities: 8, expand: true, minEquityRatio: 0, diligence: false, supplyKinds: ['agronomy', 'energy', 'feedmill', 'station', 'farmstore'], maxSupplySites: 8, supplyScale: 1.2, manageEquity: false, cashPatronage: 0.5, redemptionPct: 0.4, positionLimit: 400_000, positionShare: 0.15 },
   conservative: { posture: 'premium', hedgeRatio: 1, financePct: 0.3, maxPriceToEquity: 0.8, maxFacilities: 1, expand: false, minEquityRatio: 0.5, diligence: true, supplyKinds: ['agronomy'], maxSupplySites: 1, supplyScale: 0.5, manageEquity: true, cashPatronage: 0.25, redemptionPct: 0.15 },
 };
 
