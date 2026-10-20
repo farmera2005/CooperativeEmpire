@@ -93,13 +93,16 @@ export function stepCovenants(ctx: TickContext): void {
     const eqr = test.results.find((x) => x.id === 'equityRatio')!;
     const [k0, k1] = COVENANTS.crunchYears;
     const crunch = ctx.year >= k0 && ctx.year <= k1 && eqr.value < COVENANTS.crunchDistressEquity.value;
-    const distress = dsc.value < 1 || (!eqr.ok && (!prev || test.equity < prev.equity)) || crunch;
+    const deep = eqr.value < COVENANTS.deepBreachEquity.value;
+    const distress = dsc.value < 1 || (!eqr.ok && (!prev || test.equity < prev.equity)) || crunch || deep;
     if (fin.status === 'standard' && crunch) {
       move('specialCredit', 'Credit crunch: loans moved to special credit', `Credit markets have frozen and our equity is thin (${failed}). ${lender} moved our loans straight to its special credit group. Cash patronage is limited to the legal minimum, redemptions stop, capital projects need consent, and a consultant bills us monthly. If we are still this thin at the next year end, the lender will act.`);
     } else if (fin.status === 'standard') {
       move('watch', 'Loan covenant breached: lender watch list', `${lender} reports that we are out of compliance: ${failed}. We are on the watch list and pay ${COVENANTS.watchSpread.value} points more on the line. If we are still out of compliance at next year end we will need a formal waiver.`);
     } else if (fin.status === 'watch' && crunch) {
       move('specialCredit', 'Credit crunch: loans moved to special credit', `With credit markets frozen and our equity thin (${failed}), ${lender} skipped the waiver and moved our loans to its special credit group. Cash patronage is limited to the legal minimum, redemptions stop, capital projects need consent, and a consultant bills us monthly.`);
+    } else if (fin.status === 'watch' && deep) {
+      move('specialCredit', 'Loans transferred to special credit', `Our equity has fallen far below the covenant (${failed}). ${lender} skipped the waiver and moved our loans to its special credit group: cash patronage is limited to the legal minimum, redemptions stop, capital projects need consent, and a consultant bills us monthly. If we are still this thin at the next year end, the lender will act.`);
     } else if (fin.status === 'watch' && fin.breachQuarters >= COVENANTS.quartersToEscalate) {
       const fee = roundCents(fin.lineCommitment * COVENANTS.waiverFee.value);
       if (fee > 0) post(state, { source: 'covenant-waiver', memo: 'Covenant waiver fee', lines: [{ account: '7600', division: 'CORP', amount: fee }, { account: '1000', division: 'CORP', amount: -fee }] });

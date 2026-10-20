@@ -139,6 +139,12 @@ export const COVENANTS = {
   crunchYears: [2008, 2010] as [number, number],
   crunchLineCut: s({ commercial: 0.25, coopBank: 0.15 }, 'low', '2008–09: banks shrank exposure to leveraged agribusiness borrowers'),
   crunchDistressEquity: s(0.25, 'low', 'Thin by 2008 ag-lending standards, where 30% equity covenants were common'),
+  /**
+   * Deep breach (D-113): equity this far under the covenant is distress even while it creeps
+   * back, and a watched borrower this thin goes straight to special credit. Lenders do not
+   * leave a co-op at a fifth of its assets in equity for years.
+   */
+  deepBreachEquity: s(0.25, 'low', 'Well under the 30% equity covenants common in co-op lending'),
   /** Consultant fee under special credit (2024 $ per month). */
   consultantMonthly: s(8000, 'low'),
 };

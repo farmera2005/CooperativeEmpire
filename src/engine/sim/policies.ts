@@ -58,11 +58,13 @@ interface Style {
   redemptionPct: number;
   /** Open-position limit (bu) the GM asks the board for; omitted = live with the board's limit. */
   positionLimit?: number;
+  /** Open position sought as a share of the last twelve months' receipts (bushels). */
+  positionShare?: number;
 }
 
 const STYLES: Record<Exclude<PolicyId, 'idle'>, Style> = {
   baseline: { posture: 'market', hedgeRatio: 1, financePct: 0.6, maxPriceToEquity: 2.5, maxFacilities: 3, expand: true, minEquityRatio: 0.4, diligence: true, supplyKinds: ['agronomy', 'energy', 'feedmill'], maxSupplySites: 3, supplyScale: 0.6, manageEquity: true, cashPatronage: 0.3, redemptionPct: 0.2 },
-  reckless: { posture: 'aggressive', hedgeRatio: 0.2, financePct: 0.7, maxPriceToEquity: 4, maxFacilities: 8, expand: true, minEquityRatio: 0, diligence: false, supplyKinds: ['agronomy', 'energy', 'feedmill', 'station', 'farmstore'], maxSupplySites: 8, supplyScale: 1.2, manageEquity: false, cashPatronage: 0.5, redemptionPct: 0.4, positionLimit: 400_000 },
+  reckless: { posture: 'aggressive', hedgeRatio: 0.2, financePct: 0.7, maxPriceToEquity: 4, maxFacilities: 8, expand: true, minEquityRatio: 0, diligence: false, supplyKinds: ['agronomy', 'energy', 'feedmill', 'station', 'farmstore'], maxSupplySites: 8, supplyScale: 1.2, manageEquity: false, cashPatronage: 0.5, redemptionPct: 0.4, positionLimit: 400_000, positionShare: 0.15 },
   conservative: { posture: 'premium', hedgeRatio: 1, financePct: 0.3, maxPriceToEquity: 0.8, maxFacilities: 1, expand: false, minEquityRatio: 0.5, diligence: true, supplyKinds: ['agronomy'], maxSupplySites: 1, supplyScale: 0.5, manageEquity: true, cashPatronage: 0.25, redemptionPct: 0.15 },
 };
 
@@ -72,8 +74,12 @@ function scripted(style: Style): Policy {
     const pol = state.coop.grainPolicy;
     if (pol.posture !== style.posture || pol.hedgeRatio !== style.hedgeRatio) cmds.push({ type: 'setGrainPolicy', policy: { posture: style.posture, hedgeRatio: style.hedgeRatio } });
     // A speculating GM asks the board each spring for room to carry big open positions (D-099).
-    if (style.positionLimit && monthOf(state.clock.monthIndex) === 4 && pol.positionLimit.corn < style.positionLimit) {
-      cmds.push({ type: 'setGrainPolicy', policy: { positionLimit: { corn: style.positionLimit, soybeans: style.positionLimit, wheat: Math.round(style.positionLimit / 4) } } });
+    // The room grows with the business: a share of last year's receipts, so a bigger co-op speculates as
+    // heavily for its size as a small one (D-113).
+    if (style.positionLimit && monthOf(state.clock.monthIndex) === 4) {
+      const receipts = state.coop.grain.reports.slice(-12).reduce((a, r) => a + COMMODITIES.reduce((b, c) => b + r.byCommodity[c].receivedBu, 0), 0);
+      const wanted = Math.max(style.positionLimit, Math.round((receipts * (style.positionShare ?? 0)) / 10_000) * 10_000);
+      if (pol.positionLimit.corn < wanted) cmds.push({ type: 'setGrainPolicy', policy: { positionLimit: { corn: wanted, soybeans: wanted, wheat: Math.round(wanted / 4) } } });
     }
     const equity = memberEquity(state);
     const owned = state.coop.facilities.filter((f) => f.status !== 'closed' && f.kind === 'elevator');
