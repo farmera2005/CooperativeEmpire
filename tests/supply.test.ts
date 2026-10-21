@@ -162,3 +162,14 @@ describe('agronomy equipment (D-114)', () => {
     expect(sold(plain, 'FERT_N')).toBeGreaterThan(0);
   });
 });
+
+describe('agronomy sites for their era (D-115)', () => {
+  it('sizes a typical agronomy site to the era and leaves other kinds alone', async () => {
+    const { typicalSite } = await import('../src/data/facilities');
+    const early = typicalSite('agronomy', 1970);
+    const late = typicalSite('agronomy', 2024);
+    expect(early['dry-fert-plant']!).toBeLessThan(late['dry-fert-plant']! * 0.5);
+    expect(early.applicator).toBe(late.applicator);
+    expect(typicalSite('feedmill', 1970)).toEqual(TYPICAL_SITE.feedmill);
+  });
+});

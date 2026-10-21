@@ -630,7 +630,7 @@ function operatingExtras(ctx: TickContext, d: SupplyDivision, book: SupplyBook, 
     cash += amount;
   };
   // Agronomists, sales staff and product handling grow with the business, not the plant (D-103).
-  ex('7000', roundCents(revenue * SELLING_COST_PCT.value[d]));
+  ex('7000', roundCents(revenue * valueAt(SELLING_COST_PCT[d], yearOf(ctx.mi))));
   if (d === 'ENERGY') {
     const gal = (sold.FUEL_DIESEL ?? 0) + (sold.FUEL_GAS ?? 0) + (sold.PROPANE ?? 0);
     ex('7680', roundCents(gal * (ENERGY_DEMAND.deliveryBase.value + ENERGY_DEMAND.deliveryPerMile.value * avgDist) * pl * 100));

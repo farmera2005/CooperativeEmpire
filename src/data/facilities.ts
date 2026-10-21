@@ -119,6 +119,27 @@ export const TYPICAL_SITE: Record<Exclude<FacilityKind, 'elevator'>, Partial<Rec
   farmstore: { site: 2, 'farm-store': 5000 },
 };
 
+/**
+ * Fertilizer storage on a typical agronomy site, against the 2024 site, by year (D-115). Plants
+ * were built for the volumes of their day: a 1970s outlet moved about a third of today's tonnage.
+ */
+export const AGRONOMY_STORAGE_SCALE: AnnualPoint[] = [
+  { year: 1970, value: 0.4, confidence: 'low', source: 'Sized so a typical site stores roughly 60-80% of a year\'s fertilizer throughput' },
+  { year: 1985, value: 0.6, confidence: 'low' },
+  { year: 2000, value: 0.85, confidence: 'low' },
+  { year: 2010, value: 1, confidence: 'low' },
+];
+
+/** A typical new site of this kind for the year: agronomy storage follows the era's volumes. */
+export function typicalSite(kind: Exclude<FacilityKind, 'elevator'>, year: number): Partial<Record<ComponentId, number>> {
+  const base = TYPICAL_SITE[kind];
+  if (kind !== 'agronomy') return { ...base };
+  const k = valueAt(AGRONOMY_STORAGE_SCALE, year);
+  const out: Partial<Record<ComponentId, number>> = { ...base };
+  for (const id of ['dry-fert-plant', 'nh3-storage', 'liquid-fert-tanks'] as ComponentId[]) if (base[id]) out[id] = Math.round((base[id]! * k) / 50) * 50;
+  return out;
+}
+
 export const STORAGE_COMPONENTS: ComponentId[] = ['storage-wood', 'storage-concrete', 'storage-steel', 'storage-flat'];
 export const LOADOUT_COMPONENTS: ComponentId[] = ['loadout-single', 'loadout-unit25', 'loadout-unit50', 'loadout-unit75', 'loadout-shuttle'];
 export const LOADOUT_RANK: Record<LoadoutType, number> = { truck: 0, single: 1, unit25: 2, unit50: 3, unit75: 4, shuttle: 5 };

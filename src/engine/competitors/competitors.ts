@@ -3,7 +3,7 @@
 import { brandName, brandsAvailable, getBrand } from '../../data/brands';
 import { COMPETITORS, ELEVATOR_SIZES, MARKETPLACE } from '../../data/grain';
 import { SURNAMES } from '../../data/names';
-import { LOADOUT_COMPONENTS, COMPONENTS, TYPICAL_SITE, type ComponentId, type FacilityKind, type LoadoutType } from '../../data/facilities';
+import { LOADOUT_COMPONENTS, COMPONENTS, typicalSite, type ComponentId, type FacilityKind, type LoadoutType } from '../../data/facilities';
 import { SUPPLY_COMPETITORS, SUPPLY_DIVISIONS, type SupplyDivision } from '../../data/supply';
 import { clamp } from '../core/math';
 import { roundCents } from '../core/money';
@@ -157,8 +157,8 @@ const SUPPLY_NAMES: Record<FacilityKind, string[]> = {
 };
 
 /** Typical site components for a supply competitor, scaled. */
-function scaledSite(kind: Exclude<FacilityKind, 'elevator'>, scale: number): Components {
-  const base = TYPICAL_SITE[kind];
+function scaledSite(kind: Exclude<FacilityKind, 'elevator'>, scale: number, year: number): Components {
+  const base = typicalSite(kind, year);
   const out: Components = {};
   for (const id of Object.keys(base) as ComponentId[]) {
     const q = base[id] ?? 0;
@@ -182,7 +182,7 @@ export function generateSupplyCompetitors(state: GameState, rng: Rng, year: numb
         const scale = rng.range(0.5, 1.2);
         state.competitors.push({
           id: nextId++, name, kind: coop ? 'coop' : 'independent',
-          sites: [{ id: 1, townId: town.id, division, kind, components: scaledSite(kind as Exclude<FacilityKind, 'elevator'>, scale), storageBu: 0, receiveBuHr: 0, dryBuHr: 0, loadout: 'truck', builtYear: year - rng.int(5, 40), condition: Math.round(rng.range(40, 90)) }],
+          sites: [{ id: 1, townId: town.id, division, kind, components: scaledSite(kind as Exclude<FacilityKind, 'elevator'>, scale, year), storageBu: 0, receiveBuHr: 0, dryBuHr: 0, loadout: 'truck', builtYear: year - rng.int(5, 40), condition: Math.round(rng.range(40, 90)) }],
           posture: Math.round(rng.normal(0, 1.2) * 10) / 10, service: clamp(rng.normal(0, COMPETITORS.serviceSd.value), -1, 1),
           status: 'active', ownerAge: rng.int(40, 76), volumeYtd: 0,
         });
@@ -199,7 +199,7 @@ export function generateSupplyCompetitors(state: GameState, rng: Rng, year: numb
       const kind = ch.kind as Exclude<FacilityKind, 'elevator'>;
       state.competitors.push({
         id: nextId++, name: brand.name, kind: 'national', brandId: brand.id,
-        sites: [{ id: 1, townId: town.id, division: ch.division, kind, components: scaledSite(kind, 1.5), storageBu: 0, receiveBuHr: 0, dryBuHr: 0, loadout: 'truck', builtYear: arrival, condition: 95, arrivalYear: year >= ch.from ? Math.min(arrival, year) : arrival }],
+        sites: [{ id: 1, townId: town.id, division: ch.division, kind, components: scaledSite(kind, 1.5, arrival), storageBu: 0, receiveBuHr: 0, dryBuHr: 0, loadout: 'truck', builtYear: arrival, condition: 95, arrivalYear: year >= ch.from ? Math.min(arrival, year) : arrival }],
         // Chains compete on price and convenience.
         posture: 1.5, service: 0.2, status: 'active', ownerAge: 50, volumeYtd: 0,
       });

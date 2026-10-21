@@ -16,7 +16,7 @@ import { techCost, uncoveredSites } from '../world/tech';
 import { COMMODITIES } from '../../data/grain';
 import { monthOf, yearOf } from '../core/calendar';
 import { grainCapacity, type Components } from '../facilities/facilities';
-import { COMPONENTS, TYPICAL_SITE, type ComponentId, type FacilityKind } from '../../data/facilities';
+import { COMPONENTS, typicalSite, type ComponentId, type FacilityKind } from '../../data/facilities';
 import { liquidity, memberEquity } from '../finance/lender';
 import { balanceSheet } from '../ledger/statements';
 import type { GameState } from '../types';
@@ -155,7 +155,7 @@ function scripted(style: Style): Policy {
       if (offer) cmds.push(style.diligence && !offer.diligenceDone ? { type: 'dueDiligence', offerId: offer.id } : { type: 'buyFacility', offerId: offer.id, financePct: style.financePct });
       else {
         const comps: Components = {};
-        for (const [id, q] of Object.entries(TYPICAL_SITE[next])) comps[id as ComponentId] = COMPONENTS[id as ComponentId].unit === 'each' || id === 'site' ? Math.max(1, Math.round((q ?? 0) * style.supplyScale)) : Math.round((q ?? 0) * style.supplyScale);
+        for (const [id, q] of Object.entries(typicalSite(next, yearOf(state.clock.monthIndex)))) comps[id as ComponentId] = COMPONENTS[id as ComponentId].unit === 'each' || id === 'site' ? Math.max(1, Math.round((q ?? 0) * style.supplyScale)) : Math.round((q ?? 0) * style.supplyScale);
         const town = owned[0]?.townId ?? state.coop.homeTownId;
         if (estimateProject(state, town, comps).cost * (1 - style.financePct) <= supplyRoom) cmds.push({ type: 'buildFacility', kind: next, townId: town, components: comps, financePct: style.financePct });
       }

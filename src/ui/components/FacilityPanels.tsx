@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { COMPONENTS, KIND_DIVISION, KIND_LABEL, TYPICAL_SITE, type ComponentId, type FacilityKind } from '../../data/facilities';
+import { COMPONENTS, KIND_DIVISION, KIND_LABEL, TYPICAL_SITE, typicalSite, type ComponentId, type FacilityKind } from '../../data/facilities';
 import { LENDING } from '../../data/tuning';
 import { MAINTENANCE } from '../../data/grain';
 import {
@@ -190,7 +190,15 @@ export function BuildSupplySite({ kind, fin, setFin }: { kind: Exclude<FacilityK
   const command = useStore((s) => s.command);
   const year = yearOf(game.clock.monthIndex);
   const [townId, setTownId] = useState(game.coop.homeTownId);
-  const [comps, setComps] = useState<Components>({ ...TYPICAL_SITE[kind] });
+  const [comps, setComps] = useState<Components>(() => {
+    // One chemical and one seed warehouse serve every agronomy site, so a second site is a
+    // satellite: fertilizer storage and one rig, no warehouses.
+    const base: Components = typicalSite(kind, year);
+    const has = (id: ComponentId) => game.coop.facilities.some((f) => f.division === KIND_DIVISION[kind] && f.status !== 'closed' && ((f.components[id] ?? 0) > 0 || game.coop.projects.some((p) => p.facilityId === f.id && (p.components[id] ?? 0) > 0)));
+    for (const id of ['chem-warehouse', 'seed-warehouse'] as ComponentId[]) if (base[id] && has(id)) delete base[id];
+    if (kind === 'agronomy' && has('applicator')) base.applicator = 1;
+    return base;
+  });
   const est = useMemo(() => estimateProject(game, townId, comps), [game, townId, comps]);
   const ids = (Object.keys(COMPONENTS) as ComponentId[]).filter((id) => COMPONENTS[id].division === KIND_DIVISION[kind] && COMPONENTS[id].availableFrom <= year && (TYPICAL_SITE[kind][id] !== undefined || kind === 'agronomy' || kind === 'feedmill' || kind === 'energy'));
   return (
@@ -205,6 +213,12 @@ export function BuildSupplySite({ kind, fin, setFin }: { kind: Exclude<FacilityK
       </div>
       <div className="mt-2 text-sm">Estimated cost <b>{money(est.cost)}</b> including site, about {est.months} months to permit and build.</div>
       {est.problems.length > 0 && <div className="text-sm text-rust">{est.problems.join(' ')}</div>}
+      {kind === 'agronomy' && (() => {
+        const near = game.coop.facilities.filter((f) => f.division === 'AGRONOMY' && f.status !== 'closed').map((f) => game.world.distances[townId][f.townId]);
+        if (!near.length) return null;
+        const d = Math.min(...near);
+        return <div className={`mt-1 text-xs ${d < 20 ? 'text-rust' : 'text-stone-500'}`}>Our nearest agronomy site is {Math.round(d)} miles away. Farmers buy fertilizer close to home, so a second site pays when it reaches farms the first one can't (roughly 20+ miles apart). One chemical and one seed warehouse serve every site.</div>;
+      })()}
       <div className="mt-2 flex items-center gap-4">
         <FinanceSlider value={fin} onChange={setFin} />
         <button className="btn btn-primary" disabled={est.problems.length > 0} onClick={() => command({ type: 'buildFacility', kind, townId, components: comps, financePct: fin })}>Approve construction</button>

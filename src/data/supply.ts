@@ -186,7 +186,7 @@ export interface DivisionConfig {
 }
 
 export const DIVISION_CONFIG: Record<SupplyDivision, DivisionConfig> = {
-  AGRONOMY: { thetaPerPct: s(0.35, 'low'), posturePct: s({ aggressive: -3, market: 0, premium: 3 }, 'low'), loyalty: 6, serviceQuality: 3, distancePctPerMile: 0.08, outsideOption: -2, reachMiles: 30 },
+  AGRONOMY: { thetaPerPct: s(0.35, 'low'), posturePct: s({ aggressive: -3, market: 0, premium: 3 }, 'low'), loyalty: 6, serviceQuality: 3, distancePctPerMile: 0.2, outsideOption: -2, reachMiles: 30 },
   FEED: { thetaPerPct: s(0.4, 'low'), posturePct: s({ aggressive: -3, market: 0, premium: 3 }, 'low'), loyalty: 6, serviceQuality: 3, distancePctPerMile: 0.06, outsideOption: -3, reachMiles: 35 },
   ENERGY: { thetaPerPct: s(0.45, 'low'), posturePct: s({ aggressive: -3, market: 0, premium: 3 }, 'low'), loyalty: 5, serviceQuality: 3, distancePctPerMile: 0.03, outsideOption: -4, reachMiles: 30 },
   RETAIL: { thetaPerPct: s(0.5, 'low'), posturePct: s({ aggressive: -2, market: 0, premium: 2 }, 'low'), loyalty: 1, serviceQuality: 2, distancePctPerMile: 0.5, outsideOption: -1, reachMiles: 12 },
@@ -333,7 +333,17 @@ export const SUPPLY_WAGES = s<Record<SupplyDivision, number>>({ AGRONOMY: 55_000
  * operating costs; plants and crews cover about half of that. Energy, feed and retail costs are
  * carried by delivery, power and store staffing instead.
  */
-export const SELLING_COST_PCT = s<Record<SupplyDivision, number>>({ AGRONOMY: 0.035, FEED: 0, ENERGY: 0, RETAIL: 0 }, 'low', 'Co-op agronomy operating expense ~8–10% of sales; local savings 3–6%');
+/**
+ * Agronomists, sales staff and product handling as a share of sales. It grows over the decades
+ * (D-115): 1970s fertilizer outlets mostly handled product, while crop scouting, agronomists,
+ * precision ag and record-keeping came from the 1980s on.
+ */
+export const SELLING_COST_PCT: Record<SupplyDivision, AnnualPoint[]> = {
+  AGRONOMY: ap([[1970, 0.015], [1990, 0.025], [2005, 0.035], [2024, 0.045]], 'low', 'Co-op agronomy operating expense ~8–10% of sales; local savings 3–6%'),
+  FEED: ap([[1970, 0]]),
+  ENERGY: ap([[1970, 0]]),
+  RETAIL: ap([[1970, 0]]),
+};
 
 export const SITE_UTILITIES = s<Record<string, number>>({ agronomy: 30_000, feedmill: 60_000, energy: 12_000, station: 40_000, farmstore: 25_000 }, 'low');
 /** Extra wages in busy months as share of regular wages, by division. */
