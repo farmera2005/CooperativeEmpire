@@ -75,11 +75,11 @@ Internal checkpoints (commit each): M3a Agronomy → M3b Feed → M3c Energy →
 
 | Run | Survived | Median net savings | Target |
 |---|---|---|---|
-| Baseline from 1970 | 49/50 (98%) | 4.1% | met |
-| Baseline from 1985 | 49/50 (98%) | 4.1% | met |
-| Baseline from 2010 | 42/50 (84%) | 3.8% | met |
-| Reckless from 1970 | 4/50 | 1.2% | met: 35 of 46 failures 1975–93 |
-| Reckless from 2000, strict history | 15/50 | 1.6% | met: 11 of 35 failures in 2008–10, 8 in the 2024–25 downturn |
+| Baseline from 1970 | 49/50 (98%) | 4.2% | met |
+| Baseline from 1985 | 48/50 (96%) | 4.0% | met |
+| Baseline from 2010 | 44/50 (88%) | 3.8% | met |
+| Reckless from 1970 | 5/50 | 1.3% | met: 34 of 45 failures 1975–93 |
+| Reckless from 2000, strict history | 16/50 | 1.7% | met: 9 of 34 failures in 2008–10, 7 in the 2024–25 downturn |
 
 Farm-supply divisions after D-115 (baseline bot, 10 seeds × 25 years): agronomy profitable in 98% of division-years from 1970 (median 7.0% of sales) and 100% from 2000 (8.3%); feed 100% (7.3%) and 96% (5.3%); energy 84% (4.7%) and 96% (6.4%). Player tests: one typical agronomy site from 1975 earns 4.1% of sales (22 of 24 years profitable), from 1995 4.6%; a one-rig satellite 22 miles out adds money, one 15 miles out loses it.
 
