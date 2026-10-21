@@ -84,3 +84,16 @@ describe('membership grows and shrinks (D-108)', () => {
     expect(checkInvariants(s)).toEqual([]);
   });
 });
+
+describe('business share for membership (D-117)', () => {
+  it('counts only the lines a farm uses and the co-op offers', async () => {
+    const { businessShare } = await import('../src/engine/members/joining');
+    const s = newGame({ ...DEFAULT_SETUP, startYear: 1990, gameSeed: 1, mapSeed: 1 });
+    const m = { ...s.members.list[0], acres: { corn: 300, soybeans: 200, wheat: 0, other: 0 }, livestock: { ...s.members.list[0].livestock, hogs: 0, dairy: 0, beefCows: 0, cattleOnFeed: 0 },
+      share: { GRAIN_CORN: 0.6, GRAIN_SOY: 0.6, GRAIN_WHEAT: 0, AGRONOMY: 0.6, FEED: 0, ENERGY: 0 } };
+    // Feed and wheat are not counted against a crop farm with no livestock and no wheat.
+    expect(businessShare(m)).toBeCloseTo((0.6 * 3) / 4);
+    // Energy is not counted when the co-op has no energy business.
+    expect(businessShare(m, new Set(['GRAIN_CORN', 'GRAIN_SOY', 'GRAIN_WHEAT', 'AGRONOMY']))).toBeCloseTo(0.6);
+  });
+});

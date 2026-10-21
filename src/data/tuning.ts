@@ -32,10 +32,16 @@ export const SETUP = {
  * membership stock at par, and their allocated equity stays and revolves as usual.
  */
 export const MEMBERSHIP = {
-  joinBase: s(0.01, 'low', 'Monthly chance at the reference appeal'),
-  /** Average share of their business with us before a customer considers joining. */
-  joinShareMin: s(0.2, 'low'),
-  joinSatisfactionMin: s(45, 'low'),
+  joinBase: s(0.01, 'low', 'Monthly chance at the reference appeal and reference business share'),
+  /**
+   * Share of their business with us before a customer considers joining at all, and the share
+   * at which the join chance is at its reference (D-117): the more business a customer already
+   * does with us, the bigger the patronage refund they forgo by staying out.
+   */
+  joinShareMin: s(0.05, 'low'),
+  joinShareRef: s(0.25, 'low'),
+  maxShareFactor: 2,
+  joinSatisfactionMin: s(40, 'low'),
   /** Appeal: (satisfaction − 50) ÷ 20, plus this much per percentage point of expected refund. */
   refundAppealPerPoint: s(0.6, 'low', 'The patronage refund is the economic reason to join'),
   maxAppeal: 3,

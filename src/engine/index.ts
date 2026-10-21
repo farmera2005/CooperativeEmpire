@@ -1,7 +1,7 @@
 // Public engine API. The UI imports from here only.
 
 export * from './types';
-export { businessShare, joinAppeal } from './members/joining';
+export { businessShare, joinAppeal, offeredLines } from './members/joining';
 export { salesBoost, salesCost, salesCoverage, salesStaff, SALES_DIVISIONS } from './people/sales';
 export { flightRisk, moraleDrivers, payGapPct } from './people/team';
 export { investmentReturn, investmentTypeOf, INVESTMENT_TYPES, stakeSalePrice } from './deals/investments';

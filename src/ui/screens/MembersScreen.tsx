@@ -1,11 +1,14 @@
 import { useMemo, useState } from 'react';
 import { MEMBERSHIP } from '../../data/tuning';
-import { businessShare, totalAcres, yearOf, type Member } from '../../engine/index';
+import { DIVISION_CONFIG } from '../../data/supply';
+import { businessShare, offeredLines, totalAcres, yearOf, type Member } from '../../engine/index';
 import { Panel, Stat } from '../components/Panel';
 import { Term } from '../components/Term';
 import { money, num, pct } from '../format';
 import { useStore } from '../store';
 
+/** Farms this far from our sites rarely do business with us (the agronomy and grain reach). */
+const REACH_MILES = DIVISION_CONFIG.AGRONOMY.reachMiles;
 const PAGE = 50;
 type SortKey = 'name' | 'age' | 'acres' | 'town' | 'satisfaction' | 'stock';
 
@@ -67,14 +70,22 @@ export function MembersScreen() {
   const flow12 = (game.members.flow ?? []).filter((f) => game.clock.monthIndex - f.monthIndex < 12);
   const joined = flow12.reduce((a, f) => a + f.joined, 0);
   const left = flow12.reduce((a, f) => a + f.left, 0);
-  const prospects = activeAll.filter((m) => m.kind === 'nonmember' && businessShare(m) >= MEMBERSHIP.joinShareMin.value).length;
+  const offered = offeredLines(game);
+  const prospects = activeAll.filter((m) => m.kind === 'nonmember' && businessShare(m, offered) >= MEMBERSHIP.joinShareMin.value).length;
+  // Farms within a day's haul of one of our operating sites: where members can come from (D-117).
+  const siteTowns = [...new Set(game.coop.facilities.filter((f) => f.status === 'operating').map((f) => f.townId))];
+  const inReach = activeAll.filter((m) => siteTowns.some((t) => game.world.distances[m.townId][t] <= REACH_MILES));
+  const reachMembers = inReach.filter((m) => m.kind === 'member').length;
+  const quit = game.members.list.filter((m) => m.kind === 'member' && m.exitMonth !== undefined && game.clock.monthIndex - m.exitMonth < 12).length;
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <Stat label="Farm customers" value={num(activeAll.length)} sub="members and non-members in the trade area" />
         <Stat label="Members" value={num(memberCount)} sub={`${pct(memberCount / Math.max(1, activeAll.length), 0)} of customers`} />
         <Stat label="Joined / resigned, 12 months" value={`${joined} / ${left}`} tone={joined > left ? 'good' : left > joined ? 'bad' : 'neutral'} sub="satisfied customers join when patronage is worth having" />
         <Stat label="Prospective members" value={num(prospects)} sub="non-members doing real business with us" />
+        <Stat label="Farms within reach" value={num(inReach.length)} sub={`${pct(reachMembers / Math.max(1, inReach.length), 0)} are members; farms farther than ${REACH_MILES} miles from our sites rarely do business with us`} />
+        <Stat label="Members who quit farming, 12 months" value={num(quit)} sub="retirements and farms sold to neighbors; consolidation shrinks every co-op's rolls" />
       </div>
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         {(['district', 'size'] as const).map((seg) => (
