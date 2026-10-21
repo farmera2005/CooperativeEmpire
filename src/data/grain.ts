@@ -350,4 +350,15 @@ export const SATISFACTION = {
   grievancePerSeverity: s(4, 'low'),
   /** Satisfaction points a fully loyal member gives the co-op regardless of results. */
   loyaltyBonus: s(10, 'low'),
+  /**
+   * What members get back (D-116): points per percent of their business returned as patronage,
+   * cash counted fully and retained equity at its expected value. The refund is the co-op's main
+   * reason to exist, and members notice it.
+   */
+  refundPerPct: s(5, 'low'),
+  /** Farm-supply experience: points per percent our price is below the local market, and per unit of service. */
+  supplyPricePerPct: s(1.5, 'low'),
+  supplyServicePerUnit: s(4, 'low'),
+  /** How strongly a month of farm-supply business moves satisfaction, against grain business. */
+  supplyWeight: s(0.5, 'low'),
 };

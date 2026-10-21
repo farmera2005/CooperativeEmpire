@@ -13,7 +13,7 @@ import { techFactor } from '../world/tech';
 import { flagOn } from '../world/events';
 import { CHOICE_EFFECTS } from '../../data/events';
 import type { ComponentId, FacilityKind } from '../../data/facilities';
-import { DRYING, MAINTENANCE } from '../../data/grain';
+import { DRYING, MAINTENANCE, SATISFACTION } from '../../data/grain';
 import { breakdownRisk, postBreakdownRepair } from '../facilities/facilities';
 import { formatCents } from '../core/format';
 import { REGIONS } from '../../data/regions/eccb';
@@ -224,6 +224,14 @@ export function stepSupply(ctx: TickContext): void {
         const share = prev + (target > prev ? SS.inertiaUp.value : SS.inertiaDown.value) * (target - prev);
         m.share[d] = share;
         if (!best || share <= 0.001) continue;
+        // Satisfaction (D-116): our price and service in this business, what members get back, and grievances.
+        if (share > 0.02) {
+          const f = best.site.facility!;
+          const service = STAFF_SERVICE[f.staffing.level] + peopleU - (d === 'AGRONOMY' ? lateMem * SS.lateServicePenalty.value : 0);
+          const exp = clamp(50 + SATISFACTION.supplyPricePerPct.value * ourAdv + SATISFACTION.supplyServicePerUnit.value * service - SATISFACTION.grievancePerSeverity.value * griev
+            + (m.kind === 'member' ? SATISFACTION.loyaltyBonus.value * m.loyalty + SATISFACTION.refundPerPct.value * refundPct : 0), 0, 100);
+          m.satisfaction += SATISFACTION.alpha.value * SATISFACTION.supplyWeight.value * Math.min(1, share) * (exp - m.satisfaction);
+        }
         acc.shareSum += share;
         acc.shareN++;
         const hdd = weather.hdd;

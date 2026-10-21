@@ -194,6 +194,7 @@ export function stepGrain(ctx: TickContext): void {
   const posture = POSTURE_BID.value[pol.posture];
   // Members count on a patronage refund like last year's (2024 $/bu, valued on corn).
   const refundBu = (expectedRefundRate(state) * (F.corn + local.corn)) / idx;
+  const refundPct = expectedRefundRate(state) * 100;
 
   for (const m of state.members.list) {
     if (m.status !== 'active') continue;
@@ -271,11 +272,13 @@ export function stepGrain(ctx: TickContext): void {
     if (best && anyBusiness) {
       priceAdv.push(best.price - Math.max(bestComp, -1));
       const adv = posture - bestCompBid;
-      const exp = clamp(50 + SATISFACTION.pricePerDollar.value * adv - SATISFACTION.waitPerHour.value * best.facility.grain.waitMemory - SATISFACTION.grievancePerSeverity.value * grievance + (m.kind === 'member' ? SATISFACTION.loyaltyBonus.value * m.loyalty : 0), 0, 100);
+      const exp = clamp(50 + SATISFACTION.pricePerDollar.value * adv - SATISFACTION.waitPerHour.value * best.facility.grain.waitMemory - SATISFACTION.grievancePerSeverity.value * grievance
+        + (m.kind === 'member' ? SATISFACTION.loyaltyBonus.value * m.loyalty + SATISFACTION.refundPerPct.value * refundPct : 0), 0, 100);
       // Members who do little grain business with us form their opinion slowly.
       const share = m.share[GRAIN_LINE.corn] ?? 0;
       m.satisfaction += SATISFACTION.alpha.value * clamp(0.25 + share, 0.25, 1) * (exp - m.satisfaction);
-    } else {
+    } else if (!SUPPLY_KEYS.some((k) => (m.share[k] ?? 0) > 0.02)) {
+      // No business with us at all: opinions fade toward neutral (farm-supply customers are judged there).
       m.satisfaction += (SATISFACTION.alpha.value / 3) * (50 - m.satisfaction);
     }
   }

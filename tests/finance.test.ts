@@ -234,11 +234,12 @@ describe('budget', () => {
 });
 
 describe('policies', () => {
-  it('the baseline bot keeps cash patronage at the minimum when equity is thin', () => {
+  it('the baseline bot keeps cash patronage at the minimum when equity is thin, and pays more only when a director asks', () => {
     let s = coop(1985, 1);
     for (let i = 0; i < 48 && !s.outcome; i++) s = advanceMonth(s, POLICIES.baseline(s)).state;
     const cash = s.coop.equityProgram.proposal.pools.ALL.cash;
-    expect([0.2, 0.3]).toContain(cash);
+    const asked = s.governance.demands.some((d) => d.kind === 'cashPatronage' && s.clock.monthIndex - d.deadlineMonth < 24);
+    expect(asked ? [0.2, 0.4] : [0.2, 0.3]).toContain(cash);
   });
 });
 

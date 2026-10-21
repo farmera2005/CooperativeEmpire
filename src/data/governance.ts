@@ -54,6 +54,11 @@ export const CONFIDENCE = {
   satisfaction: s(0.03, 'low'),
   /** Monthly pull toward the latest review score. */
   reversion: s(0.03, 'low'),
+  /**
+   * Directors' loyalty to the GM drifts toward the latest review score each month (D-116), so
+   * good years rebuild goodwill that missed goals and lost lobbying cost.
+   */
+  directorLoyaltyReversion: s(0.02, 'low'),
   demandMet: s(4, 'low'),
   demandMissed: s(-4, 'low'),
   /** Termination thresholds. */

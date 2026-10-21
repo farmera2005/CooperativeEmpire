@@ -130,6 +130,8 @@ function driftConfidence(ctx: TickContext): void {
   const target = last?.score ?? CONFIDENCE.start;
   const drift = (CONFIDENCE.lenderStatus[state.coop.finance.status] ?? 0) + CONFIDENCE.satisfaction.value * (avg - 50) + CONFIDENCE.reversion.value * (target - g.boardConfidence);
   g.boardConfidence = clamp(g.boardConfidence + drift, 0, 100);
+  const loyal = clamp(target, 20, 85);
+  g.directors = g.directors.map((d) => ({ ...d, loyaltyToGM: clamp(d.loyaltyToGM + CONFIDENCE.directorLoyaltyReversion.value * (loyal - d.loyaltyToGM), 0, 100) }));
 }
 
 /** Members' satisfaction, weighted by how much of their business they do with us. */

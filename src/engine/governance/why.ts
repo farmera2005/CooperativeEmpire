@@ -3,6 +3,7 @@
 
 import { CONFIDENCE } from '../../data/governance';
 import { POSTURE_BID, SATISFACTION } from '../../data/grain';
+import { DIVISION_CONFIG, SUPPLY_DIVISIONS } from '../../data/supply';
 import { bd, type Breakdown } from '../core/breakdown';
 import { expectedRefundRate } from '../finance/selectors';
 import type { GameState } from '../types';
@@ -51,6 +52,12 @@ export function satisfactionWhy(s: GameState): Breakdown {
       [...kinds.entries()].sort((a, b) => b[1] - a[1]).map(([k, v]) => bd(`g-${k}`, GRIEVANCE_LABEL[k] ?? k, -(v / n) * SATISFACTION.grievancePerSeverity.value, undefined, undefined, 'score')),
       'Average across members; complaints fade over about two years.', 'score'),
     bd('loyalty', 'Loyalty to their co-op', SATISFACTION.loyaltyBonus.value * avgLoyalty, undefined, 'Grows with cash patronage and fair treatment.', 'score'),
-    bd('refund', `Expected patronage refund (${(refund * 100).toFixed(1)}% of purchases)`, refund, undefined, 'Draws members\' business rather than moving satisfaction directly.', 'pct'),
-  ], 'Weighted by how much business each member does with us. Satisfaction drifts toward 50 plus these influences each month.', 'score');
+    bd('refund', `Expected patronage refund (${(refund * 100).toFixed(1)}% of purchases)`, SATISFACTION.refundPerPct.value * refund * 100, undefined, 'Cash counts fully, retained equity at what members expect it to be worth. It also draws their business.', 'score'),
+    ...(() => {
+      const divs = SUPPLY_DIVISIONS.filter((d) => d !== 'RETAIL' && s.coop.facilities.some((f) => f.division === d && f.status === 'operating'));
+      if (!divs.length) return [];
+      const pts = divs.reduce((a, d) => a - SATISFACTION.supplyPricePerPct.value * DIVISION_CONFIG[d].posturePct.value[s.coop.supplyPolicy[d].posture], 0) / divs.length;
+      return [bd('supply', 'Farm-supply prices against the local market', pts, undefined, 'For members who buy inputs from us; crews, salespeople and on-time application add or take points too.', 'score')];
+    })(),
+  ], 'Weighted by how much business each member does with us. Each month satisfaction moves toward 50 plus these influences, judged on the business members do with us.', 'score');
 }

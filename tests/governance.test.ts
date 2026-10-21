@@ -167,3 +167,21 @@ describe('save migration v4 → v5', () => {
     expect(checkInvariants(run(m, 12))).toEqual([]);
   });
 });
+
+describe('satisfaction and goodwill can recover (D-116)', () => {
+  it('members warm to a co-op that pays patronage and serves them; directors warm to a GM with good reviews', async () => {
+    const { POLICIES } = await import('../src/engine/sim/policies');
+    const { averageSatisfaction } = await import('../src/engine/governance/review');
+    let s = newGame({ ...DEFAULT_SETUP, startYear: 1970, gameSeed: 1, mapSeed: 1 });
+    const sat: number[] = [];
+    for (let i = 0; i < 16 * 12 && !s.outcome; i++) {
+      s = advanceMonth(s, POLICIES.baseline(s)).state;
+      if (i % 12 === 11) sat.push(averageSatisfaction(s));
+    }
+    expect(s.outcome).toBeFalsy();
+    const low = Math.min(...sat.slice(0, 6));
+    expect(Math.max(...sat.slice(6))).toBeGreaterThan(low + 5);
+    const loyal = s.governance.directors.reduce((a, d) => a + d.loyaltyToGM, 0) / s.governance.directors.length;
+    expect(loyal).toBeGreaterThan(55);
+  });
+});
