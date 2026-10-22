@@ -42,6 +42,7 @@ export { grainCostIndex, localBasis, bestTruckSale, railSale } from './grain/pri
 export { supplierTerms, volumeDiscount } from './supply/prices';
 export type { SupplierTerms } from './supply/prices';
 export { equityOverview, previewDistribution, memberStatement, covenantHeadroom } from './finance/selectors';
+export { balanceSheetRating, gradeFor, type BalanceSheetRating } from './finance/rating';
 export type { EquityOverview, DistributionPreview, MemberStatement } from './finance/selectors';
 export { validateProposal, poolLabel, BASES_FOR, lineDivision } from './finance/patronage';
 export { productionDeductionRate } from './finance/tax';

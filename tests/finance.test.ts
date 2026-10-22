@@ -260,3 +260,30 @@ describe('save migration v3 → v4', () => {
     expect(checkInvariants(next)).toEqual([]);
   });
 });
+
+describe('balance sheet rating (D-118)', () => {
+  it('scores ratios on piecewise scales and maps scores to grades', async () => {
+    const { scoreOn, gradeFor } = await import('../src/engine/finance/rating');
+    const pts: [number, number][] = [[0.1, 0], [0.3, 60], [0.5, 100]];
+    expect(scoreOn(pts, 0.05)).toBe(0);
+    expect(scoreOn(pts, 0.2)).toBeCloseTo(30);
+    expect(scoreOn(pts, 0.9)).toBe(100);
+    expect(scoreOn([[0.2, 100], [0.9, 0]], Infinity)).toBe(0);
+    expect(gradeFor(95)).toBe('AAA');
+    expect(gradeFor(62)).toBe('BBB');
+    expect(gradeFor(10)).toBe('D');
+  });
+
+  it('rates a well-capitalized co-op highly and caps the grade under lender watch', async () => {
+    const { balanceSheetRating } = await import('../src/engine/finance/rating');
+    const s = run(coop(1985, 1), 14);
+    const r = balanceSheetRating(s);
+    expect(r.why.components!.length).toBeGreaterThanOrEqual(5);
+    expect(['AAA', 'AA', 'A', 'BBB']).toContain(r.grade);
+    const w = cloneState(s);
+    w.coop.finance.status = 'specialCredit';
+    const c = balanceSheetRating(w);
+    expect(c.grade).toBe('CCC');
+    expect(c.uncapped).toBe(r.grade);
+  });
+});

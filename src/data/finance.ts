@@ -225,3 +225,25 @@ export const BUDGET = {
   draftMonthsBeforeFye: 3,
   approveMonthsBeforeFye: 1,
 };
+
+/**
+ * Balance sheet rating (D-118): a letter grade from the five things an ag lender reads on a
+ * co-op's balance sheet — solvency, liquidity, how fixed assets are financed, ability to service
+ * term debt, and earnings. Each ratio is scored 0–100 on a piecewise-linear scale through the
+ * points below ([ratio, score], ratio ascending); the grade comes from the weighted score, capped
+ * by the lender's current view of the credit. Scales follow common co-op lending benchmarks
+ * (equity 40–50% healthy, current ratio 1.2+, debt service 1.25+); weights are judgement.
+ */
+export const BS_RATING = {
+  parts: s({
+    equity: { weight: 0.35, points: [[0.15, 0], [0.25, 30], [0.3, 45], [0.4, 65], [0.5, 80], [0.6, 90], [0.7, 100]] as [number, number][] },
+    liquidity: { weight: 0.2, points: [[0.9, 0], [1, 25], [1.2, 50], [1.5, 70], [2, 85], [2.5, 100]] as [number, number][] },
+    fixedFinancing: { weight: 0.15, points: [[0.1, 100], [0.3, 80], [0.5, 55], [0.7, 25], [0.9, 0]] as [number, number][] },
+    debtService: { weight: 0.2, points: [[0.8, 0], [1, 20], [1.25, 45], [1.5, 60], [2, 75], [3, 90], [4, 100]] as [number, number][] },
+    earnings: { weight: 0.1, points: [[-0.05, 0], [0, 15], [0.03, 40], [0.06, 60], [0.1, 80], [0.15, 100]] as [number, number][] },
+  }, 'low', 'Co-op lending benchmarks (equity 40–50% healthy; current ratio ≥1.2; debt service ≥1.25); weights are judgement'),
+  /** Lowest score for each grade, best first. BBB and better is what lenders call a sound credit. */
+  grades: s<[string, number][]>([['AAA', 90], ['AA', 80], ['A', 70], ['BBB', 60], ['BB', 50], ['B', 40], ['CCC', 25], ['D', 0]], 'low', 'Judgement, in the style of credit ratings'),
+  /** Best grade possible under each lender status. */
+  statusCap: { standard: 'AAA', watch: 'BB', waiver: 'B', specialCredit: 'CCC', forcedAction: 'D' } as Record<string, string>,
+};

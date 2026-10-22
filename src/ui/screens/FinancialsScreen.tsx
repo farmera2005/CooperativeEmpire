@@ -4,7 +4,8 @@ import {
   type DivisionId, type IncomeStatement, type JournalEntry,
 } from '../../engine/index';
 import { Panel } from '../components/Panel';
-import { budgetVsActual, ratios } from '../../engine/index';
+import { balanceSheetRating, budgetVsActual, ratios } from '../../engine/index';
+import { BreakdownView } from '../components/BreakdownView';
 import { Term } from '../components/Term';
 import { money } from '../format';
 import { useStore } from '../store';
@@ -144,6 +145,7 @@ export function FinancialsScreen() {
         </Panel>
       </div>
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <RatingPanel />
         <RatiosPanel />
         <BudgetPanel />
       </div>
@@ -165,6 +167,23 @@ function BsSection({ title, lines, onDrill }: { title: string; lines: { account:
 }
 
 export type { DivisionId };
+
+/** The balance sheet rating and what drives it (D-118). */
+function RatingPanel() {
+  const game = useStore((s) => s.game)!;
+  const r = balanceSheetRating(game);
+  const tone = ['AAA', 'AA', 'A', 'BBB'].includes(r.grade) ? 'text-field' : ['BB', 'B'].includes(r.grade) ? 'text-grain' : 'text-rust';
+  return (
+    <Panel title={<Term id="bs-rating">Balance sheet rating</Term>}>
+      <div className="flex items-baseline gap-3">
+        <span className={`text-4xl font-bold ${tone}`}>{r.grade}</span>
+        <span className="text-sm text-stone-600">score {Math.round(r.score)} of 100{r.uncapped ? ` (the ratios alone earn ${r.uncapped}; the lender's standing caps it)` : ''}</span>
+      </div>
+      <div className="mt-2"><BreakdownView b={r.why} /></div>
+      <p className="mt-2 text-xs text-stone-500">BBB or better is a sound credit. Equity weighs most; liquidity and debt service next. The grade cannot rise above BB while the lender has us on watch.</p>
+    </Panel>
+  );
+}
 
 function RatiosPanel() {
   const game = useStore((s) => s.game)!;
