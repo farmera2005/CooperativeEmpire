@@ -35,6 +35,14 @@ Saves live in the browser's IndexedDB, so they survive container restarts (expor
 A Cloudflare Tunnel gives the game a public HTTPS address without opening ports on your router.
 The game is a static site: each visitor plays their own game, and saves stay in their browser.
 
+**From the game:** open **Settings** (title screen, or `T` in a game) while running the game with
+`npm run dev`, `npm run preview` or `npm run share`. Choose a quick or named tunnel, paste a named
+tunnel's token and hostname, tick "start sharing whenever the game server starts" if you like, and
+use **Start sharing** / **Stop sharing**; the public address appears with a Copy link button. The
+controls answer only on this computer (at localhost): visitors coming through the tunnel cannot
+see them or the token. Settings are kept in `.tunnel.json` (git-ignored, readable only by you).
+Sharing stops when the game server stops. The Docker image has no controls; use the profiles below.
+
 **Quick tunnel** (no Cloudflare account; a random `https://*.trycloudflare.com` address that lasts
 until you stop it):
 

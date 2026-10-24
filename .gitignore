@@ -4,3 +4,4 @@ runs
 *.log
 .DS_Store
 .env
+.tunnel.json

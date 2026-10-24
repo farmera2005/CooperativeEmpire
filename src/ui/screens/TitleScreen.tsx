@@ -40,6 +40,7 @@ export function TitleScreen() {
         <button className="btn btn-primary px-5 py-2 text-base" onClick={() => setScreen('newGame')}>New cooperative</button>
         {slots[0] && <button className="btn px-5 py-2 text-base" onClick={() => open(slots[0].id)}>Continue: {slots[0].coopName}, {slots[0].dateLabel}</button>}
         <button className="btn px-5 py-2 text-base" onClick={() => fileRef.current?.click()}>Import save file…</button>
+        <button className="btn px-5 py-2 text-base" onClick={() => setScreen('settings')}>Settings</button>
         <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={async (e) => {
           const f = e.target.files?.[0];
           if (!f) return;

@@ -16,6 +16,7 @@ import { SupplyScreen } from './SupplyScreen';
 import { EquityScreen } from './EquityScreen';
 import { LenderScreen } from './LenderScreen';
 import { LocationsScreen } from './LocationsScreen';
+import SettingsScreen from './SettingsScreen';
 import { PeopleScreen } from './PeopleScreen';
 import { DealsScreen } from './DealsScreen';
 import { OperationsScreen } from './OperationsScreen';
@@ -39,6 +40,7 @@ const TABS: { id: Tab; label: string; key: string }[] = [
   { id: 'board', label: 'Board Room', key: 'B' },
   { id: 'glossary', label: 'Glossary', key: 'G' },
   { id: 'saves', label: 'Save / Load', key: 'S' },
+  { id: 'settings', label: 'Settings', key: 'T' },
 ];
 /** Shown only in a game created in debug mode. */
 /** Financials holds four views (D-121); the nav shows one item and these open from the tab bar or by key. */
@@ -100,7 +102,7 @@ export function GameShell() {
           </button>
         ))}
         <div className="mt-auto p-3 text-xs text-stone-500">
-          Keys: 1–8, O, D, P, R, B, G, S screens; 9 equity, 0 lender, L locations; E end month, A advance until something needs attention.
+          Keys: 1–8, O, D, P, R, B, G, S, T screens; 9 equity, 0 lender, L locations; E end month, A advance until something needs attention.
           <div className="mt-1">{autosave}</div>
           {!guideOn && <button className="mt-1 underline" onClick={() => setGuide(true)}>Show the first-year guide</button>}
         </div>
@@ -151,6 +153,7 @@ export function GameShell() {
           {tab === 'board' && <BoardScreen />}
           {tab === 'glossary' && <GlossaryScreen />}
           {tab === 'saves' && <SavesScreen />}
+          {tab === 'settings' && <SettingsScreen />}
           {tab === 'debug' && game.setup.debugMode && <DebugScreen />}
         </main>
       </div>

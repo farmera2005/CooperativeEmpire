@@ -5,14 +5,14 @@ import {
 } from '../engine/index';
 import { saveSlot } from '../persistence/saves';
 
-export type Tab = 'dashboard' | 'deals' | 'operations' | 'reports' | 'glossary' | 'grain' | 'supply' | 'map' | 'markets' | 'members' | 'financials' | 'locations' | 'equity' | 'lender' | 'people' | 'board' | 'inbox' | 'saves' | 'debug';
+export type Tab = 'dashboard' | 'deals' | 'operations' | 'reports' | 'glossary' | 'grain' | 'supply' | 'map' | 'markets' | 'members' | 'financials' | 'locations' | 'equity' | 'lender' | 'settings' | 'people' | 'board' | 'inbox' | 'saves' | 'debug';
 
 export interface Toast {
   id: number;
   level: 'info' | 'warning' | 'error';
   text: string;
 }
-export type Screen = 'title' | 'newGame' | 'game';
+export type Screen = 'title' | 'newGame' | 'game' | 'settings';
 
 interface UiState {
   screen: Screen;
