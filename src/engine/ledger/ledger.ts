@@ -10,7 +10,7 @@ export function emptyLedger(firstMonth: number): LedgerState {
 }
 
 function newMonth(monthIndex: number): MonthLedger {
-  return { monthIndex, activity: {}, closing: {}, entries: [] };
+  return { monthIndex, activity: {}, closing: {}, entries: [], byFacility: {} };
 }
 
 export function currentMonthLedger(l: LedgerState): MonthLedger {
@@ -52,6 +52,11 @@ export function post(state: GameState, input: PostInput): JournalEntry {
     const k = key(ln.account, ln.division);
     l.balances[k] = (l.balances[k] ?? 0) + ln.amount;
     bucket[k] = (bucket[k] ?? 0) + ln.amount;
+    if (ln.facilityId !== undefined && !input.closing) {
+      const fk = `${ln.account}|${ln.facilityId}`;
+      const byF = (month.byFacility ??= {});
+      byF[fk] = (byF[fk] ?? 0) + ln.amount;
+    }
   }
   month.entries?.push(entry);
   return entry;

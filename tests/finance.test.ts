@@ -287,3 +287,42 @@ describe('balance sheet rating (D-118)', () => {
     expect(c.uncapped).toBe(r.grade);
   });
 });
+
+describe('location analysis (D-121)', () => {
+  it('books site costs to the site and adds up to the division results', async () => {
+    const { locationAnalysis } = await import('../src/engine/finance/locations');
+    const { incomeStatement } = await import('../src/engine/index');
+    let s = coop(1990, 3);
+    s = run(s, 14);
+    const la = locationAnalysis(s);
+    expect(la.sites.length).toBeGreaterThanOrEqual(2);
+    for (const r of la.sites.filter((x) => x.status === 'operating')) {
+      expect(r.directTotal).toBeGreaterThan(0);
+      expect(r.direct.depreciation).toBeGreaterThan(0);
+    }
+    for (const d of [...new Set(la.sites.map((r) => r.division))]) {
+      const is = incomeStatement(s.ledger, la.from, la.to, d);
+      const sum = la.sites.filter((r) => r.division === d).reduce((a, r) => a + r.contribution, 0);
+      expect(Math.abs(sum - is.localSavings)).toBeLessThan(100 * la.sites.length);
+    }
+    expect(la.estimated).toBe(false);
+    const totalNet = la.sites.reduce((a, r) => a + r.net, 0);
+    const all = incomeStatement(s.ledger, la.from, la.to);
+    expect(Math.abs(totalNet - all.localSavings)).toBeLessThan(100 * (la.sites.length + 1));
+  });
+
+  it('migrates a v8 save, which has no site detail, and estimates until it builds up', async () => {
+    const { locationAnalysis } = await import('../src/engine/finance/locations');
+    const v9 = run(coop(1990, 3), 3);
+    const v8 = JSON.parse(JSON.stringify(v9));
+    v8.schemaVersion = 8;
+    for (const m of v8.ledger.months) delete m.byFacility;
+    for (const r of v8.coop.grain.reports) delete r.byFacility;
+    for (const d of ['AGRONOMY', 'FEED', 'ENERGY', 'RETAIL']) for (const r of v8.coop.supply[d].reports) delete r.bySite;
+    const m = migrate(v8);
+    expect(m.schemaVersion).toBe(SCHEMA_VERSION);
+    expect(m.ledger.months[m.ledger.months.length - 1].byFacility).toEqual({});
+    expect(locationAnalysis(m).estimated).toBe(true);
+    expect(checkInvariants(run(m, 2))).toEqual([]);
+  });
+});

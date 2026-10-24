@@ -11,7 +11,7 @@ import type { Commodity } from '../data/grain';
 import type { Breakdown } from './core/breakdown';
 import type { Role, Skill, TraitId } from '../data/people';
 
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 9;
 
 export type DivisionId = 'GRAIN' | 'AGRONOMY' | 'FEED' | 'ENERGY' | 'RETAIL' | 'CORP';
 export const DIVISIONS: DivisionId[] = ['GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'RETAIL', 'CORP'];
@@ -212,6 +212,8 @@ export interface JournalLine {
   amount: Cents; // +debit, -credit
   memberId?: number;
   ref?: string;
+  /** The site the line belongs to, for location analysis (D-121). */
+  facilityId?: number;
 }
 
 export interface JournalEntry {
@@ -231,6 +233,8 @@ export interface MonthLedger {
   closing: Record<string, Cents>;
   /** Detail; dropped for old fiscal years (D-007). */
   entries: JournalEntry[] | null;
+  /** Net activity of lines tagged with a site, by "account|facilityId" (D-121; absent in older saves). */
+  byFacility?: Record<string, Cents>;
 }
 
 export interface LedgerState {
@@ -568,6 +572,8 @@ export interface GrainMonthReport {
   maxWaitHours: number;
   grossMargin: Breakdown;
   marginCall: Cents;
+  /** Bushels each elevator accepted this month, by facility id (D-121). */
+  byFacility?: Record<number, number>;
 }
 
 export interface GrainBook {
@@ -895,6 +901,8 @@ export interface SupplyMonthReport {
   badDebt: Cents;
   writeDown: Cents;
   share: number;
+  /** Sales and services credited to each of our sites this month (nominal $), by facility id (D-121). */
+  bySite?: Record<number, number>;
 }
 
 export interface SupplyBook {

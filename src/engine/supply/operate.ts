@@ -118,10 +118,19 @@ interface Acc {
   propaneCustomers: number;
   avgDistance: number;
   distN: number;
+  /** Our units by line credited to the site that won them (D-121): facility id → line → units. */
+  bySite: Map<number, Partial<Record<LineId, number>>>;
 }
 
-const emptyAcc = (): Acc => ({ demand: {}, ours: {}, memberUnits: {}, annualOurs: {}, shareSum: 0, shareN: 0, buyers: [], propaneCustomers: 0, avgDistance: 0, distN: 0 });
+const emptyAcc = (): Acc => ({ demand: {}, ours: {}, memberUnits: {}, annualOurs: {}, shareSum: 0, shareN: 0, buyers: [], propaneCustomers: 0, avgDistance: 0, distN: 0, bySite: new Map() });
 const add = (o: Partial<Record<LineId, number>>, k: LineId, v: number) => (o[k] = (o[k] ?? 0) + v);
+/** Credit units of a line to the site that won the sale. */
+const credit = (acc: Acc, fid: number | undefined, k: LineId, v: number) => {
+  if (fid === undefined || v <= 0) return;
+  let o = acc.bySite.get(fid);
+  if (!o) acc.bySite.set(fid, (o = {}));
+  add(o, k, v);
+};
 
 interface SupplierSite {
   ours: boolean;
@@ -253,6 +262,7 @@ export function stepSupply(ctx: TickContext): void {
           add(acc.annualOurs, id, a * share);
           const ours = qty * share;
           add(acc.ours, id, ours);
+          credit(acc, best.site.facility?.id, id, ours);
           if (m.kind === 'member') add(acc.memberUnits, id, ours);
           if (ours > 0) acc.buyers.push({ m, line: id, qty: ours });
         }
@@ -484,7 +494,17 @@ export function stepSupply(ctx: TickContext): void {
       bd('service', 'Service income (application, toll milling, tank rent, finance charges)', serviceTot, undefined, undefined, 'cents'),
     ], undefined, 'cents');
     margin.value = revenueTot - cogsTot + rebates - writeDown + serviceTot;
-    const rep: SupplyMonthReport = { monthIndex: mi, lines: report, capacity, margin, badDebt, writeDown, share: acc.shareN ? acc.shareSum / acc.shareN : 0 };
+    // Sales and services credited to each site in proportion to the units it won, line by line (D-121).
+    const bySite: Record<number, number> = {};
+    for (const [fid, units] of [...acc.bySite.entries()].sort((a, b) => a[0] - b[0])) {
+      let v = 0;
+      for (const id of Object.keys(units) as LineId[]) {
+        const all = acc.ours[id] ?? 0;
+        if (all > 0) v += ((units[id] ?? 0) / all) * (report[id]?.revenue ?? 0);
+      }
+      bySite[fid] = Math.round(v) / 100;
+    }
+    const rep: SupplyMonthReport = { monthIndex: mi, lines: report, capacity, margin, badDebt, writeDown, share: acc.shareN ? acc.shareSum / acc.shareN : 0, bySite };
     book.report = rep;
     book.reports = [...book.reports, rep].slice(-REPORT_HISTORY);
     if (open) ctx.summary.push(`${d[0]}${d.slice(1).toLowerCase()}: sales ${Math.round((revenueTot + serviceTot) / 100).toLocaleString('en-US')}.`);
@@ -512,13 +532,13 @@ function retailDemand(ctx: TickContext, sites: { ours: boolean; posture: number;
   for (const t of state.world.towns) {
     for (const kind of ['station', 'farmstore'] as FacilityKind[]) {
       const local = sites.filter((s) => s.kind === kind && dist[t.id][s.townId] <= reach);
-      let best: { u: number } | null = null;
+      let best: { u: number; fid: number } | null = null;
       let denom = Math.exp(theta * outside);
       for (const s of local) {
         const dd = dist[t.id][s.townId];
         if (s.ours) {
           const u = ourAdv - distPct * dd + DIVISION_CONFIG.RETAIL.serviceQuality * (STAFF_SERVICE[s.facility!.staffing.level] + peopleU);
-          if (!best || u > best.u) best = { u };
+          if (!best || u > best.u) best = { u, fid: s.facility!.id };
         } else denom += Math.exp(theta * (s.posture - distPct * dd + DIVISION_CONFIG.RETAIL.serviceQuality * s.service));
       }
       const key = `${kind}:${t.id}`;
@@ -533,13 +553,18 @@ function retailDemand(ctx: TickContext, sites: { ours: boolean; posture: number;
         if (best) {
           add(acc.ours, 'STATION_FUEL', gal * share);
           add(acc.ours, 'STORE_INSIDE', gal * rd.insidePerGal.value * share);
+          credit(acc, best.fid, 'STATION_FUEL', gal * share);
+          credit(acc, best.fid, 'STORE_INSIDE', gal * rd.insidePerGal.value * share);
           acc.shareSum += share;
           acc.shareN++;
         }
       } else {
         const dollars = ((acresByTown.get(t.id) ?? 0) * rd.farmStorePerAcre.value + t.population * rd.farmStorePerResident.value) * seasonShare('FARM_STORE', month);
         add(acc.demand, 'FARM_STORE', dollars);
-        if (best) add(acc.ours, 'FARM_STORE', dollars * share);
+        if (best) {
+          add(acc.ours, 'FARM_STORE', dollars * share);
+          credit(acc, best.fid, 'FARM_STORE', dollars * share);
+        }
       }
     }
   }
@@ -554,13 +579,14 @@ function townEnergyDemand(ctx: TickContext, sites: SupplierSite[], acc: Acc, boo
   const dist = state.world.distances;
   for (const t of state.world.towns) {
     let best: number | null = null;
+    let bestFid: number | undefined;
     let denom = Math.exp(theta * outside);
     for (const s of sites) {
       const dd = dist[t.id][s.townId];
       if (dd > reach) continue;
       if (s.ours) {
         const u = ourAdv - distPct * dd + DIVISION_CONFIG.ENERGY.serviceQuality * (STAFF_SERVICE[s.facility!.staffing.level] + peopleU);
-        if (best === null || u > best) best = u;
+        if (best === null || u > best) { best = u; bestFid = s.facility!.id; }
       } else denom += Math.exp(theta * (s.posture - distPct * dd + DIVISION_CONFIG.ENERGY.serviceQuality * s.service));
     }
     const key = `energy:${t.id}`;
@@ -575,6 +601,8 @@ function townEnergyDemand(ctx: TickContext, sites: SupplierSite[], acc: Acc, boo
     if (best === null) continue;
     add(acc.ours, 'PROPANE', propane * share);
     add(acc.ours, 'FUEL_DIESEL', fuel * share);
+    credit(acc, bestFid, 'PROPANE', propane * share);
+    credit(acc, bestFid, 'FUEL_DIESEL', fuel * share);
     add(acc.annualOurs, 'PROPANE', t.population * ed.ruralHouseholdsPerResident.value * SUPPLY_SHARE.normalHdd.value * ed.propanePerHdd.value * share);
     acc.propaneCustomers += t.population * ed.ruralHouseholdsPerResident.value * share;
   }

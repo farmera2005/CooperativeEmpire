@@ -191,7 +191,7 @@ function workforce(ctx: TickContext): void {
     if (!rng.chance(clamp(p, 0, 0.5))) continue;
     const serious = rng.chance(INCIDENTS.seriousShare.value);
     const cost = nominalCents(path, mi, serious ? INCIDENTS.seriousCost.value : INCIDENTS.cost.value);
-    post(state, { source: 'incident', memo: `${serious ? 'Serious incident' : 'Injury'} at ${f.name}`, lines: [{ account: '7695', division: f.division, amount: cost }, { account: '1000', division: 'CORP', amount: -cost }] });
+    post(state, { source: 'incident', memo: `${serious ? 'Serious incident' : 'Injury'} at ${f.name}`, lines: [{ account: '7695', division: f.division, amount: cost, facilityId: f.id }, { account: '1000', division: 'CORP', amount: -cost }] });
     const text = serious
       ? `A worker was badly hurt at ${f.name}. OSHA is investigating; claims, penalties and downtime will cost about ${formatCents(cost)}.`
       : `A recordable injury at ${f.name} (${formatCents(cost)} in uninsured costs and lost time).`;

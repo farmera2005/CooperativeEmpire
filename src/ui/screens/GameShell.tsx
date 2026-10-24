@@ -15,6 +15,7 @@ import { GrainScreen } from './GrainScreen';
 import { SupplyScreen } from './SupplyScreen';
 import { EquityScreen } from './EquityScreen';
 import { LenderScreen } from './LenderScreen';
+import { LocationsScreen } from './LocationsScreen';
 import { PeopleScreen } from './PeopleScreen';
 import { DealsScreen } from './DealsScreen';
 import { OperationsScreen } from './OperationsScreen';
@@ -31,8 +32,6 @@ const TABS: { id: Tab; label: string; key: string }[] = [
   { id: 'markets', label: 'Markets', key: '6' },
   { id: 'members', label: 'Members', key: '7' },
   { id: 'financials', label: 'Financials', key: '8' },
-  { id: 'equity', label: 'Equity & Patronage', key: '9' },
-  { id: 'lender', label: 'Regional & Lender', key: '0' },
   { id: 'operations', label: 'Operations & Tech', key: 'O' },
   { id: 'deals', label: 'Deals & Competitors', key: 'D' },
   { id: 'people', label: 'People', key: 'P' },
@@ -42,6 +41,15 @@ const TABS: { id: Tab; label: string; key: string }[] = [
   { id: 'saves', label: 'Save / Load', key: 'S' },
 ];
 /** Shown only in a game created in debug mode. */
+/** Financials holds four views (D-121); the nav shows one item and these open from the tab bar or by key. */
+const FINANCE_TABS: { id: Tab; label: string; key?: string }[] = [
+  { id: 'financials', label: 'Statements' },
+  { id: 'locations', label: 'Locations', key: 'L' },
+  { id: 'equity', label: 'Equity & Patronage', key: '9' },
+  { id: 'lender', label: 'Regional & Lender', key: '0' },
+];
+const inFinance = (t: Tab) => FINANCE_TABS.some((x) => x.id === t);
+
 const DEBUG_TAB: { id: Tab; label: string; key: string } = { id: 'debug', label: 'Debug tools', key: 'X' };
 
 export function GameShell() {
@@ -60,7 +68,7 @@ export function GameShell() {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
       if (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA' || e.metaKey || e.ctrlKey || e.altKey) return;
-      const t = tabs.find((x) => x.key === e.key.toUpperCase());
+      const t = tabs.find((x) => x.key === e.key.toUpperCase()) ?? FINANCE_TABS.find((x) => x.key === e.key.toUpperCase());
       if (t) setTab(t.id);
       else if (e.key === 'e' || e.key === 'E') endMonth();
       else if (e.key === 'a' || e.key === 'A') advanceUntil();
@@ -85,14 +93,14 @@ export function GameShell() {
           {game.setup.debugMode && <div className="mt-1 inline-block rounded bg-amber-500 px-1.5 text-xs font-bold text-white">DEBUG GAME</div>}
         </div>
         {tabs.map((t) => (
-          <button key={t.id} onClick={() => setTab(t.id)} aria-current={tab === t.id}
-            className={`flex items-center justify-between px-3 py-2 text-left text-sm hover:bg-[#e0d8bf] ${tab === t.id ? 'bg-[#d9cfae] font-semibold' : ''}`}>
+          <button key={t.id} onClick={() => setTab(t.id)} aria-current={tab === t.id || (t.id === 'financials' && inFinance(tab))}
+            className={`flex items-center justify-between px-3 py-2 text-left text-sm hover:bg-[#e0d8bf] ${tab === t.id || (t.id === 'financials' && inFinance(tab)) ? 'bg-[#d9cfae] font-semibold' : ''}`}>
             <span>{t.label}</span>
             <span className="text-xs text-stone-500">{t.id === 'inbox' && (unread || decisions) ? <b className="rounded bg-rust px-1.5 text-white">{decisions ? `${decisions}!` : unread}</b> : t.key}</span>
           </button>
         ))}
         <div className="mt-auto p-3 text-xs text-stone-500">
-          Keys: 0–9, O, D, P, R, B, G, S screens, E end month, A advance until something needs attention.
+          Keys: 1–8, O, D, P, R, B, G, S screens; 9 equity, 0 lender, L locations; E end month, A advance until something needs attention.
           <div className="mt-1">{autosave}</div>
           {!guideOn && <button className="mt-1 underline" onClick={() => setGuide(true)}>Show the first-year guide</button>}
         </div>
@@ -122,7 +130,18 @@ export function GameShell() {
           {tab === 'map' && <MapScreen />}
           {tab === 'markets' && <MarketsScreen />}
           {tab === 'members' && <MembersScreen />}
+          {inFinance(tab) && (
+            <div className="mb-4 flex gap-1 border-b border-stone-300" role="tablist" aria-label="Financials">
+              {FINANCE_TABS.map((t) => (
+                <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
+                  className={`-mb-px rounded-t border px-4 py-2 text-sm ${tab === t.id ? 'border-stone-300 border-b-[#f7f3e8] bg-[#f7f3e8] font-semibold' : 'border-transparent text-stone-600 hover:bg-[#ece6d3]'}`}>
+                  {t.label}{t.key ? <span className="ml-1 text-xs text-stone-400">{t.key}</span> : null}
+                </button>
+              ))}
+            </div>
+          )}
           {tab === 'financials' && <FinancialsScreen />}
+          {tab === 'locations' && <LocationsScreen />}
           {tab === 'equity' && <EquityScreen />}
           {tab === 'lender' && <LenderScreen />}
           {tab === 'operations' && <OperationsScreen />}

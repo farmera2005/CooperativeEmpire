@@ -93,17 +93,21 @@ export function capitalize(state: GameState, facilityId: number, components: Com
 /** Monthly straight-line depreciation for all assets. */
 export function stepDepreciation(ctx: TickContext): void {
   const { state } = ctx;
-  const byDiv = new Map<DivisionId, number>();
+  // Totals by site so location analysis sees each site's depreciation (D-121).
+  const bySite = new Map<number, number>();
   const divOf = new Map(state.coop.facilities.map((f) => [f.id, f.division]));
   for (const a of state.coop.assets) {
     if (a.lifeMonths <= 0 || a.accumDep >= a.cost) continue;
     const dep = Math.min(a.cost - a.accumDep, Math.max(1, Math.round(a.cost / a.lifeMonths)));
     a.accumDep += dep;
-    const d = divOf.get(a.facilityId) ?? (a.facilityId < 0 ? 'CORP' : 'GRAIN');
-    byDiv.set(d, (byDiv.get(d) ?? 0) + dep);
+    bySite.set(a.facilityId, (bySite.get(a.facilityId) ?? 0) + dep);
   }
   const lines: JournalLine[] = [];
-  for (const [d, v] of [...byDiv.entries()].sort()) lines.push({ account: '7100', division: d, amount: v }, { account: '1590', division: d, amount: -v });
+  for (const [fid, v] of [...bySite.entries()].sort((a, b) => a[0] - b[0])) {
+    const d: DivisionId = divOf.get(fid) ?? (fid < 0 ? 'CORP' : 'GRAIN');
+    const tag = divOf.has(fid) ? { facilityId: fid } : {};
+    lines.push({ account: '7100', division: d, amount: v, ...tag }, { account: '1590', division: d, amount: -v, ...tag });
+  }
   if (lines.length) post(state, { source: 'depreciation', memo: 'Monthly depreciation', lines });
 }
 
@@ -186,7 +190,7 @@ export const breakdownRisk = (f: Facility): number => (1 + (100 - f.condition) /
 /** Post the emergency repair bill for a breakdown at a site. */
 export function postBreakdownRepair(ctx: TickContext, f: Facility): Cents {
   const cost = roundCents(replacementCost(ctx.path, ctx.mi, f.components) * MAINTENANCE.emergencyRepairShare.value);
-  if (cost > 0) post(ctx.state, { source: 'breakdown', memo: `Emergency repair at ${f.name}`, lines: [{ account: '7200', division: f.division, amount: cost }, { account: '1000', division: f.division, amount: -cost }] });
+  if (cost > 0) post(ctx.state, { source: 'breakdown', memo: `Emergency repair at ${f.name}`, lines: [{ account: '7200', division: f.division, amount: cost, facilityId: f.id }, { account: '1000', division: f.division, amount: -cost }] });
   return cost;
 }
 
@@ -209,9 +213,10 @@ export function stepFacilityCosts(ctx: TickContext): void {
   const lines: JournalLine[] = [];
   let cash = 0;
   let division: DivisionId = 'GRAIN';
+  let facilityId = 0;
   const add = (account: string, amount: Cents) => {
     if (amount <= 0) return;
-    lines.push({ account, division, amount });
+    lines.push({ account, division, amount, facilityId });
     cash += amount;
   };
   const coo = 1 + effect(state, 'coo.opex');
@@ -223,6 +228,7 @@ export function stepFacilityCosts(ctx: TickContext): void {
   for (const f of state.coop.facilities) {
     if (f.status === 'closed' || f.status === 'underConstruction') continue;
     division = f.division;
+    facilityId = f.id;
     const repl = replacementCost(path, mi, f.components);
     const mothballed = f.status === 'mothballed';
     const shared = sharesSite(state, f);
@@ -267,7 +273,7 @@ export function stepFacilityCosts(ctx: TickContext): void {
       f.envLiability.discovered = true;
       post(state, {
         source: 'env-cleanup', memo: `Environmental cleanup at ${f.name}`,
-        lines: [{ account: '7660', division: f.division, amount: f.envLiability.cost }, { account: '1000', division: f.division, amount: -f.envLiability.cost }],
+        lines: [{ account: '7660', division: f.division, amount: f.envLiability.cost, facilityId: f.id }, { account: '1000', division: f.division, amount: -f.envLiability.cost }],
       });
       ctx.inbox({ kind: 'alert', title: `Contamination found at ${f.name}`, body: `Soil testing during routine work at ${f.name} found old fuel and pesticide contamination from the previous owner. Cleanup will cost about $${Math.round(f.envLiability.cost / 100).toLocaleString('en-US')}. Better due diligence might have caught it before the purchase.` });
     }

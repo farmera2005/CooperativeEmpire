@@ -92,16 +92,16 @@ export function stepRegulation(ctx: TickContext): void {
     });
   }
   // Ongoing costs, fines and shutdowns.
-  const lines: { account: string; division: Facility['division']; amount: number }[] = [];
+  const lines: { account: string; division: Facility['division']; amount: number; facilityId?: number }[] = [];
   for (const r of REGULATIONS) {
     const on = state.regulation.active[r.id];
     if (on === undefined) continue;
     const dl = deadlineOf(state, r)!;
     for (const f of affectedSites(state, r)) {
       if (f.status !== 'operating' && !state.regulation.shut[key(r, f)]) continue;
-      if (r.opexPerMonth > 0 && f.status === 'operating') lines.push({ account: '7665', division: f.division, amount: nominalCents(ctx.path, mi, r.opexPerMonth) });
+      if (r.opexPerMonth > 0 && f.status === 'operating') lines.push({ account: '7665', division: f.division, amount: nominalCents(ctx.path, mi, r.opexPerMonth), facilityId: f.id });
       if (isCompliant(state, r, f) || mi <= dl) continue;
-      if (f.status === 'operating') lines.push({ account: '7665', division: f.division, amount: nominalCents(ctx.path, mi, r.finePerMonth) });
+      if (f.status === 'operating') lines.push({ account: '7665', division: f.division, amount: nominalCents(ctx.path, mi, r.finePerMonth), facilityId: f.id });
       if (mi === dl + 1) ctx.inbox({ kind: 'alert', title: `${f.name} is out of compliance`, body: `The ${r.label.toLowerCase()} deadline has passed and ${f.name} is not in compliance. Fines run every month until it is.` });
       if (r.closeAfterMonths !== undefined && mi >= dl + r.closeAfterMonths && f.status === 'operating') {
         f.status = 'mothballed';

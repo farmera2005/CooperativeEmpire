@@ -97,6 +97,14 @@ export const MIGRATIONS: Record<number, (s: AnyState) => AnyState> = {
     s.reports ??= [];
     return { ...s, schemaVersion: 8 };
   },
+  // D-121: ledger months carry per-site activity; the open month starts an empty one. Closed
+  // months and old grain and supply reports have no site detail, and location analysis falls
+  // back to capacity shares until a year of it builds up.
+  8: (s) => {
+    const months = s.ledger?.months;
+    if (Array.isArray(months) && months.length) months[months.length - 1].byFacility ??= {};
+    return { ...s, schemaVersion: 9 };
+  },
 };
 
 export interface SaveFile {

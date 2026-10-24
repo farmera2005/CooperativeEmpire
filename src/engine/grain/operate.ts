@@ -703,7 +703,10 @@ export function stepGrain(ctx: TickContext): void {
     bd('storage', 'Storage, DP and government storage income', comp.storage, undefined, undefined, 'cents'),
   ], 'Cost of grain sold includes the change in inventory value, so the margin shows up as grain moves and as basis and carry improve.', 'cents');
   breakdown.value = gm + comp.drying + comp.storage;
-  const rep: GrainMonthReport = { monthIndex: mi, byCommodity: report, maxWaitHours: maxWait, grossMargin: breakdown, marginCall };
+  // Bushels each elevator took in: the base for spreading the grain margin over locations (D-121).
+  const byFacility: Record<number, number> = {};
+  for (const [fid, fl] of [...flows.entries()].sort((a, b) => a[0] - b[0])) byFacility[fid] = Math.round(COMMODITIES.reduce((a, c) => a + fl.accepted[c], 0));
+  const rep: GrainMonthReport = { monthIndex: mi, byCommodity: report, maxWaitHours: maxWait, grossMargin: breakdown, marginCall, byFacility };
   g.report = rep;
   g.reports = [...g.reports, rep].slice(-REPORT_HISTORY);
   ctx.summary.push(`Grain: received ${Math.round(COMMODITIES.reduce((a, c) => a + report[c].receivedBu, 0)).toLocaleString('en-US')} bu, shipped ${Math.round(COMMODITIES.reduce((a, c) => a + report[c].shippedBu, 0)).toLocaleString('en-US')} bu.`);
