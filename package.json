@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "npm run typecheck && vite build",
     "preview": "vite preview",
+    "share": "tsx tools/tunnel/share.ts",
     "typecheck": "tsc -p tsconfig.engine.json --noEmit && tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.tools.json --noEmit",
     "lint:engine": "tsx tools/lint/engineRules.ts",
     "test": "vitest run",

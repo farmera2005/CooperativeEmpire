@@ -8,3 +8,28 @@ services:
     environment:
       - HOST_PORT=${HOST_PORT:-8080}
     restart: unless-stopped
+
+  # Cloudflare Tunnel, optional. A quick tunnel needs no account and prints a random
+  # https://*.trycloudflare.com address in its log:
+  #   docker compose --profile tunnel up --build
+  tunnel:
+    image: cloudflare/cloudflared:2026.9.3
+    profiles: ["tunnel"]
+    command: tunnel --no-autoupdate --url http://web:80
+    depends_on:
+      - web
+    restart: unless-stopped
+
+  # A named tunnel on your own hostname. Create the tunnel in the Cloudflare dashboard
+  # (Zero Trust > Networks > Tunnels), route its public hostname to http://web:80, and put
+  # its token in .env as CLOUDFLARE_TUNNEL_TOKEN=...:
+  #   docker compose --profile named-tunnel up --build -d
+  tunnel-named:
+    image: cloudflare/cloudflared:2026.9.3
+    profiles: ["named-tunnel"]
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      - web
+    restart: unless-stopped
