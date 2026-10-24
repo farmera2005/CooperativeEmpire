@@ -97,3 +97,19 @@ describe('business share for membership (D-117)', () => {
     expect(businessShare(m, new Set(['GRAIN_CORN', 'GRAIN_SOY', 'GRAIN_WHEAT', 'AGRONOMY']))).toBeCloseTo(0.6);
   });
 });
+
+describe('facility catchment for the map heatmap (D-119)', () => {
+  it('credits each town to our nearest site within reach and nothing beyond it', async () => {
+    const { facilityCatchment } = await import('../src/engine/selectors');
+    let s = newGame({ ...DEFAULT_SETUP, startYear: 1990, gameSeed: 2, mapSeed: 2, capitalPreset: 'well' });
+    s = applyCommand(s, { type: 'buyFacility', offerId: s.coop.offers.find((o) => o.kind === 'elevator')!.id, financePct: 0.5 }, { boardApproved: true }).state;
+    for (let i = 0; i < 6; i++) s = advanceMonth(s).state;
+    const f = s.coop.facilities.find((x) => x.kind === 'elevator' && x.status === 'operating')!;
+    const c = facilityCatchment(s, f.id)!;
+    expect(c.unit).toBe('bushels a year');
+    expect(c.total).toBeGreaterThan(0);
+    expect(c.byTown[f.townId].value).toBeGreaterThan(0);
+    for (const t of s.world.towns) if (s.world.distances[t.id][f.townId] > c.reachMiles) expect(c.byTown[t.id].value).toBe(0);
+    expect(facilityCatchment(s, -1)).toBeNull();
+  });
+});

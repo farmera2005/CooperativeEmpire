@@ -29,7 +29,7 @@ export type { SaveFile } from './save/migrations';
 export { hashValue } from './core/hash';
 export { ratios } from './ledger/ratios';
 export type { Ratios } from './ledger/ratios';
-export { grainShareByTown, supplyShareByTown } from './selectors';
+export { grainShareByTown, supplyShareByTown, facilityCatchment, type FacilityCatchment, type CatchmentTown } from './selectors';
 export { capperVolsteadRatio } from './sim/capperVolstead';
 export { grainCapacity, totalCapacityBu, facilityBu, netBookValue, replacementCost, elevatorFte } from './facilities/facilities';
 export type { Components, GrainCapacity } from './facilities/facilities';

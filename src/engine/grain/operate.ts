@@ -47,7 +47,7 @@ import {
 } from './prices';
 
 export const GRAIN_LINE: Record<Commodity, string> = { corn: 'GRAIN_CORN', soybeans: 'GRAIN_SOY', wheat: 'GRAIN_WHEAT' };
-const YIELD_SERIES: Record<Commodity, SeriesId> = { corn: 'yieldCorn', soybeans: 'yieldSoy', wheat: 'yieldWheat' };
+export const YIELD_SERIES: Record<Commodity, SeriesId> = { corn: 'yieldCorn', soybeans: 'yieldSoy', wheat: 'yieldWheat' };
 const REPORT_HISTORY = 36;
 const SUPPLY_KEYS = ['AGRONOMY', 'FEED', 'ENERGY'];
 const HOURS_PER_WEEK = 24 * 7;
