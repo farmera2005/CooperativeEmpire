@@ -249,7 +249,7 @@ function EffectsPanel() {
   );
 }
 
-const SALES_LABEL: Record<OpDivision, string> = { GRAIN: 'Grain originators', AGRONOMY: 'Sales agronomists', FEED: 'Feed sales reps', ENERGY: 'Energy sales reps', RETAIL: 'Store sales staff' };
+const SALES_LABEL: Partial<Record<OpDivision, string>> = { GRAIN: 'Grain originators', AGRONOMY: 'Sales agronomists', FEED: 'Feed sales reps', ENERGY: 'Energy sales reps' };
 
 /** Salespeople by business unit (D-109). */
 function SalesForcePanel() {

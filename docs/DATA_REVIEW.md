@@ -680,7 +680,7 @@ Cost anchors are 2024 dollars scaled by the construction-cost index; other dolla
 | PROPOSALS.storageFeeDown | 0.85 | low |  |
 | PROPOSALS.emptyTurns | 1.5 | low |  |
 | PROPOSALS.offSeasonAsk | {"GRAIN":12,"AGRONOMY":7,"FEED":4,"ENERGY":3} | low |  |
-| SALES_FORCE.wage2024 | {"GRAIN":78000,"AGRONOMY":82000,"FEED":70000,"ENERGY":62000,"RETAIL":42000} | low | Ag sales and grain origination salaries, mid-2020s, before commissions |
+| SALES_FORCE.wage2024 | {"GRAIN":78000,"AGRONOMY":82000,"FEED":70000,"ENERGY":62000} | low | Ag sales and grain origination salaries, mid-2020s, before commissions |
 | SALES_FORCE.expense2024 | 18,000 | low | Vehicle, phone, travel and customer events per rep per year |
 | SALES_FORCE.customersPerRep | 120 | low | A sales agronomist or originator calls on roughly 80–150 growers |
 | SALES_FORCE.maxBoost | 1 | low |  |

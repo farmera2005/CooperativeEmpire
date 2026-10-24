@@ -16,9 +16,14 @@ import { nominalCents } from '../world/macro';
 import { DIVISION_ROLE, effectiveSkill } from './leaders';
 
 const S = SALES_FORCE;
-export const SALES_DIVISIONS: OpDivision[] = ['GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'RETAIL'];
+/**
+ * Business units with an outside sales force. Retail is not one (D-120): its customers walk in,
+ * and store traffic comes from staffing, location and the retail manager, not from reps calling
+ * on farms.
+ */
+export const SALES_DIVISIONS: OpDivision[] = ['GRAIN', 'AGRONOMY', 'FEED', 'ENERGY'];
 
-export const salesStaff = (s: GameState, d: OpDivision): number => s.coop.salesForce?.[d] ?? 0;
+export const salesStaff = (s: GameState, d: OpDivision): number => (SALES_DIVISIONS.includes(d) ? s.coop.salesForce?.[d] ?? 0 : 0);
 
 /**
  * The division's prospects (D-114): active farms within reach of one of its sites, and for feed

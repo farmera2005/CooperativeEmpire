@@ -274,7 +274,7 @@ export const PROPOSALS = {
  * sales skill. Pay is 2024 dollars a year; expenses cover a vehicle, phone and customer events.
  */
 export const SALES_FORCE = {
-  wage2024: s<Record<string, number>>({ GRAIN: 78_000, AGRONOMY: 82_000, FEED: 70_000, ENERGY: 62_000, RETAIL: 42_000 }, 'low', 'Ag sales and grain origination salaries, mid-2020s, before commissions'),
+  wage2024: s<Record<string, number>>({ GRAIN: 78_000, AGRONOMY: 82_000, FEED: 70_000, ENERGY: 62_000 }, 'low', 'Ag sales and grain origination salaries, mid-2020s, before commissions'),
   expense2024: s(18_000, 'low', 'Vehicle, phone, travel and customer events per rep per year'),
   /** Farm customers one rep can call on regularly. */
   customersPerRep: s(120, 'low', 'A sales agronomist or originator calls on roughly 80–150 growers'),

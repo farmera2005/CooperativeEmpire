@@ -505,7 +505,7 @@ function retailDemand(ctx: TickContext, sites: { ours: boolean; posture: number;
   const { state, mi } = ctx;
   const month = monthOf(mi);
   const rd = RETAIL_DEMAND;
-  const peopleU = effect(state, 'supply.share', 'RETAIL') - staffServicePenalty(state, 'RETAIL') + salesBoost(state, 'RETAIL');
+  const peopleU = effect(state, 'supply.share', 'RETAIL') - staffServicePenalty(state, 'RETAIL');
   const acresByTown = new Map<number, number>();
   for (const m of state.members.list) if (m.status === 'active') acresByTown.set(m.townId, (acresByTown.get(m.townId) ?? 0) + (m.acres.corn + m.acres.soybeans + m.acres.wheat + m.acres.other) * m.weight);
   const dist = state.world.distances;
