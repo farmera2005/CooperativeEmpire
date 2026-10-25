@@ -27,12 +27,14 @@ docker compose --profile static up --build    # also the plain nginx site at htt
 ```
 
 The `app` service runs the game on its own Node server with the Settings sharing controls and
-`cloudflared` built in (see below). It is published on this computer only (127.0.0.1); to play
-from other devices on your network, use the `static` profile (`HOST_PORT` sets its port) or share
-over a tunnel. The image build runs the typecheck, engine lint and test suite first. Saves live in
+`cloudflared` built in (see below). Open it from any computer on your network at
+`http://<docker machine>:8080`. Changing sharing from a computer other than the Docker machine asks
+once for the **sharing key**, which the container prints when it starts
+(`docker compose logs app | grep -A1 "Sharing key"`); it is kept in the `coop-tunnel` volume, or
+set your own with `COOP_ADMIN_KEY` in `.env`. The image build runs the typecheck, engine lint and test suite first. Saves live in
 the browser's IndexedDB, so they survive container restarts (export JSON to move them).
 
-Without Compose: `docker build --target app -t ag-coop-tycoon-app . && docker run --rm -p 127.0.0.1:8080:8080 -v coop-tunnel:/data ag-coop-tycoon-app`,
+Without Compose: `docker build --target app -t ag-coop-tycoon-app . && docker run --rm -p 8080:8080 -v coop-tunnel:/data ag-coop-tycoon-app`,
 or the static site with `docker build -t ag-coop-tycoon . && docker run --rm -p 8081:80 ag-coop-tycoon`.
 
 **"Bind for …:8080 failed: port is already allocated":** something else holds port 8080 —
@@ -56,8 +58,9 @@ The game is a static site: each visitor plays their own game, and saves stay in 
 `npm run dev`, `npm run preview` or `npm run share`. Choose a quick or named tunnel, paste a named
 tunnel's token and hostname, tick "start sharing whenever the game server starts" if you like, and
 use **Start sharing** / **Stop sharing**; the public address appears with a Copy link button. The
-controls answer only on this computer (at localhost): visitors coming through the tunnel cannot
-see them or the token. Settings are kept in `.tunnel.json` (git-ignored, readable only by you).
+controls need nothing more on the computer running the game; from another computer on your network
+they ask for the sharing key the server prints at start. Visitors coming through the tunnel can
+never reach them or the token. Settings are kept in `.tunnel.json` (git-ignored, readable only by you).
 Sharing stops when the game server stops.
 
 **With Docker:** `docker compose up --build` starts the `app` service, which has these controls

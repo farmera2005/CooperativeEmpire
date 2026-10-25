@@ -1,7 +1,8 @@
 services:
   # The game with in-game sharing controls (Settings > Share the game): start, stop and set up a
-  # Cloudflare Tunnel from the browser. Published on this computer only (127.0.0.1), because the
-  # controls trust requests addressed to localhost; tunnel settings and token persist in the
+  # Cloudflare Tunnel from the browser. Open it from any computer on your network
+  # (http://<this machine>:8080); changing sharing from another computer asks for the sharing
+  # key printed in the log (docker compose logs app). Settings, token and key persist in the
   # coop-tunnel volume.
   #   docker compose up --build            → http://localhost:8080
   app:
@@ -10,10 +11,12 @@ services:
       target: app
     init: true
     ports:
-      - "127.0.0.1:${APP_PORT:-8080}:8080"
+      - "${APP_PORT:-8080}:8080"
     environment:
       - CLOUDFLARE_TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN:-}
       - TUNNEL_HOSTNAME=${TUNNEL_HOSTNAME:-}
+      - COOP_ADMIN_KEY=${COOP_ADMIN_KEY:-}
+      - ALLOWED_HOSTS=all
     volumes:
       - coop-tunnel:/data
     restart: unless-stopped

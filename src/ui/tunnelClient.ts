@@ -1,5 +1,7 @@
-// Talks to the local server's tunnel control API (tools/tunnel/api.ts, D-123). The API exists
-// only on the dev/preview server on this machine; static hosting and tunneled visitors get 404.
+// Talks to the game server's tunnel control API (tools/tunnel/api.ts, D-123, D-126). The API
+// exists only on the dev/preview server (and the Docker app service); static hosting and
+// visitors through the tunnel get 404. From another computer it needs the sharing key, which
+// this browser remembers once entered.
 
 export interface TunnelStatusView {
   state: 'stopped' | 'starting' | 'running' | 'error';
@@ -12,27 +14,41 @@ export interface TunnelStatusView {
   localUrl: string | null;
 }
 
-export type TunnelAvailability = 'ok' | 'remote' | 'unsupported';
+export type TunnelAvailability = 'ok' | 'needKey' | 'remote' | 'unsupported';
 
 const BASE = '/__coop/tunnel';
+const KEY_STORE = 'coop.sharingKey';
 const LOCAL = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
 
-/** Opened from another machine (e.g. through the tunnel): the controls are not for this visitor. */
+/** Opened by a name other than localhost (another computer, or through the tunnel). */
 export const openedRemotely = (): boolean => !LOCAL.has(window.location.hostname);
 
-export async function fetchStatus(): Promise<{ availability: TunnelAvailability; status: TunnelStatusView | null }> {
-  if (openedRemotely()) return { availability: 'remote', status: null };
+/** The sharing key this browser remembers (a per-viewer convenience; storage may be unavailable). */
+export function savedKey(): string {
+  try { return localStorage.getItem(KEY_STORE) ?? ''; } catch { return ''; }
+}
+export function rememberKey(key: string): void {
   try {
-    const r = await fetch(`${BASE}/status`, { cache: 'no-store' });
-    if (!r.ok || !(r.headers.get('content-type') ?? '').includes('application/json')) return { availability: 'unsupported', status: null };
+    if (key) localStorage.setItem(KEY_STORE, key);
+    else localStorage.removeItem(KEY_STORE);
+  } catch { /* not stored: asked again next time */ }
+}
+const keyHeader = (): Record<string, string> => (savedKey() ? { 'X-Coop-Admin-Key': savedKey() } : {});
+
+export async function fetchStatus(): Promise<{ availability: TunnelAvailability; status: TunnelStatusView | null }> {
+  try {
+    const r = await fetch(`${BASE}/status`, { cache: 'no-store', headers: keyHeader() });
+    const json = (r.headers.get('content-type') ?? '').includes('application/json');
+    if (r.status === 401 && json) return { availability: 'needKey', status: null };
+    if (!r.ok || !json) return { availability: openedRemotely() ? 'remote' : 'unsupported', status: null };
     return { availability: 'ok', status: await r.json() };
   } catch {
-    return { availability: 'unsupported', status: null };
+    return { availability: openedRemotely() ? 'remote' : 'unsupported', status: null };
   }
 }
 
 async function postJson(action: string, body: unknown = {}): Promise<TunnelStatusView> {
-  const r = await fetch(`${BASE}/${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Coop-Admin': '1' }, body: JSON.stringify(body) });
+  const r = await fetch(`${BASE}/${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Coop-Admin': '1', ...keyHeader() }, body: JSON.stringify(body) });
   const data = await r.json();
   if (!r.ok) throw new Error(data?.error ?? `Request failed (${r.status})`);
   return data;

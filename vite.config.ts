@@ -9,7 +9,11 @@ import { loadConfig } from './tools/tunnel/manager.ts';
 // tunnel arrives as *.trycloudflare.com; a named tunnel as the hostname set in Settings or in
 // TUNNEL_HOSTNAME (read when the server starts).
 const named = loadConfig().hostname;
-const tunnelHosts = ['.trycloudflare.com', ...(named ? [named] : [])];
+// ALLOWED_HOSTS adds names the game is opened by on your network (comma-separated), or `all`
+// (the Docker app service) to accept any. Safe for the sharing controls, which never rely on the
+// Host header alone (D-126).
+const extra = (process.env.ALLOWED_HOSTS ?? '').split(',').map((h) => h.trim()).filter(Boolean);
+const tunnelHosts: string[] | true = extra.includes('all') ? true : ['.trycloudflare.com', ...(named ? [named] : []), ...extra];
 
 export default defineConfig({
   base: './',

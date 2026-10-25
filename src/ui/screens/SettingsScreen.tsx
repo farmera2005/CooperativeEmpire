@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Panel } from '../components/Panel';
-import { fetchStatus, saveTunnelConfig, startTunnel, stopTunnel, type TunnelAvailability, type TunnelStatusView } from '../tunnelClient';
+import { fetchStatus, rememberKey, saveTunnelConfig, savedKey, startTunnel, stopTunnel, type TunnelAvailability, type TunnelStatusView } from '../tunnelClient';
 
 const STATE_LABEL: Record<TunnelStatusView['state'], string> = { stopped: 'Not sharing', starting: 'Starting…', running: 'Sharing', error: 'Problem' };
 const STATE_TONE: Record<TunnelStatusView['state'], string> = { stopped: 'bg-stone-200 text-stone-700', starting: 'bg-[#fbf3d6] text-stone-800', running: 'bg-field text-white', error: 'bg-rust text-white' };
@@ -17,6 +17,8 @@ export default function SettingsScreen({ onBack }: { onBack?: () => void }) {
   const [msg, setMsg] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const [loadedForm, setLoadedForm] = useState(false);
+  const [keyInput, setKeyInput] = useState('');
+  const [keyError, setKeyError] = useState('');
 
   const refresh = useCallback(async () => {
     const r = await fetchStatus();
@@ -75,7 +77,24 @@ export default function SettingsScreen({ onBack }: { onBack?: () => void }) {
 
         {availability === null && <p className="mt-3 text-sm text-stone-500">Checking…</p>}
         {availability === 'remote' && (
-          <p className="mt-3 rounded border border-stone-300 bg-stone-50 p-3 text-sm">Sharing is controlled from the computer running the game. Open the game there (at localhost) to start or stop it.</p>
+          <p className="mt-3 rounded border border-stone-300 bg-stone-50 p-3 text-sm">Sharing is controlled from the computer running the game.</p>
+        )}
+        {availability === 'needKey' && (
+          <form className="mt-3 space-y-2 rounded border border-stone-300 bg-stone-50 p-3 text-sm" onSubmit={async (e) => {
+            e.preventDefault();
+            rememberKey(keyInput.trim());
+            const r = await refresh();
+            if (r) { setKeyError(''); setKeyInput(''); setLoadedForm(false); }
+            else { rememberKey(''); setKeyError('That key was not accepted.'); }
+          }}>
+            <p>You opened the game from another computer. To change sharing from here, enter the <b>sharing key</b> that the game server printed when it started
+              (with Docker: <code>docker compose logs app</code>). This browser remembers it.</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <input className="input w-80" type="password" autoComplete="off" aria-label="Sharing key" value={keyInput} onChange={(e) => setKeyInput(e.target.value)} placeholder="Sharing key" />
+              <button className="btn btn-primary" type="submit" disabled={!keyInput.trim()}>Unlock</button>
+              {keyError && <span className="text-rust">{keyError}</span>}
+            </div>
+          </form>
         )}
         {availability === 'unsupported' && (
           <div className="mt-3 rounded border border-stone-300 bg-stone-50 p-3 text-sm">
@@ -150,6 +169,7 @@ export default function SettingsScreen({ onBack }: { onBack?: () => void }) {
               </div>
             </fieldset>
 
+            {savedKey() && <p className="text-xs text-stone-500">Unlocked with the sharing key. <button className="underline" type="button" onClick={() => { rememberKey(''); void refresh(); }}>Forget the key on this browser</button></p>}
             <p className="text-xs text-stone-500">
               To limit who can open a named tunnel, add a Cloudflare Access policy to its hostname. Sharing stops when the game server stops.
               {st.cloudflared ? ` ${st.cloudflared}.` : ''}

@@ -1,14 +1,18 @@
-// Local control API for the Cloudflare Tunnel (D-123), mounted on the game's own dev/preview
-// server so the Settings screen can configure, start and stop sharing. It answers only the
-// player on this machine: requests must be addressed to localhost and carry no Cloudflare
-// headers, so nobody arriving through the tunnel can see or change it, or read the token.
+// Control API for the Cloudflare Tunnel (D-123, D-126), mounted on the game's own dev/preview
+// server so the Settings screen can configure, start and stop sharing. Nobody arriving through
+// the tunnel can reach it (Cloudflare marks every tunneled request). The player at the machine
+// running the server needs nothing more; anyone else on the network must present the sharing
+// key, which the server prints in its log — a request's Host or Origin can be faked, so they
+// are never enough on their own.
 
+import { timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, Server as HttpServer, ServerResponse } from 'node:http';
 import type { Plugin, PreviewServer, ViteDevServer } from 'vite';
-import { loadConfig, saveConfig, start, status, stop, stopOnExit, type TunnelConfig } from './manager.ts';
+import { adminKey, loadConfig, saveConfig, start, status, stop, stopOnExit, type TunnelConfig } from './manager.ts';
 
 export const API_BASE = '/__coop/tunnel';
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
+const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
 
 const hostName = (h: string | undefined) => {
   if (!h) return '';
@@ -16,16 +20,31 @@ const hostName = (h: string | undefined) => {
   return s.startsWith('[') ? s.slice(0, s.indexOf(']') + 1) : s.split(':')[0];
 };
 
-/** Is this request from the player at this machine, not a visitor through the tunnel? */
-export function isLocalRequest(req: Pick<IncomingMessage, 'headers'>): boolean {
+type Req = Pick<IncomingMessage, 'headers'> & { socket: { remoteAddress?: string } };
+
+/** cloudflared forwards these headers on every request that came through a tunnel. */
+export const isTunneled = (req: Pick<IncomingMessage, 'headers'>): boolean => {
   const h = req.headers;
-  if (!LOCAL_HOSTS.has(hostName(h.host))) return false;
-  // cloudflared forwards these on every tunneled request.
-  if (h['cf-ray'] || h['cf-connecting-ip'] || h['cf-visitor'] || String(h['cdn-loop'] ?? '').includes('cloudflare')) return false;
+  return !!(h['cf-ray'] || h['cf-connecting-ip'] || h['cf-visitor'] || String(h['cdn-loop'] ?? '').includes('cloudflare'));
+};
+
+/** The player at the machine running the server: a loopback connection addressed to localhost. */
+export function isLocalRequest(req: Req): boolean {
+  const h = req.headers;
+  if (isTunneled(req) || !LOOPBACK.has(req.socket.remoteAddress ?? '') || !LOCAL_HOSTS.has(hostName(h.host))) return false;
   if (h.origin) {
     try { if (!LOCAL_HOSTS.has(hostName(new URL(String(h.origin)).host))) return false; } catch { return false; }
   }
   return true;
+}
+
+/** Someone elsewhere on the network who has the sharing key. */
+export function hasAdminKey(req: Pick<IncomingMessage, 'headers'>): boolean {
+  const given = req.headers['x-coop-admin-key'];
+  if (typeof given !== 'string' || !given) return false;
+  const a = Buffer.from(given);
+  const b = Buffer.from(adminKey());
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 const send = (res: ServerResponse, code: number, body: unknown) => {
@@ -48,8 +67,9 @@ async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> 
 export async function handleTunnelApi(req: IncomingMessage, res: ServerResponse, next: () => void): Promise<void> {
   const path = (req.url ?? '').split('?')[0];
   if (!path.startsWith(API_BASE)) return next();
-  // Outsiders get a plain 404, as if there were nothing here.
-  if (!isLocalRequest(req)) return send(res, 404, { error: 'Not found' });
+  // Visitors through the tunnel get a plain 404, as if there were nothing here.
+  if (isTunneled(req)) return send(res, 404, { error: 'Not found' });
+  if (!isLocalRequest(req as Req) && !hasAdminKey(req)) return send(res, 401, { error: 'The sharing key is needed to change sharing from another computer.', needKey: true });
   const action = path.slice(API_BASE.length);
   try {
     if (req.method === 'GET' && action === '/status') return send(res, 200, status());
@@ -84,13 +104,18 @@ export function tunnelControl(): Plugin {
     if (!http) return;
     stopOnExit();
     http.on('close', () => { stop(); });
-    http.once('listening', () => {
-      if (!(loadConfig().autoStart || process.env.TUNNEL_AUTOSTART === '1')) return;
+    http.once('listening', () => { try { onListening(); } catch (e) { console.error(`Sharing controls: ${(e as Error).message}`); } });
+    const onListening = () => {
       const addr = http.address();
       if (!addr || typeof addr === 'string') return;
+      // Reachable from other machines: they need the key for Settings > sharing.
+      if (!LOOPBACK.has(addr.address) && addr.address !== 'localhost') {
+        console.log(['', '-'.repeat(66), ' Sharing key for Settings > Share the game, when opened from another computer:', `   ${adminKey()}`, ' (Kept with the tunnel settings; set COOP_ADMIN_KEY to choose your own.)', '-'.repeat(66), ''].join('\n'));
+      }
+      if (!(loadConfig().autoStart || process.env.TUNNEL_AUTOSTART === '1')) return;
       start(`http://127.0.0.1:${addr.port}`);
       announceWhenUp();
-    });
+    };
   };
   return { name: 'coop-tunnel-control', configureServer: hook, configurePreviewServer: hook };
 }
