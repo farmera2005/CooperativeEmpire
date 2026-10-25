@@ -41,7 +41,14 @@ tunnel's token and hostname, tick "start sharing whenever the game server starts
 use **Start sharing** / **Stop sharing**; the public address appears with a Copy link button. The
 controls answer only on this computer (at localhost): visitors coming through the tunnel cannot
 see them or the token. Settings are kept in `.tunnel.json` (git-ignored, readable only by you).
-Sharing stops when the game server stops. The Docker image has no controls; use the profiles below.
+Sharing stops when the game server stops.
+
+**With Docker and the Settings controls:** `docker compose up --build app`, then open
+http://localhost:8090 (set `APP_PORT` for another port). This image runs the game on its own Node
+server with `cloudflared` built in, so Settings can configure, start and stop the tunnel. It is
+published on this computer only (127.0.0.1), and the tunnel settings and token are kept in the
+`coop-tunnel` Docker volume. The plain `web` image (nginx, below) has no controls; use the
+tunnel profiles with it instead.
 
 **Quick tunnel** (no Cloudflare account; a random `https://*.trycloudflare.com` address that lasts
 until you stop it):

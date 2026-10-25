@@ -37,7 +37,7 @@ data, or design from other games or projects on this machine.
 
 ## Commands
 - `npm run dev` — dev server; `npm run build` — static site; `npm run typecheck`
-- `npm run share` — build and share over a Cloudflare Tunnel (`docker compose --profile tunnel up` in Docker)
+- `npm run share` — build and share over a Cloudflare Tunnel (`docker compose --profile tunnel up` in Docker; `docker compose up --build app` for the in-game Settings controls)
 - `npm test` — Vitest (ledger invariants, finance math, determinism, benchmark)
 - `npm run sim -- --start 1970 --years 55 --policy baseline --seeds 50` — headless runner → `runs/`
 - `npm run data:review` — regenerate `docs/DATA_REVIEW.md`

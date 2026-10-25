@@ -3,3 +3,5 @@ dist
 runs
 .git
 *.log
+.env
+.tunnel.json

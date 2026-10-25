@@ -1,6 +1,9 @@
 # Agricultural Cooperative Tycoon
 #   docker build -t ag-coop-tycoon .
 #   docker run --rm -p 8080:80 ag-coop-tycoon        → http://localhost:8080
+# With the in-game Settings controls for sharing over a Cloudflare Tunnel (D-124):
+#   docker build --target app -t ag-coop-tycoon-app .
+#   docker run --rm -p 127.0.0.1:8090:8080 -v coop-tunnel:/data ag-coop-tycoon-app   → http://localhost:8090
 # Headless balance runner (writes CSVs to ./runs):
 #   docker build --target sim -t ag-coop-sim .
 #   docker run --rm -v "$PWD/runs:/app/runs" ag-coop-sim --start 1970 --years 55 --seeds 50
@@ -29,3 +32,19 @@ COPY --chmod=755 docker/99-ready-message.sh /docker-entrypoint.d/99-ready-messag
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80
 HEALTHCHECK CMD wget -q -O /dev/null http://localhost/ || exit 1
+
+# ---- app: the game on its own Node server, with the Settings > Sharing controls ----
+# Vite's preview server carries the local tunnel-control API (tools/tunnel), and cloudflared
+# comes from Cloudflare's official image (multi-arch, pinned). Publish it on 127.0.0.1 only: the
+# controls trust requests addressed to localhost.
+FROM deps AS app
+COPY --from=cloudflare/cloudflared:2026.9.3 /usr/local/bin/cloudflared /usr/local/bin/cloudflared
+COPY . .
+COPY --from=build /app/dist /app/dist
+ENV TUNNEL_CONFIG_FILE=/data/tunnel.json NODE_ENV=production
+RUN mkdir -p /data node_modules/.vite-temp && chown node:node /data node_modules/.vite-temp
+USER node
+VOLUME /data
+EXPOSE 8080
+HEALTHCHECK CMD wget -q -O /dev/null http://127.0.0.1:8080/ || exit 1
+CMD ["node", "node_modules/vite/bin/vite.js", "preview", "--host", "0.0.0.0", "--port", "8080", "--strictPort"]

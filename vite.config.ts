@@ -2,8 +2,8 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import { tunnelControl } from './tools/tunnel/api';
-import { loadConfig } from './tools/tunnel/manager';
+import { tunnelControl } from './tools/tunnel/api.ts';
+import { loadConfig } from './tools/tunnel/manager.ts';
 
 // Vite answers only requests addressed to localhost unless told otherwise. A Cloudflare quick
 // tunnel arrives as *.trycloudflare.com; a named tunnel as the hostname set in Settings or in

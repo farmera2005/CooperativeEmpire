@@ -80,7 +80,7 @@ export default function SettingsScreen({ onBack }: { onBack?: () => void }) {
         {availability === 'unsupported' && (
           <div className="mt-3 rounded border border-stone-300 bg-stone-50 p-3 text-sm">
             <p>This copy of the game is served without sharing controls (for example the Docker image or a static web host).</p>
-            <p className="mt-1">To control sharing from here, run the game with <code>npm run dev</code>, <code>npm run preview</code> or <code>npm run share</code>. With Docker, use <code>docker compose --profile tunnel up</code> instead.</p>
+            <p className="mt-1">To control sharing from here, run the game with <code>npm run dev</code>, <code>npm run preview</code> or <code>npm run share</code>. With Docker, run <code>docker compose up --build app</code> and open <code>http://localhost:8090</code>.</p>
           </div>
         )}
 

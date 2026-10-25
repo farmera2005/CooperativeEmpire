@@ -5,7 +5,7 @@
 
 import type { IncomingMessage, Server as HttpServer, ServerResponse } from 'node:http';
 import type { Plugin, PreviewServer, ViteDevServer } from 'vite';
-import { loadConfig, saveConfig, start, status, stop, stopOnExit, type TunnelConfig } from './manager';
+import { loadConfig, saveConfig, start, status, stop, stopOnExit, type TunnelConfig } from './manager.ts';
 
 export const API_BASE = '/__coop/tunnel';
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);

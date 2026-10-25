@@ -9,8 +9,8 @@
 
 import { spawnSync } from 'node:child_process';
 import { createServer, preview } from 'vite';
-import { announceWhenUp } from './api';
-import { cloudflaredVersion, loadConfig, saveConfig, start, status } from './manager';
+import { announceWhenUp } from './api.ts';
+import { cloudflaredVersion, loadConfig, saveConfig, start, status } from './manager.ts';
 
 const args = process.argv.slice(2);
 const dev = args.includes('--dev');

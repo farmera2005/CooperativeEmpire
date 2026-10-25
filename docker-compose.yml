@@ -9,6 +9,25 @@ services:
       - HOST_PORT=${HOST_PORT:-8080}
     restart: unless-stopped
 
+  # The game with in-game sharing controls (Settings > Share the game): start, stop and set up a
+  # Cloudflare Tunnel from the browser. Published on this computer only (127.0.0.1); tunnel
+  # settings and token persist in the coop-tunnel volume.
+  #   docker compose up --build app        → http://localhost:8090
+  app:
+    build:
+      context: .
+      target: app
+    profiles: ["app"]
+    init: true
+    ports:
+      - "127.0.0.1:${APP_PORT:-8090}:8080"
+    environment:
+      - CLOUDFLARE_TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN:-}
+      - TUNNEL_HOSTNAME=${TUNNEL_HOSTNAME:-}
+    volumes:
+      - coop-tunnel:/data
+    restart: unless-stopped
+
   # Cloudflare Tunnel, optional. A quick tunnel needs no account and prints a random
   # https://*.trycloudflare.com address in its log:
   #   docker compose --profile tunnel up --build
@@ -33,3 +52,6 @@ services:
     depends_on:
       - web
     restart: unless-stopped
+
+volumes:
+  coop-tunnel:
