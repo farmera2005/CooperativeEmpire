@@ -317,6 +317,23 @@ export const AGING = {
   overLifeRepair: s(1.3, 'low'),
 };
 
+/**
+ * Valuing what is already built (D-130): each unit at the cost of its modern equivalent
+ * (replacement, not reproduction, cost), less age and wear, less a discount for designs no
+ * longer built. The market price of a site for sale is then a motivated-seller share of that.
+ */
+export const VALUATION = {
+  /** A unit's value falls to its floor over this multiple of its design life. */
+  lifeStretch: s(1.25, 'low', 'Well-kept structures earn a little past their book life'),
+  /** Worth of a unit in condition 0 against one in condition 100 (straight line between). */
+  conditionFloor: s(0.3, 'low'),
+  /** Floors: structures (bins, silos, buildings) keep more salvage and use than machinery. */
+  floorStructure: s(0.2, 'low'),
+  floorEquipment: s(0.1, 'low'),
+  /** Designs no longer built (wood cribs, mechanical scales, small column dryers). */
+  obsoleteFactor: s(0.85, 'low', 'Functional obsolescence: parts, capacity and labor against modern equipment'),
+};
+
 export const CONSULTING: ConsultingParams = {
   rosterSize: 6,
   designFee: s([18_000, 60_000], 'low', 'Feasibility and preliminary design study; larger for bigger sites'),

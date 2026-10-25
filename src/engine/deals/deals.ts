@@ -13,7 +13,8 @@ import { formatCents } from '../core/format';
 import { clamp } from '../core/math';
 import { allocateCents, roundCents, type Cents } from '../core/money';
 import { stream, type Rng } from '../core/rng';
-import { competitorName, siteComponents, usedValue } from '../competitors/competitors';
+import { competitorName, siteComponents, siteValue } from '../competitors/competitors';
+import { competitorSiteKey, usedValueOfUnits } from '../facilities/valuation';
 import { capitalize, netBookValue, newFacility } from '../facilities/facilities';
 import { facilityName, financePurchase, purchaseFinancingProblem } from '../facilities/actions';
 import { lineRate, loanPayment, renewalCommitment } from '../finance/lender';
@@ -42,7 +43,8 @@ export function partnerProfile(s: GameState, c: Competitor, division?: OpDivisio
   const mi = s.clock.monthIndex;
   const year = yearOf(mi);
   const sites = c.sites.filter((x) => !division || (x.division ?? 'GRAIN') === division);
-  const fairValue = roundCents(sites.reduce((a, x) => a + usedValue(pathFor(s), mi, siteComponents(x), year - x.builtYear, x.condition), 0));
+  void year;
+  const fairValue = roundCents(sites.reduce((a, x) => a + siteValue(s, pathFor(s), mi, c, x), 0));
   const st = c.strength ?? 50;
   const debtShare = DEALS.debtShareWeak.value + (DEALS.debtShareStrong.value - DEALS.debtShareWeak.value) * (st / 100);
   const debt = roundCents(fairValue * debtShare);
@@ -116,7 +118,7 @@ export function proposeAcquisition(s: GameState, partnerId: number): Msgs {
 /** The division of a company's most valuable site (where its goodwill is carried). */
 function mainDivision(s: GameState, c: Competitor): OpDivision {
   const mi = s.clock.monthIndex;
-  const v = (x: Competitor['sites'][number]) => usedValue(pathFor(s), mi, siteComponents(x), yearOf(mi) - x.builtYear, x.condition);
+  const v = (x: Competitor['sites'][number]) => siteValue(s, pathFor(s), mi, c, x);
   const top = [...c.sites].sort((a, b) => v(b) - v(a) || a.id - b.id)[0];
   return (top?.division ?? 'GRAIN') as OpDivision;
 }
@@ -152,7 +154,7 @@ export function proposeDivisionSale(s: GameState, division: OpDivision): Msgs {
 function ourDivisionProfile(s: GameState, division: OpDivision): DealPartner {
   const mi = s.clock.monthIndex;
   const facs = s.coop.facilities.filter((f) => f.status !== 'closed' && f.division === division);
-  const fairValue = roundCents(facs.reduce((a, f) => a + usedValue(pathFor(s), mi, f.components, yearOf(mi) - f.builtYear, f.condition), 0));
+  const fairValue = roundCents(facs.reduce((a, f) => a + usedValueOfUnits(pathFor(s), mi, f.units), 0));
   return { strength: 50, sites: facs.length, fairValue, debt: 0, workingCapital: workingCapitalOf(s, division), allocatedEquity: 0, members: 0 };
 }
 
@@ -359,14 +361,14 @@ function closeDeal(ctx: TickContext, d: Deal): void {
 function takeSites(state: GameState, c: Competitor, fairValue: Cents, division?: OpDivision) {
   const mi = state.clock.monthIndex;
   const sites = c.sites.filter((x) => !division || (x.division ?? 'GRAIN') === division);
-  const values = sites.map((x) => usedValue(pathFor(state), mi, siteComponents(x), yearOf(mi) - x.builtYear, x.condition));
+  const values = sites.map((x) => siteValue(state, pathFor(state), mi, c, x));
   const parts = allocateCents(fairValue, values);
   const lines: JournalLine[] = [];
   const facs: Facility[] = [];
   sites.forEach((site, i) => {
     const kind = site.kind ?? 'elevator';
     const comps = siteComponents(site);
-    const f = newFacility(state, site.townId, facilityName(state.world.towns[site.townId].name, kind), comps, 'operating', site.builtYear, site.condition, kind);
+    const f = newFacility(state, site.townId, facilityName(state.world.towns[site.townId].name, kind), comps, 'operating', site.builtYear, site.condition, kind, competitorSiteKey(c.id, site.id));
     facs.push(f);
     lines.push(...capitalize(state, f.id, comps, parts[i], f.name, Math.max(0.3, 1 - (yearOf(mi) - site.builtYear) / 50)));
   });

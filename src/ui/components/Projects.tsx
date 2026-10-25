@@ -129,7 +129,7 @@ export function OfferUnits({ o }: { o: FacilityOffer }) {
   const game = useStore((s) => s.game)!;
   const units = useMemo(() => {
     let n = 1;
-    return decompose(o.components, { builtYear: o.builtYear, nowYear: yearOf(game.clock.monthIndex), condition: o.condition, key: `${game.setup.gameSeed}|offer|${o.id}`, nextId: () => n++ });
+    return decompose(o.components, { builtYear: o.builtYear, nowYear: yearOf(game.clock.monthIndex), condition: o.condition, key: `${game.setup.gameSeed}|${o.unitsKey ?? `offer|${o.id}`}`, nextId: () => n++ });
   }, [game.setup.gameSeed, game.clock.monthIndex, o]);
   const fict = game.setup.fictionalizeBrands;
   return (

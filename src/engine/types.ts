@@ -682,6 +682,8 @@ export interface FacilityOffer {
   townId: number;
   sellerName: string;
   components: Partial<Record<ComponentId, number>>;
+  /** Key that fixes how the site splits into units (D-130); older offers use `offer|<id>`. */
+  unitsKey?: string;
   builtYear: number;
   /** True condition (hidden until due diligence) and the seller's estimate shown to the player. */
   condition: number;

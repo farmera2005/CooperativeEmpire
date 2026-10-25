@@ -11,7 +11,8 @@ import type { Rng } from '../core/rng';
 import type { Competitor, CompetitorSite, FacilityOffer, GameState, Town } from '../types';
 import { nominalCents } from '../world/macro';
 import type { MarketPath } from '../world/marketPath';
-import { replacementCost, type Components } from '../facilities/facilities';
+import type { Components } from '../facilities/facilities';
+import { competitorSiteKey, siteUnits, usedValueOfUnits } from '../facilities/valuation';
 
 function rangeAt(table: { year: number; value: number[] }[], year: number): [number, number] {
   let lo = table[0];
@@ -87,33 +88,35 @@ export function competitorName(state: GameState, c: Competitor): string {
 export function siteComponents(site: CompetitorSite): Components {
   if (site.components) return { ...site.components };
   const comps: Components = { site: Math.round(5 + site.storageBu / 100_000), receiving: site.receiveBuHr, dryer: site.dryBuHr, 'truck-scale': 1 };
-  if (site.builtYear < 1955) {
-    comps['storage-wood'] = roundTo(site.storageBu * 0.7, 1000);
-    comps['storage-steel'] = site.storageBu - (comps['storage-wood'] ?? 0);
-  } else {
-    comps['storage-concrete'] = roundTo(site.storageBu * 0.6, 1000);
-    comps['storage-steel'] = site.storageBu - (comps['storage-concrete'] ?? 0);
+  // What the main house was built of in its day: wood cribs before the mid-1950s, slipform
+  // concrete into the 1970s, steel after (D-130); later annexes are steel.
+  const [main, share]: [ComponentId, number] = site.builtYear < 1955 ? ['storage-wood', 0.7] : site.builtYear < 1976 ? ['storage-concrete', 0.6] : site.builtYear < 1990 ? ['storage-concrete', 0.25] : ['storage-steel', 1];
+  if (main === 'storage-steel') comps['storage-steel'] = site.storageBu;
+  else {
+    comps[main] = roundTo(site.storageBu * share, 1000);
+    comps['storage-steel'] = site.storageBu - (comps[main] ?? 0);
   }
   const lo = LOADOUT_COMPONENTS.find((id) => COMPONENTS[id].loadout === site.loadout);
   if (lo) comps[lo as ComponentId] = 1;
   return comps;
 }
 
-/** Depreciated replacement value of a used facility. */
-export function usedValue(path: MarketPath, mi: number, comps: Components, age: number, condition: number): number {
-  return replacementCost(path, mi, comps) * Math.max(0.25, 1 - age / 50) * (0.5 + condition / 200);
+/** What a competitor's site is worth, nominal cents: its units at modern-equivalent cost, depreciated (D-130). */
+export function siteValue(state: GameState, path: MarketPath, mi: number, comp: Competitor, site: CompetitorSite): number {
+  return usedValueOfUnits(path, mi, siteUnits(state, siteComponents(site), site.builtYear, site.condition, competitorSiteKey(comp.id, site.id)));
 }
 
 export function makeOffer(state: GameState, path: MarketPath, rng: Rng, comp: Competitor, site: CompetitorSite, mi: number, year: number): FacilityOffer {
   const comps = siteComponents(site);
   const [d0, d1] = MARKETPLACE.discount.value;
-  const price = roundCents(usedValue(path, mi, comps, year - site.builtYear, site.condition) * rng.range(d0, d1));
+  void year;
+  const price = roundCents(siteValue(state, path, mi, comp, site) * rng.range(d0, d1));
   const err = () => rng.int(3, 15);
   const [e0, e1] = MARKETPLACE.envLiabilityCost.value;
   return {
     id: state.coop.nextId++, competitorId: comp.id, townId: site.townId, kind: site.kind ?? 'elevator',
     sellerName: comp.kind === 'independent' ? `${comp.name} (owner retiring)` : competitorName(state, comp),
-    components: comps, builtYear: site.builtYear, condition: site.condition,
+    components: comps, unitsKey: competitorSiteKey(comp.id, site.id), builtYear: site.builtYear, condition: site.condition,
     conditionEstimate: [clamp(site.condition - err(), 5, 100), clamp(site.condition + err(), 5, 100)],
     price, expiresMonth: mi + MARKETPLACE.offerMonths, diligenceDone: false,
     envLiability: rng.chance(MARKETPLACE.envLiabilityProb.value) ? nominalCents(path, mi, rng.range(e0, e1)) : 0, envFound: false,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   advanceMonth, applyCommand, checkInvariants, consultantsAvailable, DEFAULT_SETUP, grainCapacity, modelsFor, makersFor, newGame,
-  quoteProject, SCHEMA_VERSION, siteAcres, siteMarket, footprintAcres, type GameState,
+  planLines, quoteProject, SCHEMA_VERSION, siteAcres, siteMarket, footprintAcres, type GameState,
 } from '../src/engine/index';
 import { migrate } from '../src/engine/save/migrations';
 import { cloneState } from '../src/engine/sim/clone';
@@ -9,6 +9,7 @@ import { MODELS, MAKER_LINES } from '../src/data/equipment';
 import { getBrand } from '../src/data/brands';
 import { COMPONENTS } from '../src/data/facilities';
 import { designFor, consultantRoster } from '../src/engine/facilities/consultants';
+import { siteUnits } from '../src/engine/facilities/valuation';
 
 const setup = (startYear: number, seed = 1) => ({ ...DEFAULT_SETUP, startYear, startingMembers: 400, gameSeed: seed, mapSeed: seed, capitalPreset: 'well' as const });
 const run = (s: GameState, months: number) => {
@@ -245,5 +246,36 @@ describe('save migration v9 → v10 (installed units)', () => {
     }
     expect(checkInvariants(m)).toEqual([]);
     expect(checkInvariants(run(m, 12))).toEqual([]);
+  });
+});
+
+describe('valuing existing facilities (D-130)', () => {
+  it('a site is never worth more than its modern equivalent, and is worth less as it ages and wears', async () => {
+    const { modernReplacementOfUnits, usedValueOfUnits } = await import('../src/engine/facilities/valuation');
+    const { pathFor } = await import('../src/engine/world/macro');
+    const s = newGame(setup(2000, 13));
+    const path = pathFor(s);
+    const mi = s.clock.monthIndex;
+    const f = withElevator(2000, 13).coop.facilities[0];
+    expect(usedValueOfUnits(path, mi, f.units)).toBeLessThanOrEqual(modernReplacementOfUnits(path, mi, f.units));
+    const older = f.units.map((u) => ({ ...u, builtYear: u.builtYear - 15 }));
+    const worn = f.units.map((u) => ({ ...u, condition: Math.max(5, u.condition - 40) }));
+    expect(usedValueOfUnits(path, mi, older)).toBeLessThan(usedValueOfUnits(path, mi, f.units));
+    expect(usedValueOfUnits(path, mi, worn)).toBeLessThan(usedValueOfUnits(path, mi, f.units));
+  });
+
+  it('asks well under the cost of building the same site new, and sells what it showed', () => {
+    for (const y of [1970, 1990, 2010]) {
+      const s = newGame(setup(y, 14));
+      for (const o of s.coop.offers) {
+        const q = quoteProject(s, { townId: o.townId, kind: o.kind, lines: planLines(s, o.components) });
+        expect(o.price, `${y} ${o.kind}`).toBeLessThan(q.total);
+      }
+      const o = s.coop.offers.find((x) => x.kind === 'elevator')!;
+      const r = applyCommand(s, { type: 'buyFacility', offerId: o.id, financePct: 0.5 }, { boardApproved: true });
+      const f = r.state.coop.facilities[0];
+      const shown = siteUnits(s, o.components, o.builtYear, o.condition, o.unitsKey!);
+      expect(f.units.map((u) => [u.modelId, u.brandId, u.builtYear, Math.round(u.qty)])).toEqual(shown.map((u) => [u.modelId, u.brandId, u.builtYear, Math.round(u.qty)]));
+    }
   });
 });
