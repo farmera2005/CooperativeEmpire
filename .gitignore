@@ -5,3 +5,4 @@ runs
 .DS_Store
 .env
 .tunnel.json
+.coop-data

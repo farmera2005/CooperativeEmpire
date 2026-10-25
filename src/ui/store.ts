@@ -3,18 +3,28 @@ import {
   advanceMonth, advanceUntilAttention, applyCommand, DEFAULT_INTERRUPTS, newGame, newScenario,
   type Command, type GameSetup, type GameState, type MonthSummary,
 } from '../engine/index';
-import { saveSlot } from '../persistence/saves';
+import { saveSlot, setSaveTarget } from '../persistence/saves';
+import type { UserView } from './accountClient';
 
-export type Tab = 'dashboard' | 'deals' | 'operations' | 'reports' | 'glossary' | 'grain' | 'supply' | 'map' | 'markets' | 'members' | 'financials' | 'locations' | 'equity' | 'lender' | 'settings' | 'people' | 'board' | 'inbox' | 'saves' | 'debug';
+export type Tab = 'dashboard' | 'deals' | 'operations' | 'reports' | 'glossary' | 'grain' | 'supply' | 'map' | 'markets' | 'members' | 'financials' | 'locations' | 'equity' | 'lender' | 'settings' | 'people' | 'board' | 'inbox' | 'saves' | 'admin' | 'debug';
 
 export interface Toast {
   id: number;
   level: 'info' | 'warning' | 'error';
   text: string;
 }
-export type Screen = 'title' | 'newGame' | 'game' | 'settings';
+export type Screen = 'title' | 'newGame' | 'game' | 'settings' | 'admin';
+
+/** Accounts (D-127): checking the server, signed in to it, or no server (browser saves). */
+export interface AccountState {
+  mode: 'checking' | 'server' | 'browser';
+  user: UserView | null;
+}
 
 interface UiState {
+  account: AccountState;
+  /** Record who is signed in; signing out or switching account closes the game. */
+  setAccount(a: AccountState): void;
   screen: Screen;
   tab: Tab;
   game: GameState | null;
@@ -57,6 +67,15 @@ function scheduleAutosave(get: () => UiState, set: (p: Partial<UiState>) => void
 }
 
 export const useStore = create<UiState>((set, get) => ({
+  account: { mode: 'checking', user: null },
+  setAccount: (account) => {
+    setSaveTarget(account.mode === 'server' ? 'server' : 'browser');
+    const prev = get().account.user;
+    if (prev && prev.id !== account.user?.id) {
+      if (saveTimer) clearTimeout(saveTimer);
+      set({ account, game: null, screen: 'title', tab: 'dashboard', summaries: [], autosaveStatus: '' });
+    } else set({ account });
+  },
   screen: 'title',
   tab: 'dashboard',
   game: null,

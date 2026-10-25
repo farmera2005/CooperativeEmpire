@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { importSave, listSlots, loadSlot, type SlotMeta } from '../../persistence/saves';
+import { importSave, listBrowserSlots, listSlots, loadSlot, moveBrowserSavesToAccount, type SlotMeta } from '../../persistence/saves';
+import { SignOutButton } from './AccountScreens';
 import { useStore } from '../store';
 import { SCENARIOS } from '../../data/scenarios';
 
@@ -16,9 +17,15 @@ export function TitleScreen() {
     setTimeout(() => startScenario(id), 30);
   };
   const fileRef = useRef<HTMLInputElement>(null);
+  const user = useStore((s) => s.account.user);
+  const [browserSaves, setBrowserSaves] = useState(0);
+  const [moving, setMoving] = useState(false);
+  const refresh = () => listSlots().then(setSlots).catch(() => setSlots([]));
   useEffect(() => {
-    listSlots().then(setSlots).catch(() => setSlots([]));
-  }, []);
+    void refresh();
+    // Saves made in this browser before accounts (or without a server) can move into the account.
+    if (user) listBrowserSlots().then((l) => setBrowserSaves(l.length)).catch(() => setBrowserSaves(0));
+  }, [user]);
   const open = async (id: string) => {
     try {
       load((await loadSlot(id)).state);
@@ -28,6 +35,12 @@ export function TitleScreen() {
   };
   return (
     <main className="mx-auto flex min-h-full max-w-3xl flex-col justify-center gap-8 p-8">
+      {user && (
+        <div className="flex items-center justify-end gap-3 text-sm text-stone-600">
+          <span>Signed in as <b>{user.username}</b></span>
+          <SignOutButton className="underline" />
+        </div>
+      )}
       <header>
         <div className="text-sm uppercase tracking-[0.3em] text-field">A farmer-owned business simulation</div>
         <h1 className="headline mt-2 text-5xl font-bold">Agricultural Cooperative Tycoon</h1>
@@ -41,6 +54,7 @@ export function TitleScreen() {
         {slots[0] && <button className="btn px-5 py-2 text-base" onClick={() => open(slots[0].id)}>Continue: {slots[0].coopName}, {slots[0].dateLabel}</button>}
         <button className="btn px-5 py-2 text-base" onClick={() => fileRef.current?.click()}>Import save file…</button>
         <button className="btn px-5 py-2 text-base" onClick={() => setScreen('settings')}>Settings</button>
+        {user?.role === 'admin' && <button className="btn px-5 py-2 text-base" onClick={() => setScreen('admin')}>Admin menu</button>}
         <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={async (e) => {
           const f = e.target.files?.[0];
           if (!f) return;
@@ -48,6 +62,15 @@ export function TitleScreen() {
         }} />
       </div>
       {err && <div className="text-rust">{err}</div>}
+      {user && browserSaves > 0 && (
+        <div className="rounded border border-grain bg-[#fbf3d6] p-3 text-sm">
+          This browser holds {browserSaves} saved game{browserSaves === 1 ? '' : 's'} from before you signed in.{' '}
+          <button className="btn ml-1" disabled={moving} onClick={async () => {
+            setMoving(true);
+            try { await moveBrowserSavesToAccount(); setBrowserSaves(0); await refresh(); } catch (x) { setErr((x as Error).message); } finally { setMoving(false); }
+          }}>{moving ? 'Moving…' : `Move them into ${user.username}'s saves`}</button>
+        </div>
+      )}
       <section aria-labelledby="scenarios-h">
         <h2 id="scenarios-h" className="headline text-xl font-bold">Scenarios</h2>
         <p className="text-sm text-stone-600">Take over an established co-op at a turning point, with goals to meet.</p>

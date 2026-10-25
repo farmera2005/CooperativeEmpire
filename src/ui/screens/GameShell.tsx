@@ -17,6 +17,7 @@ import { EquityScreen } from './EquityScreen';
 import { LenderScreen } from './LenderScreen';
 import { LocationsScreen } from './LocationsScreen';
 import SettingsScreen from './SettingsScreen';
+import { AdminMenu } from '../components/AdminMenu';
 import { PeopleScreen } from './PeopleScreen';
 import { DealsScreen } from './DealsScreen';
 import { OperationsScreen } from './OperationsScreen';
@@ -53,6 +54,8 @@ const FINANCE_TABS: { id: Tab; label: string; key?: string }[] = [
 const inFinance = (t: Tab) => FINANCE_TABS.some((x) => x.id === t);
 
 const DEBUG_TAB: { id: Tab; label: string; key: string } = { id: 'debug', label: 'Debug tools', key: 'X' };
+/** Shown to admins (D-127): accounts and sharing. */
+const ADMIN_TAB: { id: Tab; label: string; key: string } = { id: 'admin', label: 'Admin menu', key: 'M' };
 
 export function GameShell() {
   const game = useStore((s) => s.game)!;
@@ -63,7 +66,9 @@ export function GameShell() {
   const autosave = useStore((s) => s.autosaveStatus);
   const guideOn = useStore((s) => s.guide);
   const debugMode = !!game.setup.debugMode;
-  const tabs = useMemo(() => (debugMode ? [...TABS, DEBUG_TAB] : TABS), [debugMode]);
+  const user = useStore((s) => s.account.user);
+  const isAdmin = user?.role === 'admin';
+  const tabs = useMemo(() => [...TABS, ...(isAdmin ? [ADMIN_TAB] : []), ...(debugMode ? [DEBUG_TAB] : [])], [debugMode, isAdmin]);
   const setGuide = useStore((s) => s.setGuide);
 
   useEffect(() => {
@@ -103,6 +108,8 @@ export function GameShell() {
         ))}
         <div className="mt-auto p-3 text-xs text-stone-500">
           Keys: 1–8, O, D, P, R, B, G, S, T screens; 9 equity, 0 lender, L locations; E end month, A advance until something needs attention.
+          {isAdmin && ' M admin menu.'}
+          {user && <div className="mt-1">Signed in as {user.username}</div>}
           <div className="mt-1">{autosave}</div>
           {!guideOn && <button className="mt-1 underline" onClick={() => setGuide(true)}>Show the first-year guide</button>}
         </div>
@@ -154,6 +161,7 @@ export function GameShell() {
           {tab === 'glossary' && <GlossaryScreen />}
           {tab === 'saves' && <SavesScreen />}
           {tab === 'settings' && <SettingsScreen />}
+          {tab === 'admin' && isAdmin && <AdminMenu />}
           {tab === 'debug' && game.setup.debugMode && <DebugScreen />}
         </main>
       </div>

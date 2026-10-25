@@ -3,7 +3,6 @@
 // and reports status for the Settings screen and `npm run share`.
 
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
 import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -17,8 +16,6 @@ export interface TunnelConfig {
   hostname: string;
   /** Start the tunnel when the game server starts. */
   autoStart: boolean;
-  /** Key the Settings screen needs when opened from another machine (D-126); never sent to a browser. */
-  adminKey?: string;
 }
 
 export interface TunnelStatus {
@@ -56,29 +53,11 @@ export function saveConfig(patch: Partial<TunnelConfig>): TunnelConfig {
   next.hostname = String(next.hostname ?? '').trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
   next.token = String(next.token ?? '').trim();
   next.autoStart = !!next.autoStart;
-  if (!next.adminKey) delete next.adminKey;
+  // The sharing key of D-126 gave way to admin accounts (D-127).
+  delete (next as { adminKey?: string }).adminKey;
   writeFileSync(configFile(), JSON.stringify(next, null, 2) + '\n', { mode: 0o600 });
   try { chmodSync(configFile(), 0o600); } catch { /* not supported on this platform */ }
   return next;
-}
-
-/**
- * The sharing key for other machines (D-126): COOP_ADMIN_KEY if set, otherwise a random key made
- * once and kept with the tunnel settings, so it survives restarts (in Docker, in the volume).
- */
-export function adminKey(): string {
-  if (process.env.COOP_ADMIN_KEY) return process.env.COOP_ADMIN_KEY;
-  const cfg = loadConfig();
-  if (cfg.adminKey) return cfg.adminKey;
-  R.memoryKey ??= randomBytes(18).toString('base64url');
-  try {
-    saveConfig({ adminKey: R.memoryKey });
-  } catch (e) {
-    // The settings folder is not writable: keep the key for this run so the game still serves.
-    if (!R.warnedKeyFile) console.warn(`Could not save the sharing key to ${configFile()} (${(e as Error).message}); it changes each restart until the folder is writable.`);
-    R.warnedKeyFile = true;
-  }
-  return R.memoryKey;
 }
 
 /** The token in use: the saved one, or CLOUDFLARE_TUNNEL_TOKEN from the environment. */
@@ -94,8 +73,6 @@ interface Runtime {
   log: string[];
   versionCache: { at: number; v: string | null } | null;
   exitHooked: boolean;
-  memoryKey?: string;
-  warnedKeyFile?: boolean;
 }
 // One tunnel per process. Vite loads its config (and this module) as a separate bundle, so the
 // state lives on globalThis for `npm run share` and the Settings API to see the same tunnel.
@@ -151,7 +128,7 @@ export function start(target: string): TunnelStatus {
       const quick = line.match(QUICK_URL)?.[0];
       if (quick && cfg.mode === 'quick') { R.url = quick; R.state = 'running'; }
       if (cfg.mode === 'named' && /Registered tunnel connection/.test(line)) { R.url = cfg.hostname ? `https://${cfg.hostname}` : null; R.state = 'running'; }
-      if (/Unauthorized|invalid tunnel token|failed to unmarshal|provided tunnel token/i.test(line)) { R.state = 'error'; R.error = 'Cloudflare rejected the tunnel token. Check it in Settings.'; }
+      if (/Unauthorized|invalid tunnel token|failed to unmarshal|provided tunnel token/i.test(line)) { R.state = 'error'; R.error = 'Cloudflare rejected the tunnel token. Check it in the admin menu.'; }
     }
   };
   c.stdout?.on('data', onData);

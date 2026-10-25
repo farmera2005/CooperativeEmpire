@@ -1,7 +1,7 @@
 # Agricultural Cooperative Tycoon
 #   docker build -t ag-coop-tycoon .
 #   docker run --rm -p 8081:80 ag-coop-tycoon        → http://localhost:8081 (static site)
-# With the in-game Settings controls for sharing over a Cloudflare Tunnel (D-124):
+# With accounts and the admin menu (users; sharing over a Cloudflare Tunnel) (D-124, D-127):
 #   docker build --target app -t ag-coop-tycoon-app .
 #   docker run --rm -p 8080:8080 -v coop-tunnel:/data ag-coop-tycoon-app   → http://localhost:8080
 #   (docker compose up --build runs this as the app service)
@@ -34,15 +34,15 @@ COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80
 HEALTHCHECK CMD wget -q -O /dev/null http://localhost/ || exit 1
 
-# ---- app: the game on its own Node server, with the Settings > Sharing controls ----
-# Vite's preview server carries the tunnel-control API (tools/tunnel), and cloudflared comes from
-# Cloudflare's official image (multi-arch, pinned). Other computers can play; changing sharing
-# from them needs the sharing key the server prints at start (D-126).
+# ---- app: the game on its own Node server, with accounts and the admin menu ----
+# Vite's preview server carries the accounts and tunnel-control APIs (tools/accounts,
+# tools/tunnel), and cloudflared comes from Cloudflare's official image (multi-arch, pinned).
+# Accounts, their saves and the tunnel settings live in /data (D-127).
 FROM deps AS app
 COPY --from=cloudflare/cloudflared:2026.9.3 /usr/local/bin/cloudflared /usr/local/bin/cloudflared
 COPY . .
 COPY --from=build /app/dist /app/dist
-ENV TUNNEL_CONFIG_FILE=/data/tunnel.json NODE_ENV=production ALLOWED_HOSTS=all
+ENV TUNNEL_CONFIG_FILE=/data/tunnel.json COOP_DATA_DIR=/data NODE_ENV=production ALLOWED_HOSTS=all
 RUN mkdir -p /data node_modules/.vite-temp && chown node:node /data node_modules/.vite-temp
 USER node
 VOLUME /data

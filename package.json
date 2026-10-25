@@ -14,7 +14,8 @@
     "test:watch": "vitest",
     "sim": "tsx tools/sim/run.ts",
     "data:review": "tsx tools/data-review/generate.ts",
-    "perf": "tsx tools/perf/run.ts"
+    "perf": "tsx tools/perf/run.ts",
+    "admin:reset": "tsx tools/accounts/resetAdmin.ts"
   },
   "dependencies": {
     "idb-keyval": "^6.3.0",

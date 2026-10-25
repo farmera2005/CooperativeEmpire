@@ -1,7 +1,7 @@
 // Share the game through a Cloudflare Tunnel from the terminal (D-122, D-123): build it, serve it
 // with Vite, and start the tunnel set up in Settings — a quick tunnel (random
 // https://*.trycloudflare.com address, no account) unless a named tunnel is configured there or
-// CLOUDFLARE_TUNNEL_TOKEN is set. The same server keeps the Settings controls working.
+// CLOUDFLARE_TUNNEL_TOKEN is set. The same server keeps the admin menu's controls working.
 //
 //   npm run share                 build, serve on 4173, start the tunnel
 //   npm run share -- --dev        share the dev server (hot reload) on 5173 instead
@@ -9,7 +9,8 @@
 
 import { spawnSync } from 'node:child_process';
 import { createServer, preview } from 'vite';
-import { announceWhenUp } from './api.ts';
+import { adminPasswordIsTemporary } from '../accounts/store.ts';
+import { announceWhenUp, firstSignInNote } from './api.ts';
 import { cloudflaredVersion, loadConfig, saveConfig, start, status } from './manager.ts';
 
 const args = process.argv.slice(2);
@@ -41,9 +42,15 @@ const opts = { host: '127.0.0.1', port, strictPort: true };
 const server = dev ? await createServer({ server: opts }) : await preview({ preview: opts });
 if (dev) await (server as Awaited<ReturnType<typeof createServer>>).listen();
 const local = `http://127.0.0.1:${port}`;
-console.log(`Serving ${dev ? 'the dev server' : 'the built game'} at ${local} (open it for Settings > Sharing).`);
-if (status().state !== 'running' && status().state !== 'starting') start(local);
-announceWhenUp((url) => { if (!url && status().state === 'error') process.exitCode = 1; });
+console.log(`Serving ${dev ? 'the dev server' : 'the built game'} at ${local} (sign in as an admin for the admin menu).`);
+// A login page with a temporary password is not put on the internet (D-127).
+if (await adminPasswordIsTemporary()) {
+  console.log(firstSignInNote(port));
+  console.log('Then start sharing from the admin menu (Sharing tab).');
+} else {
+  if (status().state !== 'running' && status().state !== 'starting') start(local);
+  announceWhenUp((url) => { if (!url && status().state === 'error') process.exitCode = 1; });
+}
 
 function fail(message: string): never {
   console.error(message);

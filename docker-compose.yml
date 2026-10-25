@@ -1,9 +1,9 @@
 services:
-  # The game with in-game sharing controls (Settings > Share the game): start, stop and set up a
-  # Cloudflare Tunnel from the browser. Open it from any computer on your network
-  # (http://<this machine>:8080); changing sharing from another computer asks for the sharing
-  # key printed in the log (docker compose logs app). Settings, token and key persist in the
-  # coop-tunnel volume.
+  # The game on its own server, with accounts: everyone signs in and has their own saved games.
+  # The built-in "admin" account opens the admin menu (accounts, and starting, stopping and
+  # setting up a Cloudflare Tunnel). Open it from any computer on your network
+  # (http://<this machine>:8080). Accounts, saves and tunnel settings persist in the coop-tunnel
+  # volume. Lost the admin password? docker compose exec app npm run admin:reset
   #   docker compose up --build            → http://localhost:8080
   app:
     build:
@@ -15,13 +15,13 @@ services:
     environment:
       - CLOUDFLARE_TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN:-}
       - TUNNEL_HOSTNAME=${TUNNEL_HOSTNAME:-}
-      - COOP_ADMIN_KEY=${COOP_ADMIN_KEY:-}
+      - COOP_ADMIN_PASSWORD=${COOP_ADMIN_PASSWORD:-}
       - ALLOWED_HOSTS=all
     volumes:
       - coop-tunnel:/data
     restart: unless-stopped
 
-  # The plain static site on nginx (no sharing controls), reachable from other devices on your
+  # The plain static site on nginx (no accounts or admin menu; saves stay in each browser), reachable from other devices on your
   # network. Optional:
   #   docker compose --profile static up --build   → http://localhost:8081
   web:
