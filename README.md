@@ -35,6 +35,18 @@ the browser's IndexedDB, so they survive container restarts (export JSON to move
 Without Compose: `docker build --target app -t ag-coop-tycoon-app . && docker run --rm -p 127.0.0.1:8080:8080 -v coop-tunnel:/data ag-coop-tycoon-app`,
 or the static site with `docker build -t ag-coop-tycoon . && docker run --rm -p 8081:80 ag-coop-tycoon`.
 
+**"Bind for …:8080 failed: port is already allocated":** something else holds port 8080 —
+usually the old `web` container, which published 8080 before `app` became the default and keeps
+running because `docker compose up` no longer manages it. Stop it, then start again:
+
+```sh
+docker compose --profile static down     # stops and removes the old web container (and app)
+docker compose up --build
+```
+
+To see what holds the port: `docker ps --filter publish=8080`. If it is another program, run on a
+different port instead: `APP_PORT=8090 docker compose up --build`.
+
 ## Share over the internet (Cloudflare Tunnel)
 
 A Cloudflare Tunnel gives the game a public HTTPS address without opening ports on your router.
