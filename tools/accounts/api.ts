@@ -6,8 +6,8 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { isTunneled } from '../tunnel/api.ts';
 import {
-  AccountError, changePassword, createUser, deleteSave, deleteUser, listSaves, loadUsers, readSave, SESSION_MAX_AGE_S,
-  sessionUser, signIn, signOut, updateUser, viewOf, writeSave, type UserRecord,
+  AccountError, changePassword, createUser, deleteSave, deleteUser, getSettings, listSaves, loadUsers, readSave, registerUser,
+  saveSettings, SESSION_MAX_AGE_S, sessionUser, signIn, signOut, startSession, updateUser, viewOf, writeSave, type UserRecord,
 } from './store.ts';
 
 export const ACCOUNTS_BASE = '/__coop/api';
@@ -53,6 +53,10 @@ export const isActiveAdmin = (u: UserRecord | null): u is UserRecord => !!u && u
 const viaHttps = (req: IncomingMessage) =>
   String(req.headers['x-forwarded-proto'] ?? '').includes('https') || (isTunneled(req) && String(req.headers['cf-visitor'] ?? '').includes('https'));
 
+/** The visitor's address for sign-up limits: Cloudflare's report through the tunnel, else the socket. */
+const clientAddress = (req: IncomingMessage): string =>
+  (isTunneled(req) && typeof req.headers['cf-connecting-ip'] === 'string' ? req.headers['cf-connecting-ip'] : req.socket.remoteAddress) ?? 'unknown';
+
 const cookie = (req: IncomingMessage, value: string, maxAge: number) =>
   `${COOKIE}=${value}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAge}${viaHttps(req) ? '; Secure' : ''}`;
 
@@ -66,7 +70,13 @@ export async function handleAccountsApi(req: IncomingMessage, res: ServerRespons
     if (method !== 'GET' && !isApiWrite(req)) return send(res, 403, { error: 'Forbidden' });
     const user = await requestUser(req);
 
-    if (route === '/session' && method === 'GET') return send(res, 200, { user: user ? viewOf(user) : null });
+    if (route === '/session' && method === 'GET') return send(res, 200, { user: user ? viewOf(user) : null, registration: getSettings().registration });
+    if (route === '/register' && method === 'POST') {
+      const body = await readJson(req);
+      const u = await registerUser({ username: body.username, password: body.password }, clientAddress(req));
+      if (u.pending) return send(res, 200, { user: null, pending: true });
+      return send(res, 200, { user: viewOf(u) }, { 'Set-Cookie': cookie(req, await startSession(u), SESSION_MAX_AGE_S) });
+    }
     if (route === '/login' && method === 'POST') {
       const body = await readJson(req);
       const r = await signIn(body.username, body.password);
@@ -93,6 +103,12 @@ export async function handleAccountsApi(req: IncomingMessage, res: ServerRespons
     if (saveId && !saveId[2] && method === 'GET') return send(res, 200, { data: readSave(user.id, decodeURIComponent(saveId[1])) });
     if (saveId && saveId[2] && method === 'POST') { deleteSave(user.id, decodeURIComponent(saveId[1])); return send(res, 200, { ok: true }); }
 
+    if (route === '/settings') {
+      if (!isActiveAdmin(user)) return send(res, 403, { error: 'Only an admin can change account settings.' });
+      if (method === 'GET') return send(res, 200, getSettings());
+      if (method === 'POST') return send(res, 200, await saveSettings(await readJson(req)));
+    }
+
     const userId = route.match(/^\/users\/([0-9a-f-]{36})(\/delete)?$/);
     if (route === '/users' || userId) {
       if (!isActiveAdmin(user)) return send(res, 403, { error: 'Only an admin can manage accounts.' });
@@ -109,7 +125,7 @@ export async function handleAccountsApi(req: IncomingMessage, res: ServerRespons
       if (userId && method === 'POST') {
         const body = await readJson(req);
         if (userId[1] === user.id && (body.disabled === true || body.role === 'player')) throw new AccountError('You cannot disable or demote your own account.');
-        return send(res, 200, { user: viewOf(await updateUser(userId[1], { role: body.role, disabled: body.disabled, password: body.password })) });
+        return send(res, 200, { user: viewOf(await updateUser(userId[1], { role: body.role, disabled: body.disabled, password: body.password, approve: body.approve })) });
       }
     }
     return send(res, 404, { error: 'Not found' });

@@ -4,7 +4,7 @@ import {
   type Command, type GameSetup, type GameState, type MonthSummary,
 } from '../engine/index';
 import { saveSlot, setSaveTarget } from '../persistence/saves';
-import type { UserView } from './accountClient';
+import type { RegistrationMode, UserView } from './accountClient';
 
 export type Tab = 'dashboard' | 'deals' | 'operations' | 'reports' | 'glossary' | 'grain' | 'supply' | 'map' | 'markets' | 'members' | 'financials' | 'locations' | 'equity' | 'lender' | 'settings' | 'people' | 'board' | 'inbox' | 'saves' | 'admin' | 'debug';
 
@@ -19,6 +19,8 @@ export type Screen = 'title' | 'newGame' | 'game' | 'settings' | 'admin';
 export interface AccountState {
   mode: 'checking' | 'server' | 'browser';
   user: UserView | null;
+  /** Whether the sign-in page offers "Create an account" (D-128). */
+  registration?: RegistrationMode;
 }
 
 interface UiState {
@@ -71,6 +73,8 @@ export const useStore = create<UiState>((set, get) => ({
   setAccount: (account) => {
     setSaveTarget(account.mode === 'server' ? 'server' : 'browser');
     const prev = get().account.user;
+    // Keep the last known sign-up setting when a caller only knows who signed in.
+    account = { ...account, registration: account.registration ?? get().account.registration };
     if (prev && prev.id !== account.user?.id) {
       if (saveTimer) clearTimeout(saveTimer);
       set({ account, game: null, screen: 'title', tab: 'dashboard', summaries: [], autosaveStatus: '' });

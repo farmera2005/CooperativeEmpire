@@ -25,9 +25,13 @@ When the game runs on its own server (`npm run dev`, `npm run preview`, `npm run
 Docker `app` service), everyone signs in, and each account has its own saved games, kept on the
 server. The built-in **admin** account starts with a temporary password given at setup (or the one
 in `COOP_ADMIN_PASSWORD` when the accounts are first created) and must choose its own at first
-sign-in. Admins get the **Admin menu** (title screen, or `M` in a game): add accounts (each new
-player picks their own password at first sign-in), reset passwords, disable, make admin, delete;
-and the **Sharing** tab for the Cloudflare Tunnel.
+sign-in. Players can also **create their own account** from the sign-in page. Admins get the **Admin
+menu** (title screen, or `M` in a game): choose who may sign up (anyone, anyone after an admin
+approves, or nobody); approve or reject waiting sign-ups; add accounts (each new player picks their
+own password at first sign-in); reset passwords, disable, make admin, delete; and the **Sharing**
+tab for the Cloudflare Tunnel. Sign-ups start open; if you share the game over a public tunnel,
+consider "after an admin approves". Sign-ups are always players, at most five an hour from one
+address, and at most 500 accounts.
 
 Accounts and saves live in `.coop-data/` (git-ignored; `COOP_DATA_DIR` to move it), in Docker the
 `coop-tunnel` volume. Passwords are stored only as salted scrypt hashes; five wrong passwords lock

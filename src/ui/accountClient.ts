@@ -10,6 +10,9 @@ export interface UserView {
   mustChangePassword: boolean;
   disabled: boolean;
   builtIn: boolean;
+  /** Signed up while sign-ups need approval, and not approved yet (D-128). */
+  pending: boolean;
+  selfRegistered: boolean;
   createdAt: string;
   lastLoginAt: string | null;
 }
@@ -23,6 +26,9 @@ export interface ServerSaveMeta {
   savedAt: string;
   auto: boolean;
 }
+
+/** Who may create their own account on the sign-in page (D-128). */
+export type RegistrationMode = 'open' | 'approval' | 'off';
 
 const BASE = '/__coop/api';
 
@@ -44,14 +50,19 @@ async function call<T>(path: string, init: { method?: string; body?: unknown } =
 }
 
 /** 'server' with the signed-in account (or null), or 'browser' when there is no accounts server. */
-export async function fetchSession(): Promise<{ mode: 'server' | 'browser'; user: UserView | null }> {
+export async function fetchSession(): Promise<{ mode: 'server' | 'browser'; user: UserView | null; registration: RegistrationMode }> {
   try {
-    const r = await call<{ user: UserView | null }>('/session');
-    return { mode: 'server', user: r.user };
+    const r = await call<{ user: UserView | null; registration?: RegistrationMode }>('/session');
+    return { mode: 'server', user: r.user, registration: r.registration ?? 'off' };
   } catch {
-    return { mode: 'browser', user: null };
+    return { mode: 'browser', user: null, registration: 'off' };
   }
 }
+
+/** Create your own account: signed in at once, or `pending` until an admin approves. */
+export const register = (username: string, password: string) => call<{ user: UserView | null; pending?: boolean }>('/register', { body: { username, password } });
+export const fetchAccountSettings = () => call<{ registration: RegistrationMode }>('/settings');
+export const saveAccountSettings = (patch: { registration: RegistrationMode }) => call<{ registration: RegistrationMode }>('/settings', { body: patch });
 
 export const signIn = (username: string, password: string) => call<{ user: UserView }>('/login', { body: { username, password } }).then((r) => r.user);
 export const signOut = () => call<{ user: null }>('/logout', { body: {} });
@@ -59,7 +70,7 @@ export const changePassword = (current: string, next: string) => call<{ user: Us
 
 export const listUsers = () => call<{ users: UserView[] }>('/users').then((r) => r.users);
 export const createUser = (username: string, password: string, role: UserView['role']) => call<{ user: UserView }>('/users', { body: { username, password, role } }).then((r) => r.user);
-export const updateUser = (id: string, patch: { role?: UserView['role']; disabled?: boolean; password?: string }) => call<{ user: UserView }>(`/users/${id}`, { body: patch }).then((r) => r.user);
+export const updateUser = (id: string, patch: { role?: UserView['role']; disabled?: boolean; password?: string; approve?: boolean }) => call<{ user: UserView }>(`/users/${id}`, { body: patch }).then((r) => r.user);
 export const deleteUser = (id: string) => call<{ ok: true }>(`/users/${id}/delete`, { body: {} });
 
 export const listServerSaves = () => call<{ saves: ServerSaveMeta[] }>('/saves').then((r) => r.saves);

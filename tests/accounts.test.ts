@@ -57,7 +57,7 @@ describe('accounts and sharing controls (D-127)', () => {
   });
 
   it('creates the built-in admin with a temporary password that must be changed first', async () => {
-    expect((await call('GET', `${ACCOUNTS_BASE}/session`)).body).toEqual({ user: null });
+    expect((await call('GET', `${ACCOUNTS_BASE}/session`)).body).toEqual({ user: null, registration: 'open' });
     expect(await adminPasswordIsTemporary()).toBe(true);
     const { out, cookie } = await signIn('admin', ADMIN_PW);
     expect(out.status).toBe(200);
@@ -81,7 +81,7 @@ describe('accounts and sharing controls (D-127)', () => {
     // The old password no longer works; signing out ends the session.
     expect((await signIn('admin', ADMIN_PW)).out.status).toBe(401);
     await call('POST', `${ACCOUNTS_BASE}/logout`, { ...write, cookie });
-    expect((await call('GET', `${ACCOUNTS_BASE}/session`, { cookie })).body).toEqual({ user: null });
+    expect((await call('GET', `${ACCOUNTS_BASE}/session`, { cookie })).body.user).toBeNull();
   });
 
   it('lets an admin manage accounts, and keeps each account\'s saves to itself', async () => {
@@ -143,6 +143,55 @@ describe('accounts and sharing controls (D-127)', () => {
     expect((r.out.body.user as { mustChangePassword: boolean }).mustChangePassword).toBe(true);
     // Unknown names get the same answer as a wrong password.
     expect((await signIn('nobody', 'whatever-it-is')).out.body.error).toBe('Wrong username or password.');
+  });
+
+  it('lets players sign themselves up, as the admin allows (D-128)', async () => {
+    const reg = (username: string, password: string, extra: Record<string, string> = {}) => call('POST', `${ACCOUNTS_BASE}/register`, { ...write, ...extra }, { username, password });
+    expect((await call('GET', `${ACCOUNTS_BASE}/session`)).body.registration).toBe('open');
+    // Open: the new player is signed in at once, with their own password and no forced change.
+    const open = await reg('Corn.Grower', 'my-own-secret-1');
+    expect(open.status).toBe(200);
+    expect(open.body.user).toMatchObject({ username: 'corn.grower', role: 'player', mustChangePassword: false, selfRegistered: true, pending: false });
+    const cookie = (open.headers['set-cookie'] ?? '').split(';')[0];
+    expect((await call('GET', `${ACCOUNTS_BASE}/saves`, { cookie })).status).toBe(200);
+    expect((await call('GET', `${ACCOUNTS_BASE}/users`, { cookie })).status).toBe(403);
+    expect((await reg('corn.grower', 'another-secret-1')).status).toBe(409);
+    expect((await reg('admin', 'another-secret-1')).status).toBe(409);
+    expect((await reg('x', 'another-secret-1')).status).toBe(400);
+    expect((await reg('bean.grower', 'short')).status).toBe(400);
+    // A role in the request is ignored: sign-ups are always players.
+    const sneaky = await call('POST', `${ACCOUNTS_BASE}/register`, write, { username: 'sneaky', password: 'another-secret-1', role: 'admin' });
+    expect((sneaky.body.user as { role: string }).role).toBe('player');
+
+    // Only an admin changes the setting.
+    expect((await call('POST', `${ACCOUNTS_BASE}/settings`, { ...write, cookie }, { registration: 'off' })).status).toBe(403);
+    const admin = await adminSession();
+    expect((await call('POST', `${ACCOUNTS_BASE}/settings`, { ...write, cookie: admin }, { registration: 'bogus' })).status).toBe(400);
+
+    // Approval: the account waits, cannot sign in, and the admin approves it.
+    expect((await call('POST', `${ACCOUNTS_BASE}/settings`, { ...write, cookie: admin }, { registration: 'approval' })).body).toEqual({ registration: 'approval' });
+    const waiting = await reg('hog.farmer', 'hogs-and-corn-1');
+    expect(waiting.body).toEqual({ user: null, pending: true });
+    expect(waiting.headers['set-cookie']).toBeUndefined();
+    expect((await signIn('hog.farmer', 'hogs-and-corn-1')).out.body.error).toMatch(/waiting for an admin/);
+    const list = (await call('GET', `${ACCOUNTS_BASE}/users`, { cookie: admin })).body.users as { id: string; username: string; pending: boolean }[];
+    const hog = list.find((u) => u.username === 'hog.farmer')!;
+    expect(hog.pending).toBe(true);
+    await call('POST', `${ACCOUNTS_BASE}/users/${hog.id}`, { ...write, cookie: admin }, { approve: true });
+    expect((await signIn('hog.farmer', 'hogs-and-corn-1')).out.status).toBe(200);
+
+    // Off: no sign-ups at all; the setting survives in the users file.
+    await call('POST', `${ACCOUNTS_BASE}/settings`, { ...write, cookie: admin }, { registration: 'off' });
+    expect((await reg('late.comer', 'too-late-secret-1')).status).toBe(403);
+    expect(JSON.parse(readFileSync(join(dataDir(), 'users.json'), 'utf8')).settings).toEqual({ registration: 'off' });
+    expect((await call('GET', `${ACCOUNTS_BASE}/session`)).body.registration).toBe('off');
+  });
+
+  it('limits sign-ups from one address', async () => {
+    const from = (n: number, ip: string) => call('POST', `${ACCOUNTS_BASE}/register`, { ...write, 'cf-ray': '1', 'cf-connecting-ip': ip }, { username: `flood${n}`, password: 'flooding-secret-1' });
+    for (let n = 0; n < 5; n++) expect((await from(n, '198.51.100.7')).status).toBe(200);
+    expect((await from(5, '198.51.100.7')).status).toBe(429);
+    expect((await from(6, '198.51.100.8')).status).toBe(200);
   });
 
   it('refuses changes without the API header, and hides sharing from the tunnel', async () => {

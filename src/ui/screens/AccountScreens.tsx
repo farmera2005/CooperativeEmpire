@@ -1,15 +1,23 @@
 import { useState } from 'react';
-import { changePassword, PASSWORD_MIN, signIn, signOut } from '../accountClient';
+import { changePassword, fetchSession, PASSWORD_MIN, register, signIn, signOut } from '../accountClient';
 import { Panel } from '../components/Panel';
 import { useStore } from '../store';
 
-/** Sign-in, shown before anything else when the game server keeps accounts (D-127). */
+/** Sign-in, shown before anything else when the game server keeps accounts (D-127), with sign-up when allowed (D-128). */
 export function LoginScreen() {
   const setAccount = useStore((s) => s.setAccount);
+  const registration = useStore((s) => s.account.registration ?? 'off');
+  const [creating, setCreating] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [again, setAgain] = useState('');
   const [err, setErr] = useState('');
+  const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
+  const signingUp = creating && registration !== 'off';
+  const problem = signingUp && password && password.length < PASSWORD_MIN ? `At least ${PASSWORD_MIN} characters.`
+    : signingUp && again && password !== again ? 'The passwords do not match.' : '';
+  const switchTo = (create: boolean) => { setCreating(create); setErr(''); setNote(''); setPassword(''); setAgain(''); };
   return (
     <main className="mx-auto flex min-h-full max-w-md flex-col justify-center gap-6 p-8">
       <header>
@@ -20,25 +28,50 @@ export function LoginScreen() {
         e.preventDefault();
         setBusy(true);
         setErr('');
+        setNote('');
         try {
-          setAccount({ mode: 'server', user: await signIn(username, password) });
+          if (signingUp) {
+            const r = await register(username, password);
+            if (r.user) setAccount({ mode: 'server', user: r.user });
+            else {
+              switchTo(false);
+              setNote('Account created. An admin needs to approve it before you can sign in.');
+            }
+          } else setAccount({ mode: 'server', user: await signIn(username, password) });
         } catch (x) {
           setErr((x as Error).message);
-          setPassword('');
+          if (!signingUp) setPassword('');
         } finally {
           setBusy(false);
         }
       }}>
-        <h2 className="headline text-xl font-bold">Sign in</h2>
+        <h2 className="headline text-xl font-bold">{signingUp ? 'Create an account' : 'Sign in'}</h2>
         <label className="block text-sm">Username
           <input className="input mt-1 block w-full" name="username" autoComplete="username" autoFocus value={username} onChange={(e) => setUsername(e.target.value)} />
         </label>
         <label className="block text-sm">Password
-          <input className="input mt-1 block w-full" name="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <input className="input mt-1 block w-full" name="password" type="password" autoComplete={signingUp ? 'new-password' : 'current-password'} value={password} onChange={(e) => setPassword(e.target.value)} />
         </label>
-        {err && <p className="text-sm text-rust" role="alert">{err}</p>}
-        <button className="btn btn-primary w-full py-2" type="submit" disabled={busy || !username.trim() || !password}>{busy ? 'Signing in…' : 'Sign in'}</button>
-        <p className="text-xs text-stone-500">Each account keeps its own saved games. Ask the game's admin for an account or a password reset.</p>
+        {signingUp && (
+          <label className="block text-sm">Password again
+            <input className="input mt-1 block w-full" name="password-again" type="password" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} />
+          </label>
+        )}
+        {signingUp && <p className="text-xs text-stone-500">Usernames: 3 to 32 letters, digits, dots, dashes or underscores. Passwords: at least {PASSWORD_MIN} characters, without the username.{registration === 'approval' ? ' An admin approves new accounts before they can sign in.' : ''}</p>}
+        {(err || problem) && <p className="text-sm text-rust" role="alert">{err || problem}</p>}
+        {note && <p className="text-sm text-field" role="status">{note}</p>}
+        <button className="btn btn-primary w-full py-2" type="submit"
+          disabled={busy || !username.trim() || !password || (signingUp && (password.length < PASSWORD_MIN || password !== again))}>
+          {busy ? (signingUp ? 'Creating…' : 'Signing in…') : signingUp ? 'Create account' : 'Sign in'}
+        </button>
+        {registration !== 'off' && (
+          <p className="text-center text-sm">
+            {signingUp
+              ? <>Already have an account? <button type="button" className="text-sky underline" onClick={() => switchTo(false)}>Sign in</button></>
+              : <>New here? <button type="button" className="text-sky underline" onClick={() => switchTo(true)}>Create an account</button></>}
+          </p>
+        )}
+        <p className="text-xs text-stone-500">Each account keeps its own saved games. {registration === 'off' ? 'Ask the game\'s admin for an account or a password reset.' : 'Forgot your password? Ask the game\'s admin to reset it.'}</p>
       </form>
     </main>
   );
@@ -112,7 +145,9 @@ export function SignOutButton({ className = 'btn' }: { className?: string }) {
   return (
     <button className={className} type="button" onClick={async () => {
       try { await signOut(); } catch { /* signed out locally either way */ }
-      setAccount({ mode: 'server', user: null });
+      // Ask again, so the sign-in page shows the current sign-up setting.
+      const s = await fetchSession();
+      setAccount(s.mode === 'server' ? s : { mode: 'server', user: null });
     }}>Sign out</button>
   );
 }

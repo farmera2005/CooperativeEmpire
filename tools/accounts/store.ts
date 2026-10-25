@@ -20,6 +20,10 @@ export interface UserRecord {
   disabled: boolean;
   /** The built-in admin: cannot be deleted, disabled or demoted. */
   builtIn?: boolean;
+  /** Registered while sign-ups need approval (D-128); cannot sign in until an admin approves. */
+  pending?: boolean;
+  /** Made by the player on the sign-in page rather than by an admin. */
+  selfRegistered?: boolean;
   createdAt: string;
   lastLoginAt?: string;
 }
@@ -32,9 +36,16 @@ export interface UserView {
   mustChangePassword: boolean;
   disabled: boolean;
   builtIn: boolean;
+  pending: boolean;
+  selfRegistered: boolean;
   createdAt: string;
   lastLoginAt: string | null;
 }
+
+/** Who may create their own account on the sign-in page (D-128). */
+export type RegistrationMode = 'open' | 'approval' | 'off';
+export interface AccountSettings { registration: RegistrationMode }
+const DEFAULT_SETTINGS: AccountSettings = { registration: 'open' };
 
 export interface SaveMeta {
   id: string;
@@ -59,6 +70,9 @@ const LOCK_AFTER = 5;
 const LOCK_MINUTES = 15;
 const AUTOSAVES_KEPT = 3;
 export const SAVES_PER_USER = 60;
+/** Ceiling on accounts, so open sign-ups cannot fill the disk. */
+export const MAX_ACCOUNTS = 500;
+const REGISTRATIONS_PER_HOUR = 5;
 
 /** Where accounts live: COOP_DATA_DIR, or .coop-data in the project (git-ignored). */
 export const dataDir = (): string => process.env.COOP_DATA_DIR ?? resolve(process.cwd(), '.coop-data');
@@ -113,18 +127,38 @@ export function temporaryPassword(): string {
 
 export const viewOf = (u: UserRecord): UserView => ({
   id: u.id, username: u.username, role: u.role, mustChangePassword: u.mustChangePassword, disabled: u.disabled,
-  builtIn: !!u.builtIn, createdAt: u.createdAt, lastLoginAt: u.lastLoginAt ?? null,
+  builtIn: !!u.builtIn, pending: !!u.pending, selfRegistered: !!u.selfRegistered, createdAt: u.createdAt, lastLoginAt: u.lastLoginAt ?? null,
 });
 
+interface UsersFile { version?: number; users?: UserRecord[]; settings?: Partial<AccountSettings> }
+const readFile = (): UsersFile | null => (existsSync(usersFile()) ? JSON.parse(readFileSync(usersFile(), 'utf8')) as UsersFile : null);
+
 function readUsers(): UserRecord[] | null {
-  if (!existsSync(usersFile())) return null;
-  const parsed = JSON.parse(readFileSync(usersFile(), 'utf8')) as { users?: UserRecord[] };
-  return Array.isArray(parsed.users) ? parsed.users : [];
+  const f = readFile();
+  return f ? (Array.isArray(f.users) ? f.users : []) : null;
 }
 
-function writeUsers(users: UserRecord[]): void {
+function writeFile(users: UserRecord[], settings: AccountSettings): void {
   const sorted = [...users].sort((a, b) => a.username.localeCompare(b.username));
-  writePrivate(usersFile(), JSON.stringify({ version: 1, users: sorted }, null, 2) + '\n');
+  writePrivate(usersFile(), JSON.stringify({ version: 1, settings, users: sorted }, null, 2) + '\n');
+}
+
+const writeUsers = (users: UserRecord[]): void => writeFile(users, getSettings());
+
+export function getSettings(): AccountSettings {
+  const saved = readFile()?.settings ?? {};
+  const registration = saved.registration === 'approval' || saved.registration === 'off' || saved.registration === 'open' ? saved.registration : DEFAULT_SETTINGS.registration;
+  return { registration };
+}
+
+export async function saveSettings(patch: { registration?: unknown }): Promise<AccountSettings> {
+  const next = getSettings();
+  if (patch.registration !== undefined) {
+    if (patch.registration !== 'open' && patch.registration !== 'approval' && patch.registration !== 'off') throw new AccountError('Unknown sign-up setting.');
+    next.registration = patch.registration;
+  }
+  writeFile(await loadUsers(), next);
+  return next;
 }
 
 /** All accounts, creating the built-in admin with its temporary password on first use. */
@@ -176,7 +210,35 @@ export async function createUser(input: { username: unknown; password: unknown; 
   return user;
 }
 
-export async function updateUser(id: string, patch: { role?: unknown; disabled?: unknown; password?: unknown }): Promise<UserRecord> {
+/**
+ * A player creating their own account on the sign-in page (D-128). They chose the password, so
+ * no change is forced. While sign-ups need approval the account waits for an admin; otherwise
+ * the caller signs them straight in. `client` is the address used to limit sign-ups per hour.
+ */
+export async function registerUser(input: { username: unknown; password: unknown }, client: string): Promise<UserRecord> {
+  const mode = getSettings().registration;
+  if (mode === 'off') throw new AccountError('New accounts are made by an admin here. Ask one for an account.', 403);
+  const now = Date.now();
+  const recent = (S.registrations.get(client) ?? []).filter((t) => t > now - 3_600_000);
+  if (recent.length >= REGISTRATIONS_PER_HOUR) throw new AccountError('Too many new accounts from here. Try again later.', 429);
+  const username = String(input.username ?? '').trim().toLowerCase();
+  if (!USERNAME.test(username)) throw new AccountError('Usernames are 3 to 32 letters, digits, dots, dashes or underscores.');
+  const users = await loadUsers();
+  if (users.some((u) => u.username === username)) throw new AccountError('That username is taken.', 409);
+  if (users.length >= MAX_ACCOUNTS) throw new AccountError('This game has all the accounts it can hold. Ask an admin.', 409);
+  const problem = passwordProblem(input.password, username);
+  if (problem) throw new AccountError(problem);
+  const user: UserRecord = {
+    id: randomUUID(), username, role: 'player', disabled: false, mustChangePassword: false, selfRegistered: true,
+    ...(mode === 'approval' ? { pending: true } : {}),
+    passwordHash: await hashPassword(String(input.password)), createdAt: new Date().toISOString(),
+  };
+  writeUsers([...users, user]);
+  S.registrations.set(client, [...recent, now]);
+  return user;
+}
+
+export async function updateUser(id: string, patch: { role?: unknown; disabled?: unknown; password?: unknown; approve?: unknown }): Promise<UserRecord> {
   const users = await loadUsers();
   const u = users.find((x) => x.id === id);
   if (!u) throw new AccountError('No such account.', 404);
@@ -189,6 +251,7 @@ export async function updateUser(id: string, patch: { role?: unknown; disabled?:
     if (u.builtIn && patch.disabled) throw new AccountError('The built-in admin cannot be disabled.');
     next.disabled = !!patch.disabled;
   }
+  if (patch.approve === true) delete next.pending;
   if (patch.password !== undefined) {
     const problem = passwordProblem(patch.password, u.username);
     if (problem) throw new AccountError(problem);
@@ -238,11 +301,12 @@ export async function resetBuiltInAdmin(password: string): Promise<void> {
 // ---- sessions and sign-in throttling (memory only) ----
 
 interface Session { userId: string; expires: number }
-interface Runtime { sessions: Map<string, Session>; failures: Map<string, { count: number; lockedUntil: number }> }
+interface Runtime { sessions: Map<string, Session>; failures: Map<string, { count: number; lockedUntil: number }>; registrations: Map<string, number[]> }
 // Vite bundles its config (and this module) separately from anything else that imports it, so
 // the state lives on globalThis for every copy to share.
 const G = globalThis as typeof globalThis & { __coopAccounts?: Runtime };
-const S: Runtime = (G.__coopAccounts ??= { sessions: new Map(), failures: new Map() });
+const S: Runtime = (G.__coopAccounts ??= { sessions: new Map(), failures: new Map(), registrations: new Map() });
+S.registrations ??= new Map();
 
 /** Check a sign-in; returns the account, or throws with a message safe to show. */
 export async function signIn(usernameIn: unknown, password: unknown): Promise<{ user: UserRecord; token: string }> {
@@ -259,12 +323,18 @@ export async function signIn(usernameIn: unknown, password: unknown): Promise<{ 
     S.failures.set(username, { count, lockedUntil: count >= LOCK_AFTER ? now + LOCK_MINUTES * 60_000 : 0 });
     throw new AccountError('Wrong username or password.', 401);
   }
+  if (u.pending) throw new AccountError('Your account is waiting for an admin to approve it.', 403);
   if (u.disabled) throw new AccountError('This account is disabled. Ask an admin.', 403);
   S.failures.delete(username);
+  return { user: u, token: await startSession(u) };
+}
+
+/** Open a session for an account that has just proven who it is. */
+export async function startSession(u: UserRecord): Promise<string> {
   await updateUsers((all) => all.map((x) => (x.id === u.id ? { ...x, lastLoginAt: new Date().toISOString() } : x)));
   const token = randomBytes(32).toString('base64url');
-  S.sessions.set(token, { userId: u.id, expires: now + SESSION_DAYS * 86_400_000 });
-  return { user: u, token };
+  S.sessions.set(token, { userId: u.id, expires: Date.now() + SESSION_DAYS * 86_400_000 });
+  return token;
 }
 
 /** The signed-in account for a session token, extending the session while it is used. */
@@ -273,7 +343,7 @@ export async function sessionUser(token: string | undefined): Promise<UserRecord
   const s = S.sessions.get(token);
   if (!s || s.expires < Date.now()) { if (s) S.sessions.delete(token); return null; }
   const u = await findUser(s.userId);
-  if (!u || u.disabled) { S.sessions.delete(token); return null; }
+  if (!u || u.disabled || u.pending) { S.sessions.delete(token); return null; }
   s.expires = Date.now() + SESSION_DAYS * 86_400_000;
   return u;
 }
