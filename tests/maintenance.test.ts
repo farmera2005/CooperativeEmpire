@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { advanceMonth, applyCommand, checkInvariants, DEFAULT_SETUP, newGame, type GameState } from '../src/engine/index';
+import { advanceMonth, applyCommand, checkInvariants, DEFAULT_SETUP, newGame, setSiteCondition, setSiteEquipment, type GameState } from '../src/engine/index';
 import { TYPICAL_SITE } from '../src/data/facilities';
 import { MAINTENANCE } from '../src/data/grain';
 import { breakdownRisk } from '../src/engine/facilities/facilities';
@@ -16,7 +16,7 @@ function coop(year: number, seed = 1): GameState {
   // Finish construction in place: the project's components become the plant's.
   for (const p of w.coop.projects) {
     const f = w.coop.facilities.find((x) => x.id === p.facilityId)!;
-    f.components = { ...p.components };
+    setSiteEquipment(w, f, { ...p.components, site: 3 });
   }
   for (const f of w.coop.facilities) f.status = 'operating';
   w.coop.projects = [];
@@ -60,7 +60,7 @@ describe('maintenance', () => {
     let s = withUpkeep(coop(1995, 3), 'deferred');
     s = cloneState(s);
     s.clock = { ...s.clock };
-    for (const f of s.coop.facilities) f.condition = 5;
+    for (const f of s.coop.facilities) setSiteCondition(f, 5);
     const saved = MAINTENANCE.supplyBreakdownMonthly.value;
     (MAINTENANCE.supplyBreakdownMonthly as { value: number }).value = 1;
     try {

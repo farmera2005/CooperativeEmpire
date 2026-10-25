@@ -9,10 +9,13 @@ import { DIVISION_ROLE, effect, holder } from '../people/leaders';
 import { vacancyShare, wageMarket } from '../people/staff';
 import { monthOf, yearOf } from '../core/calendar';
 import { valueAt } from '../../data/types';
-import { allocateCents, roundCents, type Cents } from '../core/money';
+import { roundCents, type Cents } from '../core/money';
+import { AGING } from '../../data/equipment';
+import { capitalizeUnits } from './projects';
+import { decompose, makerOf, syncFacility, unitsReplacementCost, unitValue2024 } from './units';
 import { post } from '../ledger/ledger';
 import type { TickContext } from '../sim/context';
-import type { CapitalProject, DivisionId, Facility, FixedAsset, GameState, JournalLine, MaintenanceLevel } from '../types';
+import type { DivisionId, Facility, FixedAsset, GameState, JournalLine, MaintenanceLevel } from '../types';
 import { constructionLevel, nominalCents } from '../world/macro';
 import type { MarketPath } from '../world/marketPath';
 
@@ -57,37 +60,50 @@ export function emptyGrainState(): Facility['grain'] {
   return { bu: { corn: 0, soybeans: 0, wheat: 0 }, waitMemory: 0, seasonMaxWait: 0, seasonTurnedAway: 0, seasonWaitBu: 0, seasonOfferedBu: 0, downWeeks: 0 };
 }
 
-export function newFacility(state: GameState, townId: number, name: string, components: Components, status: Facility['status'], builtYear: number, condition: number, kind: FacilityKind = 'elevator'): Facility {
+/**
+ * A new site. Component totals (a site bought, merged or offered) are split into units built
+ * over the site's life (D-129); `unitsKey` makes the split repeatable, so what was shown for
+ * an offer is what arrives.
+ */
+export function newFacility(state: GameState, townId: number, name: string, components: Components, status: Facility['status'], builtYear: number, condition: number, kind: FacilityKind = 'elevator', unitsKey?: string): Facility {
+  const id = state.coop.nextId++;
+  const units = decompose(components, {
+    builtYear, nowYear: yearOf(state.clock.monthIndex), condition, key: `${state.setup.gameSeed}|${unitsKey ?? `facility|${id}`}`, nextId: () => state.coop.nextId++,
+  });
   const f: Facility = {
-    id: state.coop.nextId++, name, townId, division: KIND_DIVISION[kind], kind, ownership: 'owned', status,
-    builtYear, acquiredMonth: state.clock.monthIndex, condition, components: { ...components },
+    id, name, townId, division: KIND_DIVISION[kind], kind, ownership: 'owned', status,
+    builtYear, acquiredMonth: state.clock.monthIndex, condition, components: {}, units,
     staffing: { level: 'standard', pay: 'at' }, grain: emptyGrainState(),
   };
+  syncFacility(f);
   state.coop.facilities.push(f);
   return f;
 }
 
 /**
- * Capitalize components into the asset register and post the cost. The asset cost is split
- * across components in proportion to their replacement cost. Returns journal lines (debits)
- * for the caller to balance against cash or construction in progress.
+ * Replace a site's equipment with units for the given totals, built this year (no asset
+ * entries). For tests and debug tools that set a site up directly.
  */
-export function capitalize(state: GameState, facilityId: number, components: Components, total: Cents, label: string, remainingLifeShare = 1): JournalLine[] {
-  const division = state.coop.facilities.find((f) => f.id === facilityId)?.division ?? 'GRAIN';
-  const ids = (Object.keys(components) as ComponentId[]).filter((id) => (components[id] ?? 0) > 0).sort();
-  const weights = ids.map((id) => midCost(id, yearOf(state.clock.monthIndex)) * (components[id] ?? 0));
-  const parts = allocateCents(total, weights);
-  const lines: JournalLine[] = [];
-  ids.forEach((id, i) => {
-    const def = COMPONENTS[id];
-    const asset: FixedAsset = {
-      id: state.coop.nextId++, facilityId, label: `${label}: ${def.label}`, account: def.account, cost: parts[i], accumDep: 0,
-      lifeMonths: def.lifeYears > 0 ? Math.max(12, Math.round(def.lifeYears * 12 * remainingLifeShare)) : 0, startMonth: state.clock.monthIndex,
-    };
-    state.coop.assets.push(asset);
-    lines.push({ account: def.account, division, amount: parts[i] });
-  });
-  return lines;
+export function setSiteEquipment(state: GameState, f: Facility, components: Components, condition = 100): void {
+  const year = yearOf(state.clock.monthIndex);
+  f.units = decompose(components, { builtYear: year, nowYear: year, condition, key: `${state.setup.gameSeed}|set|${f.id}|${state.coop.nextId}`, nextId: () => state.coop.nextId++ });
+  syncFacility(f);
+}
+
+/** Set every unit at a site to a condition (tests and debug tools). */
+export function setSiteCondition(f: Facility, condition: number): void {
+  for (const u of f.units) if (u.component !== 'site') u.condition = condition;
+  syncFacility(f);
+}
+
+/**
+ * Put a site's units that are not yet on the books onto the asset register, splitting the
+ * total by replacement value (D-129). Returns journal debits for the caller to balance.
+ */
+export function capitalize(state: GameState, facilityId: number, _components: Components, total: Cents, _label: string, remainingLifeShare = 1): JournalLine[] {
+  const f = state.coop.facilities.find((x) => x.id === facilityId);
+  if (!f) return [];
+  return capitalizeUnits(state, f, f.units.filter((u) => u.assetId === undefined), total, remainingLifeShare);
 }
 
 /** Monthly straight-line depreciation for all assets. */
@@ -114,45 +130,7 @@ export function stepDepreciation(ctx: TickContext): void {
 export const netBookValue = (state: GameState, facilityId: number): Cents =>
   state.coop.assets.filter((a) => a.facilityId === facilityId).reduce((s, a) => s + a.cost - a.accumDep, 0);
 
-/** Advance capital projects: spend evenly, complete into the asset register. */
-export function stepProjects(ctx: TickContext): void {
-  const { state, mi } = ctx;
-  const done: CapitalProject[] = [];
-  for (const p of state.coop.projects) {
-    const monthsLeft = Math.max(1, p.completeMonth - mi + 1);
-    const spend = Math.round((p.budget - p.spent) / monthsLeft);
-    const division = state.coop.facilities.find((f) => f.id === p.facilityId)?.division ?? 'GRAIN';
-    if (spend > 0) {
-      post(state, {
-        source: 'capex', memo: `Construction: ${p.label}`,
-        lines: [{ account: '1540', division, amount: spend }, { account: '1000', division, amount: -spend }],
-      });
-      p.spent += spend;
-    }
-    if (mi >= p.completeMonth) done.push(p);
-  }
-  for (const p of done) completeProject(ctx, p);
-  if (done.length) state.coop.projects = state.coop.projects.filter((p) => !done.includes(p));
-}
-
-function completeProject(ctx: TickContext, p: CapitalProject): void {
-  const { state } = ctx;
-  const f = state.coop.facilities.find((x) => x.id === p.facilityId);
-  if (!f) return;
-  let lines: JournalLine[];
-  if (p.renovation) {
-    const asset: FixedAsset = { id: state.coop.nextId++, facilityId: f.id, label: `${f.name}: renovation`, account: '1510', cost: p.spent, accumDep: 0, lifeMonths: FACILITY_COSTS.renovationLifeYears * 12, startMonth: ctx.mi };
-    state.coop.assets.push(asset);
-    lines = [{ account: '1510', division: f.division, amount: p.spent }];
-    f.condition = Math.min(100, f.condition + FACILITY_COSTS.renovateConditionGain.value);
-  } else {
-    lines = capitalize(state, f.id, p.components, p.spent, f.name);
-    for (const id of Object.keys(p.components) as ComponentId[]) f.components[id] = (f.components[id] ?? 0) + (p.components[id] ?? 0);
-  }
-  post(state, { source: 'capex-complete', memo: `Placed in service: ${p.label}`, lines: [...lines, { account: '1540', division: f.division, amount: -p.spent }] });
-  if (f.status === 'underConstruction') f.status = 'operating';
-  ctx.inbox({ kind: 'memo', title: `Completed: ${p.label}`, body: `${p.label} is finished and in service.` });
-}
+export { stepProjects } from './projects';
 
 /** FTE at standard staffing (2024 productivity) for any site. Elevators use their own formula. */
 export function facilityFte(f: Facility): number {
@@ -229,7 +207,7 @@ export function stepFacilityCosts(ctx: TickContext): void {
     if (f.status === 'closed' || f.status === 'underConstruction') continue;
     division = f.division;
     facilityId = f.id;
-    const repl = replacementCost(path, mi, f.components);
+    const repl = unitsReplacementCost(path, mi, f.units.filter((u) => u.component !== 'site'));
     const mothballed = f.status === 'mothballed';
     const shared = sharesSite(state, f);
     if (!mothballed) {
@@ -251,23 +229,33 @@ export function stepFacilityCosts(ctx: TickContext): void {
       add('7000', wages);
       add('7010', roundCents(wages * STAFF.benefitsRate.value));
     }
-    // Repairs rise as condition falls.
-    let repairRate = 0;
+    // Repairs, unit by unit (D-129): they rise as a unit wears, past its design life, and with
+    // its maker's upkeep.
+    const year = yearOf(mi);
+    let repairBase = 0;
     let weight = 0;
-    for (const id of Object.keys(f.components) as ComponentId[]) {
-      const w = midCost(id, yearOf(mi)) * (f.components[id] ?? 0);
-      repairRate += COMPONENTS[id].repairRate * w;
+    for (const u of f.units) {
+      if (u.component === 'site') continue;
+      const def = COMPONENTS[u.component];
+      const w = unitValue2024(u, year);
+      const old = def.lifeYears > 0 && year - u.builtYear > def.lifeYears ? AGING.overLifeRepair.value : 1;
+      repairBase += w * def.repairRate * makerOf(u.brandId, u.component).upkeep * (1 + (100 - u.condition) / 100) * old;
       weight += w;
     }
-    repairRate = weight ? repairRate / weight : 0;
-    const repairs = roundCents(((repl * repairRate) / 12) * (1 + (100 - f.condition) / 100) * (mothballed ? FACILITY_COSTS.mothballRepairShare.value : MAINTENANCE.repairFactor.value[maintenanceOf(f)]) * opexFactor(f.division));
+    const toNominal = weight > 0 ? repl / weight : 0;
+    const repairs = roundCents(((repairBase * toNominal) / 12) * (mothballed ? FACILITY_COSTS.mothballRepairShare.value : MAINTENANCE.repairFactor.value[maintenanceOf(f)]) * opexFactor(f.division));
     add('7200', repairs);
     add('7300', roundCents(((repl * FACILITY_COSTS.insuranceRate.value) / 12) * (1 + effect(state, 'safety.insurance'))));
     add('7640', roundCents((netBookValue(state, f.id) * FACILITY_COSTS.propertyTaxRate.value) / 12));
-    // Condition decay.
-    let decay = 0;
-    for (const id of Object.keys(f.components) as ComponentId[]) decay += COMPONENTS[id].decayPerYear * midCost(id) * (f.components[id] ?? 0);
-    f.condition = Math.max(0, f.condition - (weight ? decay / weight : 0) / 12 * (mothballed ? FACILITY_COSTS.mothballDecayShare.value : MAINTENANCE.decayFactor.value[maintenanceOf(f)]) * decayFactor);
+    // Wear, unit by unit: faster past design life, slower for durable makers.
+    const wearFactor = ((mothballed ? FACILITY_COSTS.mothballDecayShare.value : MAINTENANCE.decayFactor.value[maintenanceOf(f)]) * decayFactor) / 12;
+    for (const u of f.units) {
+      if (u.component === 'site') continue;
+      const def = COMPONENTS[u.component];
+      const over = def.lifeYears > 0 && year - u.builtYear > def.lifeYears ? AGING.overLifeWear.value : 1;
+      u.condition = Math.max(0, u.condition - def.decayPerYear * makerOf(u.brandId, u.component).durability * over * wearFactor);
+    }
+    syncFacility(f);
     // Hidden environmental problems surface eventually.
     if (f.envLiability && !f.envLiability.discovered && ctx.rng('facilities.env', f.id).chance(FACILITY_COSTS.envDiscoveryMonthly.value)) {
       f.envLiability.discovered = true;

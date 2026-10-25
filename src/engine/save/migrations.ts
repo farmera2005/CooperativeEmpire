@@ -8,6 +8,10 @@ import { emptyEquityProgram, emptyRegional } from '../finance/defaults';
 import { emptyBoardActivity } from '../governance/board';
 import { emptyPeople } from '../people/leaders';
 import { BYLAWS_DEFAULT } from '../../data/governance';
+import { COMPONENTS, type ComponentId } from '../../data/facilities';
+import { allocateCents } from '../core/money';
+import { decompose, syncFacility, unitValue2024 } from '../facilities/units';
+import { yearOf } from '../core/calendar';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyState = any;
@@ -104,6 +108,48 @@ export const MIGRATIONS: Record<number, (s: AnyState) => AnyState> = {
     const months = s.ledger?.months;
     if (Array.isArray(months) && months.length) months[months.length - 1].byFacility ??= {};
     return { ...s, schemaVersion: 9 };
+  },
+  // D-129: facilities are made of installed units. Each site's component totals are split into
+  // units of the era's sizes and makers, and its assets are re-keyed one per unit within each
+  // account, keeping every account's cost and accumulated depreciation (the ledger is untouched).
+  9: (s) => {
+    const coop = s.coop;
+    coop.designs ??= [];
+    coop.consultantLog ??= [];
+    const now = yearOf(s.clock.monthIndex);
+    for (const f of coop.facilities) {
+      if (Array.isArray(f.units)) continue;
+      f.units = decompose(f.components ?? {}, {
+        builtYear: f.builtYear, nowYear: now, condition: f.condition ?? 70, key: `${s.setup.gameSeed}|migrate|${f.id}`, nextId: () => coop.nextId++,
+      });
+      const assets = coop.assets.filter((a: { facilityId: number }) => a.facilityId === f.id);
+      const byAcct = new Map<string, { cost: number; accum: number; ids: number[] }>();
+      for (const a of assets) {
+        const g = byAcct.get(a.account) ?? { cost: 0, accum: 0, ids: [] };
+        g.cost += a.cost;
+        g.accum += a.accumDep;
+        g.ids.push(a.id);
+        byAcct.set(a.account, g);
+      }
+      const drop = new Set<number>();
+      for (const [account, g] of [...byAcct.entries()].sort((x, y) => x[0].localeCompare(y[0]))) {
+        const units = f.units.filter((u: { component: ComponentId }) => COMPONENTS[u.component].account === account);
+        if (!units.length) continue;
+        const weights = units.map((u: Parameters<typeof unitValue2024>[0]) => Math.max(1e-6, unitValue2024(u)));
+        const costs = allocateCents(g.cost, weights);
+        const accums = allocateCents(g.accum, weights);
+        units.forEach((u: { id: number; component: ComponentId; modelId: string; builtYear: number; assetId?: number }, i: number) => {
+          const def = COMPONENTS[u.component];
+          const id = coop.nextId++;
+          coop.assets.push({ id, facilityId: f.id, label: `${f.name}: ${def.label} (${u.builtYear})`, account, cost: costs[i], accumDep: accums[i], lifeMonths: def.lifeYears > 0 ? def.lifeYears * 12 : 0, startMonth: s.clock.monthIndex });
+          u.assetId = id;
+        });
+        for (const id of g.ids) drop.add(id);
+      }
+      coop.assets = coop.assets.filter((a: { id: number }) => !drop.has(a.id));
+      syncFacility(f);
+    }
+    return { ...s, schemaVersion: 10 };
   },
 };
 

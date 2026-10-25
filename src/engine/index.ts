@@ -31,9 +31,17 @@ export { ratios } from './ledger/ratios';
 export type { Ratios } from './ledger/ratios';
 export { grainShareByTown, supplyShareByTown, facilityCatchment, type FacilityCatchment, type CatchmentTown } from './selectors';
 export { capperVolsteadRatio } from './sim/capperVolstead';
-export { grainCapacity, totalCapacityBu, facilityBu, netBookValue, replacementCost, elevatorFte } from './facilities/facilities';
+export { grainCapacity, totalCapacityBu, facilityBu, netBookValue, replacementCost, elevatorFte, setSiteEquipment, setSiteCondition } from './facilities/facilities';
+export {
+  modelOf, modelsFor, makersFor, makerOf, needsMaker, unitPrice, unitCapacity, unitValue2024, siteAcres, footprintAcres, decompose, syncFacility,
+} from './facilities/units';
+export { quoteProject, rebuildCost, designWarnings, planLines, makerValueScore } from './facilities/projects';
+export type { LineSpec, ProjectSpec, ProjectQuote, QuotedLine } from './facilities/projects';
+export { consultantsAvailable, consultantById, trackRecord, designFee, designCost, siteMarket } from './facilities/consultants';
+export type { Consultant } from './facilities/consultants';
+export { usedValueOfUnits } from './facilities/valuation';
 export type { Components, GrainCapacity } from './facilities/facilities';
-export { estimateProject, specComponents, renovationCost } from './facilities/actions';
+export { estimateProject, specComponents, renovationCost, renovationUnits } from './facilities/actions';
 export type { BuildSpec, ProjectEstimate } from './facilities/actions';
 export { liquidity, borrowingBase, lineDrawn, lineRate, maxCommitment } from './finance/lender';
 export { competitorName } from './competitors/competitors';

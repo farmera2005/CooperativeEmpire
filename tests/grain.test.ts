@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SCHEMA_VERSION, advanceMonth, applyCommand, checkInvariants, incomeStatement, DEFAULT_SETUP, hashValue, newGame, parseSave, serializeSave, toSaveFile, type GameState } from '../src/engine/index';
+import { SCHEMA_VERSION, advanceMonth, applyCommand, checkInvariants, incomeStatement, DEFAULT_SETUP, hashValue, newGame, syncFacility, parseSave, serializeSave, toSaveFile, type GameState } from '../src/engine/index';
 import { POLICIES } from '../src/engine/sim/policies';
 import { migrate } from '../src/engine/save/migrations';
 import { cloneState } from '../src/engine/sim/clone';
@@ -38,7 +38,9 @@ describe('facilities', () => {
     expect(r.state.coop.facilities[0].status).toBe('underConstruction');
     const s = run(r.state, 10);
     expect(s.coop.facilities[0].status).toBe('operating');
-    expect(grainCapacity(s.coop.facilities[0].components).storageBu).toBe(100_000);
+    // Built from catalog units: whole bins covering at least what was asked for (D-129).
+    expect(grainCapacity(s.coop.facilities[0].components).storageBu).toBeGreaterThanOrEqual(100_000);
+    expect(s.coop.facilities[0].units.filter((u) => u.component === 'storage-steel').every((u) => u.brandId && u.modelId.startsWith('bin-'))).toBe(true);
     expect(checkInvariants(s)).toEqual([]);
   });
 
@@ -95,7 +97,10 @@ describe('grain operations', () => {
 
   it('a tiny receiving leg turns grain away and angers farmers', () => {
     let s = cloneState(withElevator(1978, 6));
-    s.coop.facilities[0].components.receiving = 300;
+    const f0 = s.coop.facilities[0];
+    const leg = f0.units.filter((u) => u.component === 'receiving');
+    for (const u of leg) u.qty = 300 / leg.length;
+    syncFacility(f0);
     s = run(s, 14);
     const turned = s.coop.grain.reports.reduce((a, r) => a + r.byCommodity.corn.turnedAwayBu + r.byCommodity.soybeans.turnedAwayBu, 0);
     expect(turned).toBeGreaterThan(0);

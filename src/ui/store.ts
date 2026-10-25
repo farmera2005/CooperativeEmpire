@@ -5,6 +5,18 @@ import {
 } from '../engine/index';
 import { saveSlot, setSaveTarget } from '../persistence/saves';
 import type { RegistrationMode, UserView } from './accountClient';
+import type { LineSpec } from '../engine/facilities/projects';
+import type { FacilityKind } from '../data/facilities';
+
+/** The capital project being planned (D-129): a site and its line items, before approval. */
+export interface ProjectDraft {
+  facilityId?: number;
+  townId: number;
+  kind: FacilityKind;
+  lines: LineSpec[];
+  pmId?: number;
+  designId?: number;
+}
 
 export type Tab = 'dashboard' | 'deals' | 'operations' | 'reports' | 'glossary' | 'grain' | 'supply' | 'map' | 'markets' | 'members' | 'financials' | 'locations' | 'equity' | 'lender' | 'settings' | 'people' | 'board' | 'inbox' | 'saves' | 'admin' | 'debug';
 
@@ -24,6 +36,9 @@ export interface AccountState {
 }
 
 interface UiState {
+  /** Project plan in progress, shared by the site, designs and planner panels. */
+  draft: ProjectDraft | null;
+  setDraft(d: ProjectDraft | null): void;
   account: AccountState;
   /** Record who is signed in; signing out or switching account closes the game. */
   setAccount(a: AccountState): void;
@@ -69,6 +84,8 @@ function scheduleAutosave(get: () => UiState, set: (p: Partial<UiState>) => void
 }
 
 export const useStore = create<UiState>((set, get) => ({
+  draft: null,
+  setDraft: (draft) => set({ draft }),
   account: { mode: 'checking', user: null },
   setAccount: (account) => {
     setSaveTarget(account.mode === 'server' ? 'server' : 'browser');
@@ -96,7 +113,7 @@ export const useStore = create<UiState>((set, get) => ({
   start: (setup, guide = false) => {
     try {
       const game = newGame(setup);
-      set({ game, screen: 'game', tab: 'inbox', summaries: [], guide, visited: ['inbox'] });
+      set({ game, screen: 'game', tab: 'inbox', summaries: [], draft: null, guide, visited: ['inbox'] });
       scheduleAutosave(get, set);
     } catch (e) {
       set({ error: (e as Error).message });
@@ -105,13 +122,13 @@ export const useStore = create<UiState>((set, get) => ({
   startScenario: (id) => {
     try {
       const game = newScenario(id);
-      set({ game, screen: 'game', tab: 'inbox', summaries: [] });
+      set({ game, screen: 'game', tab: 'inbox', summaries: [], draft: null });
       scheduleAutosave(get, set);
     } catch (e) {
       set({ error: (e as Error).message });
     }
   },
-  load: (game) => set({ game, screen: 'game', tab: 'dashboard', summaries: [] }),
+  load: (game) => set({ game, screen: 'game', tab: 'dashboard', summaries: [], draft: null }),
   command: (cmd) => {
     const g = get().game;
     if (!g) return false;

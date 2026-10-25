@@ -83,7 +83,7 @@ export function checkInvariants(state: GameState): string[] {
   }
   for (const acct of ['1500', '1510', '1520', '1530']) if ((byAcct[acct] ?? 0) !== glOf(acct)) errors.push(`Asset register ${acct} ${byAcct[acct] ?? 0} != GL ${glOf(acct)}`);
   if (accum !== -glOf('1590')) errors.push(`Accumulated depreciation register ${accum} != GL ${-glOf('1590')}`);
-  const cip = state.coop.projects.reduce((s, p) => s + p.spent, 0);
+  const cip = state.coop.projects.reduce((s, p) => s + p.spent - (p.capitalized ?? 0), 0);
   if (cip !== glOf('1540')) errors.push(`Projects ${cip} != construction in progress ${glOf('1540')}`);
 
   // 7. Term loans tie to long-term debt.

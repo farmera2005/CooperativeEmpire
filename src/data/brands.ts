@@ -8,7 +8,9 @@ import type { Confidence } from './types';
 export type BrandCategory =
   | 'regional' | 'lender' | 'fertilizer' | 'cropProtection' | 'agronomyDistribution' | 'seed' | 'feed'
   | 'fuelFlag' | 'lubricant' | 'grainBuyer' | 'railroad' | 'equipment' | 'applicationEquipment' | 'bins'
-  | 'trucks' | 'retailProgram' | 'retailCompetitor' | 'propaneCompetitor' | 'software' | 'dataService';
+  | 'trucks' | 'retailProgram' | 'retailCompetitor' | 'propaneCompetitor' | 'software' | 'dataService'
+  // Facility equipment makers and builders (D-129)
+  | 'dryers' | 'grainHandling' | 'scales' | 'elevatorBuilder' | 'fertEquipment' | 'tanks' | 'feedMillEquipment' | 'fuelEquipment' | 'buildings';
 
 export type SupplyLine = 'grain' | 'agronomy' | 'feed' | 'energy' | 'retail';
 
@@ -180,6 +182,52 @@ export const BRANDS: Brand[] = [
   b('international-trucks', 'International', 'Intercontinental Trucks', 'trucks', 1970, undefined, 'high'),
   b('freightliner', 'Freightliner', 'Freightway', 'trucks', 1970, undefined, 'high'),
   b('mack', 'Mack', 'Mackey Trucks', 'trucks', 1970, undefined, 'high'),
+  b('ford-trucks', 'Ford', 'Fordham Motor Trucks', 'trucks', 1970, 1998, 'high', { successor: 'sterling', notes: 'Heavy-truck division sold to Freightliner Feb 1997; renamed Sterling.' }),
+  b('sterling', 'Sterling', 'Silverline Trucks', 'trucks', 1998, 2009, 'high', { notes: 'Discontinued; orders ended January 2009.' }),
+  b('gmc-trucks', 'GMC', 'General Motor Trucks', 'trucks', 1970, 1988, 'high', { successor: 'volvo-trucks', notes: 'Volvo GM joint venture 1986; last GMC heavies 1987–88.' }),
+  b('volvo-trucks', 'Volvo', 'Volta Trucks', 'trucks', 1988, undefined, 'high', { notes: 'Sold as WhiteGMC to 1995, Volvo Trucks North America from 1997.' }),
+  // Facility equipment makers and builders (D-129). Dates from manufacturer histories and trade press.
+  b('behlen', 'Behlen', 'Bellmont Steel', 'bins', 1970, undefined, 'high', { notes: 'Columbus, NE, 1936; Wickes 1969–84, then management buyout; bought Sweet Manufacturing 2025.' }),
+  b('sioux-steel', 'Sioux Steel', 'Sioux Valley Steel', 'bins', 1970, undefined, 'high', { notes: 'Sioux Falls, SD, 1918; family-owned.' }),
+  b('westeel', 'Westeel', 'Westward Steel', 'bins', 1970, undefined, 'high', { notes: 'Winnipeg, 1905; bins from the 1920s; AGI bought it May 2015.' }),
+  b('stormor', 'Stormor', 'Storewell', 'bins', 1970, undefined, 'medium', { notes: 'Sold since at least 1957; now MFS/York/Stormor.' }),
+  b('cst', 'Columbian / CST', 'Columbia Tank Works', 'tanks', 1970, undefined, 'medium', { notes: 'Columbian Steel Tank, 1893; bolted tanks from 1916; now CST Industries.' }),
+  b('universal-industries', 'Universal Industries', 'Universal Conveyor', 'grainHandling', 1970, undefined, 'high', { notes: 'Cedar Falls, IA, 1906.' }),
+  b('schlagel', 'Schlagel', 'Schlegel Conveyor', 'grainHandling', 1970, undefined, 'high', { notes: 'Cambridge, MN, 1957.' }),
+  b('intersystems', 'InterSystems', 'InterLink Systems', 'grainHandling', 1970, 2014, 'high', { successor: 'gsi', notes: 'Omaha, 1959; to GSI 2014.' }),
+  b('sweet', 'Sweet Manufacturing', 'Sweetwater Manufacturing', 'grainHandling', 1970, undefined, 'high', { notes: 'Springfield, OH, 1955; Behlen bought it Feb 2025, keeping the brand.' }),
+  b('mc-dryers', 'M-C (Mathews Company)', 'Matheson Dryers', 'dryers', 1970, undefined, 'high', { notes: 'Crystal Lake, IL; dryers since 1957; independent.' }),
+  b('delux', 'Delux', 'Deluxe Drying', 'dryers', 1970, undefined, 'medium', { notes: 'Kearney, NE, 1962; credited with the first vacuum-cooled dryer.' }),
+  b('zimmerman', 'Zimmerman', 'Zimmer Dryers', 'dryers', 1970, 2001, 'high', { successor: 'gsi', notes: 'Litchfield, IL, 1963; to GSI 2001.' }),
+  b('farm-fans', 'Farm Fans', 'Farmstead Fans', 'dryers', 1970, 2001, 'medium', { successor: 'gsi', notes: 'To GSI 2001.' }),
+  b('meyer', 'Meyer (Beard Industries)', 'Myers Dryers', 'dryers', 1970, 2002, 'high', { successor: 'brock', notes: 'Frankfort, IN, 1965; to CTB/Brock 2002.' }),
+  b('shivvers', 'Shivvers', 'Shiver Drying', 'dryers', 1970, undefined, 'high', { notes: 'Corydon, IA, 1968; COMPU-DRY control 1984.' }),
+  b('aeroglide', 'Aeroglide', 'AeroFlow Dryers', 'dryers', 1970, 2008, 'high', { notes: 'Raleigh, NC, 1940; Bühler bought it June 2008.' }),
+  b('fairbanks', 'Fairbanks', 'Fairfield Scales', 'scales', 1970, undefined, 'medium', { notes: 'St. Johnsbury, VT, 1830.' }),
+  b('toledo-scale', 'Toledo Scale', 'Tolland Scale', 'scales', 1970, 1989, 'medium', { successor: 'mettler-toledo', notes: 'Acquired by Mettler 1989.' }),
+  b('mettler-toledo', 'Mettler Toledo', 'Metler-Tolland', 'scales', 1989, undefined, 'medium'),
+  b('cardinal-scale', 'Cardinal Scale', 'Cardinal Weighing', 'scales', 1970, undefined, 'high', { notes: 'Webb City, MO, 1950; independent.' }),
+  b('rice-lake', 'Rice Lake', 'Rice River Weighing', 'scales', 1970, undefined, 'high', { notes: 'Rice Lake, WI, 1945–46.' }),
+  b('todd-sargent', 'Todd & Sargent', 'Todd & Sargeant Builders', 'elevatorBuilder', 1970, undefined, 'high', { notes: 'Ames, IA, 1933; name from 1958; design-build.' }),
+  b('younglove', 'Younglove Construction', 'Youngblood Construction', 'elevatorBuilder', 1970, undefined, 'medium', { notes: 'Sioux City, IA; grain and feed-mill design-build.' }),
+  b('hogenson', 'Hogenson Construction', 'Hogan Construction', 'elevatorBuilder', 1970, undefined, 'medium', { notes: 'West Fargo, ND, 1925; slipform silos and steel bins.' }),
+  b('chalmers-borton', 'Chalmers & Borton', 'Chambers & Burton', 'elevatorBuilder', 1970, 1990, 'low', { notes: 'Hutchinson, KS, 1927; slipform elevators. End year not found; 1990 assumed.' }),
+  b('doyle', 'Doyle Equipment', 'Doyle Blending', 'fertEquipment', 1970, undefined, 'medium', { notes: 'Founded 1951; first rotary drum blender 1961.' }),
+  b('yargus', 'Yargus', 'Yardley Blending', 'fertEquipment', 1970, undefined, 'medium', { notes: 'Marshall, IL, 1968 (as Layco); AGI from November 2016.' }),
+  b('trinity', 'Trinity', 'Trinity Tank', 'tanks', 1970, undefined, 'medium', { notes: 'Pressure tanks; Trinity Containers, later Arcosa.' }),
+  b('awt', 'American Welding & Tank', 'American Weld & Tank', 'tanks', 1970, undefined, 'low'),
+  b('westmor', 'Westmor', 'Westmore Tank', 'tanks', 2001, undefined, 'medium', { notes: 'Morris, MN; roots 1972; Westmor name 2001; Superior Industries from 2008.' }),
+  b('snyder', 'Snyder Industries', 'Snider Poly Tanks', 'tanks', 1975, undefined, 'low', { notes: 'Lincoln, NE; rotomolded poly tanks.' }),
+  b('cpm', 'CPM (California Pellet Mill)', 'California Pelleting', 'feedMillEquipment', 1970, undefined, 'high', { notes: 'Pellet mills since 1931; bought Roskamp 1987 and Champion 1989.' }),
+  b('sprout-waldron', 'Sprout-Waldron', 'Sprout-Walden', 'feedMillEquipment', 1970, 1990, 'low', { notes: 'Muncy, PA; became part of Andritz around 1990.' }),
+  b('buhler', 'Bühler', 'Bühlmann', 'feedMillEquipment', 1970, undefined, 'medium', { notes: 'Swiss, 1860; full-line milling.' }),
+  b('gilbarco', 'Gilbarco', 'Gilbert-Barkley', 'fuelEquipment', 1970, undefined, 'high', { notes: 'Danaher 2002, forming Gilbarco Veeder-Root.' }),
+  b('tokheim', 'Tokheim', 'Tockham', 'fuelEquipment', 1970, 2003, 'high', { notes: 'Fort Wayne, IN; Chapter 11 in 2000 and 2002; North American operations sold 2003.' }),
+  b('wayne', 'Wayne', 'Wayland Pumps', 'fuelEquipment', 1970, undefined, 'medium', { notes: 'Fort Wayne, IN, 1891; Dresser Wayne; Dover from 2014.' }),
+  b('gasboy', 'Gasboy', 'Gasman', 'fuelEquipment', 1970, undefined, 'low', { notes: 'Fleet dispensers and card-lock controllers; now Gilbarco Veeder-Root.' }),
+  b('morton-buildings', 'Morton Buildings', 'Mortonville Buildings', 'buildings', 1970, undefined, 'medium', { notes: 'Morton, IL, 1903; employee-owned.' }),
+  b('cleary', 'Cleary Building', 'Clearwater Building', 'buildings', 1978, undefined, 'medium', { notes: 'Verona, WI, 1978.' }),
+  b('varco-pruden', 'Varco-Pruden', 'Varden-Pruitt', 'buildings', 1970, undefined, 'low'),
   // Retail programs and competitors
   b('true-value', 'True Value', 'True Hardware', 'retailProgram', 1970, undefined, 'medium'),
   b('ace', 'Ace Hardware', 'Acme Hardware', 'retailProgram', 1970, undefined, 'medium'),

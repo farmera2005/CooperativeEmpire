@@ -46,7 +46,9 @@ function walk(file: string, path: string, v: unknown, seen: Set<unknown>): void 
   for (const k of Object.keys(o)) {
     if (k === 'confidence') continue;
     const child = o[k];
-    const id = child && typeof child === 'object' && 'id' in (child as object) ? String((child as { id: unknown }).id) : k;
+    const c = child as { id?: unknown; brandId?: unknown; components?: unknown } | null;
+    // Maker lines (D-129) are keyed by brand and what they make.
+    const id = c && typeof c === 'object' && 'id' in c ? String(c.id) : c && typeof c === 'object' && 'brandId' in c ? `${String(c.brandId)}:${Array.isArray(c.components) ? c.components.join('+') : ''}` : k;
     walk(file, Array.isArray(o) ? `${path}[${id}]` : path ? `${path}.${k}` : k, child, seen);
   }
 }

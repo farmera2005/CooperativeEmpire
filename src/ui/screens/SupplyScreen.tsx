@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Bar, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { KIND_LABEL, type FacilityKind } from '../../data/facilities';
+import type { FacilityKind } from '../../data/facilities';
 import { COMPONENTS } from '../../data/facilities';
 import { DIVISION_LABEL, LINES, LINES_BY_DIVISION, type LineId, type SupplyDivision } from '../../data/supply';
 import { fiscalYearOf, fiscalYearStart, formatMonthShort, incomeStatement, supplierTerms, type SupplyPolicy } from '../../engine/index';
 import { BreakdownView } from '../components/BreakdownView';
-import { BuildSupplySite, FacilitiesPanel, OffersPanel } from '../components/FacilityPanels';
+import { FacilitiesPanel, OffersPanel } from '../components/FacilityPanels';
+import { ConsultantsPanel, ProjectPlanner } from '../components/Projects';
 import { LivestockPanel } from '../components/LivestockPanel';
 import { CommitNumber } from '../components/CommitNumber';
 import { Panel, Stat } from '../components/Panel';
@@ -209,8 +210,8 @@ function Buy({ d }: { d: SupplyDivision }) {
   return (
     <div className="space-y-4">
       <OffersPanel kinds={KINDS[d]} fin={fin} setFin={setFin} />
-      {KINDS[d].map((k) => <BuildSupplySite key={k} kind={k} fin={fin} setFin={setFin} />)}
-      <p className="text-xs text-stone-500">{KINDS[d].map((k) => KIND_LABEL[k]).join(' and ')} — the default size is a typical site for the era; adjust before approving.</p>
+      <ProjectPlanner kinds={KINDS[d]} />
+      <ConsultantsPanel kinds={KINDS[d]} />
     </div>
   );
 }

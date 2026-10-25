@@ -19,6 +19,16 @@ npm run sim -- --start 1970 --years 55 --policy baseline --seeds 50   # headless
 npm run data:review  # regenerate docs/DATA_REVIEW.md
 ```
 
+## Building facilities
+
+Facilities are made of individual units — each bin, leg, dryer, scale, tank, truck and building,
+with its maker, year, capacity and condition (Grain or Farm supply > Facilities > Manage). New
+capacity comes from **projects** (Buy or build > Plan a project): pick models from the catalog
+for the current year, compare makers' pros and cons, add land, and approve; each line comes into
+service as it is finished. Worn units can be rebuilt or taken down. **Consultants** design a
+site for its market and can manage construction; not every firm is as good as its reputation.
+Sizes, years and makers come from `docs/research/equipment.md`.
+
 ## Accounts
 
 When the game runs on its own server (`npm run dev`, `npm run preview`, `npm run share`, or the

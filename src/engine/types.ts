@@ -11,7 +11,7 @@ import type { Commodity } from '../data/grain';
 import type { Breakdown } from './core/breakdown';
 import type { Role, Skill, TraitId } from '../data/people';
 
-export const SCHEMA_VERSION = 9;
+export const SCHEMA_VERSION = 10;
 
 export type DivisionId = 'GRAIN' | 'AGRONOMY' | 'FEED' | 'ENERGY' | 'RETAIL' | 'CORP';
 export const DIVISIONS: DivisionId[] = ['GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'RETAIL', 'CORP'];
@@ -483,9 +483,15 @@ export interface Facility {
   status: 'underConstruction' | 'operating' | 'mothballed' | 'closed';
   builtYear: number;
   acquiredMonth: number;
+  /** Capacity-weighted condition of the installed units (kept in step with `units`). */
   condition: number;
-  /** Installed component quantities in each component's unit (bu, bu/hr, count, acres). */
+  /**
+   * Installed capacity by component in each component's unit (bu, bu/hr, count, acres): the
+   * sum of `units`, kept in step by syncFacility (D-129).
+   */
   components: Partial<Record<ComponentId, number>>;
+  /** What is actually there: each bin, leg, dryer, tank and building (D-129). */
+  units: InstalledUnit[];
   staffing: { level: StaffLevel; pay: PayPosition };
   /** Maintenance program; routine when unset (D-106). */
   maintenance?: MaintenanceLevel;
@@ -496,17 +502,99 @@ export interface Facility {
   grain: FacilityGrainState;
 }
 
+/** One piece of equipment or structure at a site (D-129). */
+export interface InstalledUnit {
+  id: number;
+  /** Catalog model (data/equipment.ts), or `legacy:<component>` for odd sizes bought with a site. */
+  modelId: string;
+  /** Maker (brand id); none for land, ground piles and track. */
+  brandId?: string;
+  component: ComponentId;
+  /** Capacity in the component's unit. */
+  qty: number;
+  builtYear: number;
+  condition: number;
+  /** Fixed asset carrying this unit's cost. */
+  assetId?: number;
+  /** Times rebuilt; each rebuild restores condition but not the original life. */
+  rebuilds?: number;
+}
+
+/** A line of a capital project: units to build, land to buy, or a unit to rebuild (D-129). */
+export interface ProjectLine {
+  kind: 'build' | 'land' | 'rebuild';
+  /** build: catalog model and maker; count of identical units. */
+  modelId?: string;
+  brandId?: string;
+  count: number;
+  /** land: acres. */
+  acres?: number;
+  /** rebuild: the unit being rebuilt. */
+  unitId?: number;
+  label: string;
+  budget: Cents;
+  spent: Cents;
+  completeMonth: number;
+  done: boolean;
+}
+
 export interface CapitalProject {
   id: number;
   facilityId: number;
   label: string;
+  /** Capacity the project adds, by component (summary of its build lines). */
   components: Partial<Record<ComponentId, number>>;
   budget: Cents;
   spent: Cents;
   startMonth: number;
   completeMonth: number;
-  /** Renovation projects restore condition instead of adding components. */
+  /** Renovation projects restore condition instead of adding components (pre-D-129 saves). */
   renovation?: boolean;
+  /** Line items (D-129); projects from older saves have none and complete as one. */
+  lines?: ProjectLine[];
+  /** Month permits clear and building starts. */
+  permitMonth?: number;
+  /** Consultant managing the project and their fee (included in the budget). */
+  pmId?: number;
+  pmFee?: Cents;
+  /** Hidden outcome drawn at approval: cost overrun share and months of delay, revealed midway. */
+  overrun?: number;
+  slip?: number;
+  /** Month the overrun and delay are known, and whether that has happened. */
+  revealMonth?: number;
+  revealed?: boolean;
+  /** Spending already moved out of construction in progress onto the books, line by line. */
+  capitalized?: Cents;
+  /** Budget at approval, for the track record. */
+  approvedBudget?: Cents;
+  approvedComplete?: number;
+}
+
+/** A consultant's design for a site, kept until used or discarded (D-129). */
+export interface DesignProposal {
+  id: number;
+  consultantId: number;
+  month: number;
+  townId: number;
+  kind: FacilityKind;
+  facilityId?: number;
+  lines: { modelId: string; brandId?: string; count: number; acres?: number }[];
+  /** What the consultant expects the site to handle, as they estimated it. */
+  basis: { label: string; value: number; unit: string }[];
+  notes: string[];
+  fee: Cents;
+}
+
+/** Our experience with a consultant, shown when choosing one (D-129). */
+export interface ConsultantRecord {
+  consultantId: number;
+  projectId?: number;
+  designId?: number;
+  month: number;
+  role: 'design' | 'pm';
+  /** Final cost against the approved budget (0.1 = 10% over) and months late, for PM work. */
+  overrun?: number;
+  slip?: number;
 }
 
 export interface FixedAsset {
@@ -668,6 +756,9 @@ export interface CoopState {
   facilities: Facility[];
   projects: CapitalProject[];
   assets: FixedAsset[];
+  /** Consultant designs on hand and our history with consultants (D-129). */
+  designs: DesignProposal[];
+  consultantLog: ConsultantRecord[];
   nextId: number;
   grainPolicy: GrainPolicy;
   grain: GrainBook;

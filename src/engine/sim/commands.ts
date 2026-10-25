@@ -16,6 +16,8 @@ import {
   type BuildSpec,
 } from '../facilities/actions';
 import type { Components } from '../facilities/facilities';
+import { demolishUnit, startProject, type ProjectSpec } from '../facilities/projects';
+import { commissionDesign } from '../facilities/consultants';
 import { maxCommitment } from '../finance/lender';
 import { post } from '../ledger/ledger';
 import { balance } from '../ledger/ledger';
@@ -49,6 +51,11 @@ export type Command =
   | { type: 'setSupplyPolicy'; division: SupplyDivision; policy: Partial<SupplyPolicy> }
   | { type: 'upgradeFacility'; facilityId: number; components: Components; financePct: number }
   | { type: 'renovateFacility'; facilityId: number; financePct: number }
+  /** A capital project from catalog line items (D-129). */
+  | { type: 'startProject'; spec: ProjectSpec; financePct: number }
+  | { type: 'demolishUnit'; facilityId: number; unitId: number }
+  | { type: 'commissionDesign'; consultantId: number; townId: number; kind: FacilityKind; facilityId?: number }
+  | { type: 'discardDesign'; designId: number }
   | { type: 'mothballFacility'; facilityId: number }
   | { type: 'reopenFacility'; facilityId: number }
   | { type: 'closeFacility'; facilityId: number }
@@ -184,6 +191,13 @@ function run(s: GameState, cmd: Command): CommandMessage[] {
     }
     case 'upgradeFacility': return upgradeFacility(s, cmd.facilityId, cmd.components, cmd.financePct);
     case 'renovateFacility': return renovateFacility(s, cmd.facilityId, cmd.financePct);
+    case 'startProject': return startProject(s, cmd.spec, cmd.financePct);
+    case 'demolishUnit': return demolishUnit(s, cmd.facilityId, cmd.unitId);
+    case 'commissionDesign': return commissionDesign(s, cmd.consultantId, cmd.townId, cmd.kind, cmd.facilityId);
+    case 'discardDesign': {
+      s.coop.designs = s.coop.designs.filter((d) => d.id !== cmd.designId);
+      return [];
+    }
     case 'mothballFacility': return setFacilityStatus(s, cmd.facilityId, 'mothballed');
     case 'reopenFacility': return setFacilityStatus(s, cmd.facilityId, 'operating');
     case 'closeFacility': return closeFacility(s, cmd.facilityId);

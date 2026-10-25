@@ -16,7 +16,9 @@ import type { CommandMessage } from '../sim/commands';
 import type { Facility, GameState, StaffLevel, PayPosition } from '../types';
 import { nominalCents, pathFor } from '../world/macro';
 import { capitalize, facilityBu, grainCapacity, netBookValue, newFacility, replacementCost, type Components } from './facilities';
-import { usedValue } from '../competitors/competitors';
+import { usedValueOfUnits } from './valuation';
+import { planLines, quoteProject, rebuildCost, startProject } from './projects';
+import { PROJECTS } from '../../data/equipment';
 
 type Result = CommandMessage[];
 const err = (text: string): Result => [{ level: 'error', text }];
@@ -28,33 +30,13 @@ export interface ProjectEstimate {
   problems: string[];
 }
 
-/** Validate and price a set of components to add at a town (new site or upgrade). */
-export function estimateProject(state: GameState, townId: number, components: Components, existing?: Facility): ProjectEstimate {
-  const mi = state.clock.monthIndex;
-  const year = yearOf(mi);
-  const problems: string[] = [];
-  const town = state.world.towns[townId];
-  const lines = town.railLineIds.map((id) => state.world.rail[id]).filter((r) => r.status === 'active');
-  let months = 0;
-  let permit = 0;
-  for (const id of Object.keys(components) as ComponentId[]) {
-    const q = components[id] ?? 0;
-    if (q <= 0) continue;
-    const def = COMPONENTS[id];
-    if (def.availableFrom > year) problems.push(`${def.label} is not available until ${def.availableFrom}.`);
-    if (def.buildableTo !== undefined && year > def.buildableTo) problems.push(`${def.label} is no longer built.`);
-    if (def.requires === 'rail' && !lines.length) problems.push(`${def.label} needs a rail line through ${town.name}.`);
-    if (def.requires === 'mainline' && !lines.some((r) => r.kind === 'mainline')) problems.push(`${def.label} needs a Class I main line through ${town.name}.`);
-    if (def.loadout && existing) {
-      const cur = grainCapacity(existing.components).loadout;
-      if (LOADOUT_RANK[def.loadout] <= LOADOUT_RANK[cur]) problems.push(`${existing.name} already has an equal or better load-out.`);
-    }
-    months = Math.max(months, def.buildMonths);
-    permit = Math.max(permit, def.permitMonths);
-  }
-  const cost = replacementCost(pathFor(state), mi, components);
-  if (cost <= 0) problems.push('Nothing to build.');
-  return { cost, months: Math.max(1, months + permit), problems };
+/**
+ * Price component totals at a town as the units a careful engineer would order (D-129). Kept
+ * for the policy bots, board proposals and older commands; players build from the catalog.
+ */
+export function estimateProject(state: GameState, townId: number, components: Components, existing?: Facility, kind: FacilityKind = existing?.kind ?? 'elevator'): ProjectEstimate {
+  const q = quoteProject(state, { townId, kind, ...(existing ? { facilityId: existing.id } : {}), lines: planLines(state, components, existing) });
+  return { cost: q.total, months: q.months, problems: q.problems };
 }
 
 /** The lender's credit review: no new capital under special credit; term loans only if the pro-forma balance sheet meets covenants. */
@@ -119,7 +101,7 @@ export function buyOffer(state: GameState, offerId: number, financePct: number):
   const town = state.world.towns[o.townId];
   const fail = financePurchase(state, o.price, financePct, `Purchase of ${facilityName(town.name, o.kind)}`);
   if (fail) return fail;
-  const f = newFacility(state, o.townId, facilityName(town.name, o.kind), o.components, 'operating', o.builtYear, o.condition, o.kind);
+  const f = newFacility(state, o.townId, facilityName(town.name, o.kind), o.components, 'operating', o.builtYear, o.condition, o.kind, `offer|${o.id}`);
   if (o.envLiability > 0) f.envLiability = { cost: o.envLiability, discovered: false };
   // Remaining life reflects the age of what was bought.
   const remaining = Math.max(0.3, 1 - (yearOf(mi) - o.builtYear) / 50);
@@ -144,23 +126,14 @@ export function buyOffer(state: GameState, offerId: number, financePct: number):
 export const facilityName = (town: string, kind: FacilityKind): string =>
   kind === 'elevator' ? `${town} elevator` : `${town} ${KIND_LABEL[kind].toLowerCase()}`;
 
-/** Build a new supply site (agronomy center, feed mill, fuel plant, station, store) from components. */
+/** Build a new supply site from component totals, as catalog units (older command; D-129). */
 export function buildFacility(state: GameState, kind: Exclude<FacilityKind, 'elevator'>, townId: number, components: Components, financePct: number): Result {
-  const town = state.world.towns[townId];
-  if (!town) return err('Unknown town.');
-  if (state.coop.facilities.some((f) => f.townId === townId && f.kind === kind && f.status !== 'closed')) return err(`We already have a ${KIND_LABEL[kind].toLowerCase()} in ${town.name}; upgrade it instead.`);
+  if (!state.world.towns[townId]) return err('Unknown town.');
   const clean: Components = { site: components.site ?? TYPICAL_SITE[kind].site ?? 1 };
   for (const id of Object.keys(components) as ComponentId[]) if ((components[id] ?? 0) > 0) clean[id] = components[id];
   const wrong = (Object.keys(clean) as ComponentId[]).filter((id) => id !== 'site' && COMPONENTS[id].division !== KIND_DIVISION[kind]);
   if (wrong.length) return err(`${wrong.map((id) => COMPONENTS[id].label).join(', ')} does not belong at a ${KIND_LABEL[kind].toLowerCase()}.`);
-  const est = estimateProject(state, townId, clean);
-  if (est.problems.length) return err(est.problems.join(' '));
-  const label = `New ${KIND_LABEL[kind].toLowerCase()} at ${town.name}`;
-  const loanFail = financeProject(state, est.cost, financePct, label);
-  if (loanFail) return loanFail;
-  const f = newFacility(state, townId, facilityName(town.name, kind), {}, 'underConstruction', yearOf(state.clock.monthIndex), 100, kind);
-  state.coop.projects.push({ id: state.coop.nextId++, facilityId: f.id, label, components: clean, budget: est.cost, spent: 0, startMonth: state.clock.monthIndex, completeMonth: state.clock.monthIndex + est.months });
-  return info(`Construction approved: ${formatCents(est.cost)}, about ${est.months} months.`);
+  return startProject(state, { townId, kind, lines: planLines(state, clean) }, financePct);
 }
 
 export interface BuildSpec {
@@ -187,59 +160,38 @@ export function specComponents(spec: BuildSpec): Components {
 export function buildElevator(state: GameState, townId: number, spec: BuildSpec, financePct: number): Result {
   const town = state.world.towns[townId];
   if (!town) return err('Unknown town.');
-  if (state.coop.facilities.some((f) => f.townId === townId && f.status !== 'closed')) return err(`We already have an elevator in ${town.name}; upgrade it instead.`);
   if (spec.storageBu < 10_000 || spec.receiveBuHr < 500) return err('An elevator needs at least 10,000 bu of storage and a 500 bu/hr leg.');
-  const comps = specComponents(spec);
-  const est = estimateProject(state, townId, comps);
-  if (est.problems.length) return err(est.problems.join(' '));
-  const loanFail = financeProject(state, est.cost, financePct, `New elevator at ${town.name}`);
-  if (loanFail) return loanFail;
-  const f = newFacility(state, townId, `${town.name} elevator`, {}, 'underConstruction', yearOf(state.clock.monthIndex), 100);
-  state.coop.projects.push({ id: state.coop.nextId++, facilityId: f.id, label: `New elevator at ${town.name}`, components: comps, budget: est.cost, spent: 0, startMonth: state.clock.monthIndex, completeMonth: state.clock.monthIndex + est.months });
-  return info(`Construction approved: ${formatCents(est.cost)}, about ${est.months} months.`);
+  return startProject(state, { townId, kind: 'elevator', lines: planLines(state, specComponents(spec)) }, financePct);
 }
 
-/** Projects are paid as built; check the co-op can carry the unfinanced part. */
-function financeProject(state: GameState, cost: Cents, financePct: number, purpose: string): Result | null {
-  const pct = Math.max(0, Math.min(LENDING.maxFinancePct.value, financePct));
-  const loan = roundCents(cost * pct);
-  const refused = lenderReview(state, cost, loan);
-  if (refused) return err(refused);
-  if (cost - loan > liquidity(state)) return err(`Not enough cash and line of credit to fund ${formatCents(cost - loan)} of construction.`);
-  if (loan > 0) createTermLoan(state, loan, purpose);
-  return null;
-}
-
+/** Add capacity to a site from component totals, as catalog units (older command; D-129). */
 export function upgradeFacility(state: GameState, facilityId: number, components: Components, financePct: number): Result {
   const f = state.coop.facilities.find((x) => x.id === facilityId);
   if (!f || f.status === 'closed') return err('Unknown facility.');
-  if (state.coop.projects.some((p) => p.facilityId === f.id)) return err(`${f.name} already has a project under way.`);
   const clean: Components = {};
   for (const id of Object.keys(components) as ComponentId[]) if ((components[id] ?? 0) > 0) clean[id] = components[id];
   const wrong = (Object.keys(clean) as ComponentId[]).filter((id) => id !== 'site' && COMPONENTS[id].division !== f.division);
   if (wrong.length) return err(`${wrong.map((id) => COMPONENTS[id].label).join(', ')} does not belong at ${f.name}.`);
-  const est = estimateProject(state, f.townId, clean, f);
-  if (est.problems.length) return err(est.problems.join(' '));
-  const fail = financeProject(state, est.cost, financePct, `Upgrade of ${f.name}`);
-  if (fail) return fail;
-  const label = (Object.keys(clean) as ComponentId[]).map((id) => COMPONENTS[id].label).join(', ');
-  state.coop.projects.push({ id: state.coop.nextId++, facilityId: f.id, label: `${f.name}: ${label}`, components: clean, budget: est.cost, spent: 0, startMonth: state.clock.monthIndex, completeMonth: state.clock.monthIndex + est.months });
-  return info(`Upgrade approved: ${formatCents(est.cost)}, about ${est.months} months.`);
+  return startProject(state, { facilityId: f.id, townId: f.townId, kind: f.kind, lines: planLines(state, clean, f) }, financePct);
+}
+
+/** Worn units a renovation rebuilds: those below the threshold that can still be rebuilt. */
+export function renovationUnits(state: GameState, f: Facility): number[] {
+  const busy = new Set(state.coop.projects.flatMap((p) => (p.lines ?? []).filter((l) => !l.done && l.unitId !== undefined).map((l) => l.unitId!)));
+  return f.units.filter((u) => u.component !== 'site' && u.condition < FACILITY_COSTS.renovateBelow.value && (u.rebuilds ?? 0) < PROJECTS.maxRebuilds && !busy.has(u.id)).map((u) => u.id);
 }
 
 export function renovationCost(state: GameState, f: Facility): Cents {
-  return roundCents(replacementCost(pathFor(state), state.clock.monthIndex, f.components) * FACILITY_COSTS.renovateCostShare.value);
+  return renovationUnits(state, f).reduce((a, id) => a + rebuildCost(state, f.units.find((u) => u.id === id)!), 0);
 }
 
+/** Rebuild every worn unit at a site in one project. */
 export function renovateFacility(state: GameState, facilityId: number, financePct: number): Result {
   const f = state.coop.facilities.find((x) => x.id === facilityId);
   if (!f || f.status === 'closed') return err('Unknown facility.');
-  if (state.coop.projects.some((p) => p.facilityId === f.id)) return err(`${f.name} already has a project under way.`);
-  const cost = renovationCost(state, f);
-  const fail = financeProject(state, cost, financePct, `Renovation of ${f.name}`);
-  if (fail) return fail;
-  state.coop.projects.push({ id: state.coop.nextId++, facilityId: f.id, label: `${f.name}: renovation`, components: {}, budget: cost, spent: 0, startMonth: state.clock.monthIndex, completeMonth: state.clock.monthIndex + FACILITY_COSTS.renovationMonths, renovation: true });
-  return info(`Renovation approved: ${formatCents(cost)}, about ${FACILITY_COSTS.renovationMonths} months.`);
+  const ids = renovationUnits(state, f);
+  if (!ids.length) return err(`Nothing at ${f.name} is worn enough to rebuild.`);
+  return startProject(state, { facilityId: f.id, townId: f.townId, kind: f.kind, lines: ids.map((rebuildUnitId) => ({ rebuildUnitId })) }, financePct);
 }
 
 export function setFacilityStatus(state: GameState, facilityId: number, status: 'mothballed' | 'operating'): Result {
@@ -257,7 +209,7 @@ export function closeFacility(state: GameState, facilityId: number): Result {
   if (facilityBu(f) > 1000) return err(`Ship out the grain at ${f.name} before closing it.`);
   if (state.coop.projects.some((p) => p.facilityId === f.id)) return err('Finish or cancel the project first.');
   const mi = state.clock.monthIndex;
-  const proceeds = roundCents(usedValue(pathFor(state), mi, f.components, yearOf(mi) - f.builtYear, f.condition) * FACILITY_COSTS.salvageShare.value);
+  const proceeds = roundCents(usedValueOfUnits(pathFor(state), mi, f.units) * FACILITY_COSTS.salvageShare.value);
   const assets = state.coop.assets.filter((a) => a.facilityId === f.id);
   const nbv = netBookValue(state, f.id);
   const lines = [{ account: '1000', division: 'GRAIN' as const, amount: proceeds }];

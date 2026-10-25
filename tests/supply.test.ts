@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { advanceMonth, applyCommand, checkInvariants, DEFAULT_SETUP, newGame, type GameState } from '../src/engine/index';
+import { advanceMonth, applyCommand, checkInvariants, DEFAULT_SETUP, newGame, setSiteCondition, setSiteEquipment, type GameState } from '../src/engine/index';
 import { TYPICAL_SITE, type FacilityKind } from '../src/data/facilities';
 import { cloneState } from '../src/engine/sim/clone';
 
@@ -55,7 +55,7 @@ describe('supply divisions', () => {
 
   it('too few application rigs leaves acres late and farmers aggrieved', () => {
     let s = cloneState(coop(1995, ['agronomy'], 5));
-    s.coop.projects[0].components.applicator = 0;
+    s.coop.projects[0].lines = s.coop.projects[0].lines!.filter((l) => !l.modelId?.startsWith('app-'));
     s = run(s, 18);
     const late = s.coop.supply.AGRONOMY.reports.some((r) => r.capacity.some((c) => c.label === 'Custom application' && c.used > c.available));
     expect(late).toBe(true);
@@ -101,7 +101,7 @@ describe('livestock (D-111)', () => {
     s = applyCommand(s, { type: 'buyFacility', offerId: s.coop.offers.find((o) => o.kind === 'elevator')!.id, financePct: 0.5 }, { boardApproved: true }).state;
     s = applyCommand(s, { type: 'buildFacility', kind: 'feedmill', townId: s.coop.homeTownId, components: TYPICAL_SITE.feedmill, financePct: 0.5 }, { boardApproved: true }).state;
     const w = cloneState(s);
-    for (const p of w.coop.projects) w.coop.facilities.find((f) => f.id === p.facilityId)!.components = { ...p.components };
+    for (const p of w.coop.projects) setSiteEquipment(w, w.coop.facilities.find((f) => f.id === p.facilityId)!, { ...p.components });
     for (const f of w.coop.facilities) f.status = 'operating';
     w.coop.projects = [];
     return w;
@@ -146,7 +146,7 @@ describe('agronomy equipment (D-114)', () => {
       let s = newGame({ ...DEFAULT_SETUP, startYear: 2005, startingMembers: 400, gameSeed: 2, mapSeed: 2, capitalPreset: 'well' });
       s = applyCommand(s, { type: 'buildFacility', kind: 'agronomy', townId: s.coop.homeTownId, components: components as never, financePct: 0.5 }, { boardApproved: true }).state;
       const w = cloneState(s);
-      for (const p of w.coop.projects) w.coop.facilities.find((f) => f.id === p.facilityId)!.components = { ...p.components };
+      for (const p of w.coop.projects) setSiteEquipment(w, w.coop.facilities.find((f) => f.id === p.facilityId)!, { ...p.components });
       for (const f of w.coop.facilities) f.status = 'operating';
       w.coop.projects = [];
       return run(w, 6).coop.supply.AGRONOMY.reports;

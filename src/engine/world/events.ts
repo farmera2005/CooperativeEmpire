@@ -3,6 +3,7 @@
 // inbox decision with a deadline, after which the default applies.
 
 import { CHOICE_EFFECTS, EVENT_PARAMS, HISTORY_CHOICES, RANDOM_EVENTS, type RandomEventDef, type RandomEventId } from '../../data/events';
+import { damageUnits } from '../facilities/units';
 import { monthOf, yearOf } from '../core/calendar';
 import { formatCents } from '../core/format';
 import { clamp } from '../core/math';
@@ -175,7 +176,7 @@ export function stepRandomEvents(ctx: TickContext): void {
       const p = E.dustExplosion.baseMonthly * (1 + EVENT_PARAMS.dustPerMillionBu.value * dustExposure(f, month)) * nonCompliant * safety * techFactor(state, 'dustRisk');
       if (rng.chance(p)) {
         const { gross, net } = lossCost(ctx, E.dustExplosion);
-        f.condition = Math.max(5, f.condition - EVENT_PARAMS.explosionCondition);
+        damageUnits(f, EVENT_PARAMS.explosionCondition, 'receiving');
         f.grain = { ...f.grain, downWeeks: Math.max(f.grain.downWeeks, EVENT_PARAMS.explosionDownWeeks) };
         chargeLoss(ctx, f, 'dustExplosion', net, `Grain dust explosion at ${f.name}`);
         seriousIncident(ctx, f, net, `Dust explosion at ${f.name}; workers hurt.`);
@@ -206,7 +207,7 @@ export function stepRandomEvents(ctx: TickContext): void {
     // Bulk plant fire.
     if (f.kind === 'energy' && rng.chance(E.fuelFire.baseMonthly * safety)) {
       const { gross, net } = lossCost(ctx, E.fuelFire);
-      f.condition = Math.max(5, f.condition - EVENT_PARAMS.fireCondition);
+      damageUnits(f, EVENT_PARAMS.fireCondition);
       chargeLoss(ctx, f, 'fuelFire', net, `Fire at ${f.name}`);
       ctx.inbox({ kind: 'alert', title: `Fire at ${f.name}`, body: `A fire at the ${f.name} bulk plant caused ${formatCents(gross)} of damage; insurance covers most of it.` });
     }
@@ -233,7 +234,7 @@ export function stepRandomEvents(ctx: TickContext): void {
     // Storms hit any site.
     if (rng.chance(E.stormDamage.baseMonthly * (month >= 4 && month <= 8 ? 2 : 0.4))) {
       const { gross, net } = lossCost(ctx, E.stormDamage);
-      f.condition = Math.max(5, f.condition - EVENT_PARAMS.stormCondition);
+      damageUnits(f, EVENT_PARAMS.stormCondition);
       chargeLoss(ctx, f, 'stormDamage', net, `Storm damage at ${f.name}`);
       ctx.inbox({ kind: 'news', title: `Storm damage at ${f.name}`, body: `High winds damaged ${f.name}: ${formatCents(gross)} in repairs, ${formatCents(net)} after insurance.` });
     }

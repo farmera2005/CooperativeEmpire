@@ -11,6 +11,7 @@ import { formatCents } from '../core/format';
 import { clamp } from '../core/math';
 import type { Cents } from '../core/money';
 import { estimateProject, renovationCost, specComponents } from '../facilities/actions';
+import { quoteProject } from '../facilities/projects';
 import { grainCapacity, netBookValue } from '../facilities/facilities';
 import { covenantSet } from '../finance/covenants';
 import { lineRate, liquidity, memberEquity } from '../finance/lender';
@@ -42,6 +43,7 @@ export function capitalCost(s: GameState, cmd: Command): Cents | null {
       const f = s.coop.facilities.find((x) => x.id === cmd.facilityId);
       return f ? renovationCost(s, f) : null;
     }
+    case 'startProject': return quoteProject(s, cmd.spec).total;
     case 'adoptTech': {
       const t = techById(cmd.techId);
       return t ? techCost(s, t) : null;
@@ -61,6 +63,7 @@ export function boardGate(s: GameState, cmd: Command): { type: ProposalType; tit
     case 'buildFacility':
     case 'upgradeFacility':
     case 'renovateFacility':
+    case 'startProject':
     case 'adoptTech':
     case 'investInVenture': {
       const cost = capitalCost(s, cmd);
@@ -98,6 +101,10 @@ export function boardGate(s: GameState, cmd: Command): { type: ProposalType; tit
       case 'buildFacility': return `Build ${/^[aeiou]/i.test(KIND_LABEL[c.kind]) ? 'an' : 'a'} ${KIND_LABEL[c.kind].toLowerCase()} at ${town(c.townId)} (${m})`;
       case 'upgradeFacility': return `Expand ${st.coop.facilities.find((x) => x.id === c.facilityId)?.name} (${m})`;
       case 'renovateFacility': return `Renovate ${st.coop.facilities.find((x) => x.id === c.facilityId)?.name} (${m})`;
+      case 'startProject': {
+        const f = c.spec.facilityId !== undefined ? st.coop.facilities.find((x) => x.id === c.spec.facilityId) : undefined;
+        return f ? `Project at ${f.name} (${m})` : `Build ${/^[aeiou]/i.test(KIND_LABEL[c.spec.kind]) ? 'an' : 'a'} ${KIND_LABEL[c.spec.kind].toLowerCase()} at ${town(c.spec.townId)} (${m})`;
+      }
       case 'adoptTech': return `Adopt ${techById(c.techId)?.name ?? 'technology'} (${m})`;
       case 'investInVenture': return `Invest ${m} in ${(st.investOffers ?? []).find((o) => o.id === c.offerId)?.name ?? 'a venture'}`;
       default: return 'Capital project';
@@ -166,6 +173,17 @@ export function evaluate(s: GameState, item: AgendaItem): MeritVector {
         division = cmd.type === 'buildElevator' ? 'GRAIN' : KIND_DIVISION[cmd.kind];
         const owned = s.coop.facilities.some((f) => f.status !== 'closed' && KIND_DIVISION[f.kind] === division);
         strategic += owned ? 0.05 : 0.3;
+      } else if (cmd.type === 'startProject') {
+        const sp = cmd.spec;
+        const f = sp.facilityId !== undefined ? s.coop.facilities.find((x) => x.id === sp.facilityId) : undefined;
+        townId = f?.townId ?? sp.townId;
+        division = KIND_DIVISION[f?.kind ?? sp.kind];
+        if (!f) strategic += s.coop.facilities.some((x) => x.status !== 'closed' && KIND_DIVISION[x.kind] === division) ? 0.05 : 0.3;
+        else if (sp.lines.every((l) => 'rebuildUnitId' in l)) strategic += f.condition < 40 ? 0.5 : 0.1;
+        else if (f.kind === 'elevator') strategic += (f.grain.waitMemory > 1.5 ? 0.5 : 0) + (f.grain.seasonTurnedAway > 0 ? 0.3 : 0);
+        else strategic += 0.15;
+        // Directors trust a plan an outside engineer drew up or will manage.
+        if (sp.designId !== undefined || sp.pmId !== undefined) strategic += 0.1;
       } else if (cmd.type === 'investInVenture') {
         // Directors weigh the industry's record: its average return against how much it swings.
         const o = (s.investOffers ?? []).find((x) => x.id === cmd.offerId);

@@ -1,14 +1,15 @@
-import { useMemo, useState } from 'react';
-import { COMPONENTS, KIND_DIVISION, KIND_LABEL, TYPICAL_SITE, typicalSite, type ComponentId, type FacilityKind } from '../../data/facilities';
+import { useState } from 'react';
+import { COMPONENTS, KIND_LABEL, type ComponentId, type FacilityKind } from '../../data/facilities';
 import { LENDING } from '../../data/tuning';
 import { MAINTENANCE } from '../../data/grain';
 import {
-  estimateProject, facilityBu, formatMonthShort, grainCapacity, netBookValue, renovationCost, yearOf,
+  facilityBu, formatMonthShort, grainCapacity, netBookValue,
   type Components, type DivisionId, type Facility, type MaintenanceLevel,
 } from '../../engine/index';
 import { money, num } from '../format';
 import { useStore } from '../store';
 import { Panel } from './Panel';
+import { OfferUnits, ProjectPlanner, ProjectsUnderWay, SiteDetail } from './Projects';
 
 const UNIT_LABEL: Record<string, string> = { bu: 'bu', buPerHr: 'bu/hr', each: '', acres: 'acres', tons: 'tons', tonsPerYr: 'tons/yr', gal: 'gal', sqft: 'sq ft' };
 
@@ -42,7 +43,7 @@ export function FacilitiesPanel({ division }: { division: DivisionId }) {
   const [sel, setSel] = useState<number | null>(null);
   const list = game.coop.facilities.filter((f) => f.status !== 'closed' && f.division === division);
   const selected = list.find((f) => f.id === sel) ?? null;
-  const projects = game.coop.projects.filter((p) => list.some((f) => f.id === p.facilityId));
+  const draft = useStore((s) => s.draft);
   return (
     <div className="space-y-4">
       <Panel title="Our facilities">
@@ -84,64 +85,24 @@ export function FacilitiesPanel({ division }: { division: DivisionId }) {
         )}
         {list.length > 0 && <p className="mt-2 text-xs text-stone-500">Upkeep: preventive maintenance spends {Math.round((MAINTENANCE.repairFactor.value.preventive - 1) * 100)}% more on repairs and makes breakdowns about {Math.round(1 / MAINTENANCE.breakdownFactor.value.preventive)}× rarer, with slower wear; deferring it halves repair spending but doubles breakdowns and speeds wear. Breakdowns strike in the busy season, take equipment out of service and bring an emergency repair bill.</p>}
       </Panel>
-      {projects.length > 0 && (
-        <Panel title="Capital projects under way">
-          <table className="data">
-            <thead><tr><th>Project</th><th className="r">Budget</th><th className="r">Spent</th><th className="r">Completes</th></tr></thead>
-            <tbody>{projects.map((p) => <tr key={p.id}><td>{p.label}</td><td className="r">{money(p.budget)}</td><td className="r">{money(p.spent)}</td><td className="r">{formatMonthShort(p.completeMonth)}</td></tr>)}</tbody>
-          </table>
-        </Panel>
-      )}
-      {selected && <ManageFacility f={selected} />}
+      <ProjectsUnderWay facilityIds={list.map((f) => f.id)} />
+      {selected && <SiteDetail f={selected} />}
+      {selected && <SiteActions f={selected} />}
+      {draft && list.some((f) => f.id === draft.facilityId) && <ProjectPlanner kinds={[...new Set(list.map((f) => f.kind))]} />}
     </div>
   );
 }
 
-const DEFAULT_QTY: Partial<Record<ComponentId, number>> = {
-  'storage-steel': 100_000, 'storage-concrete': 250_000, 'storage-flat': 250_000, 'ground-pile': 300_000, receiving: 5_000, dryer: 1_000,
-  'dry-fert-plant': 2_000, 'nh3-storage': 150, 'liquid-fert-tanks': 1_000, 'feed-mill': 10_000, 'bulk-fuel-plant': 30_000, 'propane-storage': 30_000,
-  'c-store': 500, 'farm-store': 2_000,
-};
-
-export function ManageFacility({ f }: { f: Facility }) {
-  const game = useStore((s) => s.game)!;
+/** Running the site: mothball, reopen, or close it. Building happens through projects. */
+export function SiteActions({ f }: { f: Facility }) {
   const command = useStore((s) => s.command);
-  const year = yearOf(game.clock.monthIndex);
-  const options = (Object.keys(COMPONENTS) as ComponentId[]).filter((id) => id !== 'site' && COMPONENTS[id].division === f.division && COMPONENTS[id].availableFrom <= year && !(COMPONENTS[id].buildableTo && year > COMPONENTS[id].buildableTo!));
-  const [comp, setComp] = useState<ComponentId>(options[0]);
-  const [qty, setQty] = useState(DEFAULT_QTY[options[0]] ?? 1);
-  const [fin, setFin] = useState(0.5);
-  const busy = game.coop.projects.some((p) => p.facilityId === f.id);
-  const est = useMemo(() => estimateProject(game, f.townId, { [comp]: qty }, f), [game, f, comp, qty]);
-  const unit = COMPONENTS[comp].unit;
   return (
-    <Panel title={`Manage ${f.name}`}>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="space-y-2">
-          <div className="text-sm font-semibold">Upgrade</div>
-          <div className="flex flex-wrap items-center gap-2">
-            <select className="input" aria-label="Component" value={comp} onChange={(e) => { const id = e.target.value as ComponentId; setComp(id); setQty(DEFAULT_QTY[id] ?? 1); }}>
-              {options.map((id) => <option key={id} value={id}>{COMPONENTS[id].label}</option>)}
-            </select>
-            <input className="input w-28" type="number" aria-label="Quantity" value={qty} onChange={(e) => setQty(Math.max(0, Number(e.target.value)))} /> <span className="text-sm">{UNIT_LABEL[unit] || 'units'}</span>
-          </div>
-          <div className="text-sm">Estimated cost <b>{money(est.cost)}</b>, about {est.months} months.</div>
-          {est.problems.length > 0 && <div className="text-sm text-rust">{est.problems.join(' ')}</div>}
-          <FinanceSlider value={fin} onChange={setFin} />
-          <button className="btn btn-primary" disabled={busy || est.problems.length > 0 || qty <= 0} onClick={() => command({ type: 'upgradeFacility', facilityId: f.id, components: { [comp]: qty }, financePct: fin })}>Approve upgrade</button>
-          {busy && <div className="text-xs text-stone-500">A project is already under way here.</div>}
-        </div>
-        <div className="space-y-2 text-sm">
-          <div className="font-semibold">Site</div>
-          <div>{capacityText(f.components, f.kind)}</div>
-          <div>Condition {Math.round(f.condition)}/100 · built {f.builtYear}</div>
-          <button className="btn" disabled={busy} onClick={() => command({ type: 'renovateFacility', facilityId: f.id, financePct: fin })}>Renovate ({money(renovationCost(game, f))})</button>
-          <div className="flex gap-2">
-            {f.status === 'operating' && <button className="btn" onClick={() => command({ type: 'mothballFacility', facilityId: f.id })}>Mothball</button>}
-            {f.status === 'mothballed' && <button className="btn" onClick={() => command({ type: 'reopenFacility', facilityId: f.id })}>Reopen</button>}
-            <button className="btn text-rust" onClick={() => { if (window.confirm(`Close and sell ${f.name}? Members in town will be unhappy.`)) command({ type: 'closeFacility', facilityId: f.id }); }}>Close and sell</button>
-          </div>
-        </div>
+    <Panel title={`${f.name}: operation`}>
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        {f.status === 'operating' && <button className="btn" onClick={() => command({ type: 'mothballFacility', facilityId: f.id })}>Mothball</button>}
+        {f.status === 'mothballed' && <button className="btn" onClick={() => command({ type: 'reopenFacility', facilityId: f.id })}>Reopen</button>}
+        <button className="btn text-rust" onClick={() => { if (window.confirm(`Close and sell ${f.name}? Members in town will be unhappy.`)) command({ type: 'closeFacility', facilityId: f.id }); }}>Close and sell</button>
+        <span className="text-xs text-stone-500">To add, rebuild or replace equipment, use the unit list above and the project planner.</span>
       </div>
     </Panel>
   );
@@ -165,7 +126,7 @@ export function OffersPanel({ kinds, fin, setFin }: { kinds: FacilityKind[]; fin
                   <td>{KIND_LABEL[o.kind]}</td>
                   <td>{o.sellerName}</td>
                   <td>{o.builtYear}</td>
-                  <td className="text-xs">{capacityText(o.components, o.kind)}</td>
+                  <td className="text-xs">{capacityText(o.components, o.kind)}<details><summary className="cursor-pointer text-sky">What's there</summary><OfferUnits o={o} /></details></td>
                   <td className="r">{o.diligenceDone ? `${Math.round(o.condition)}` : `${Math.round(o.conditionEstimate[0])}–${Math.round(o.conditionEstimate[1])}?`}{o.envFound && <div className="text-xs text-grain">cleanup by seller</div>}</td>
                   <td className="r">{money(o.price)}</td>
                   <td>{formatMonthShort(o.expiresMonth)}</td>
@@ -184,45 +145,3 @@ export function OffersPanel({ kinds, fin, setFin }: { kinds: FacilityKind[]; fin
   );
 }
 
-/** Build a new supply site from editable components (defaults: a typical site). */
-export function BuildSupplySite({ kind, fin, setFin }: { kind: Exclude<FacilityKind, 'elevator'>; fin: number; setFin: (v: number) => void }) {
-  const game = useStore((s) => s.game)!;
-  const command = useStore((s) => s.command);
-  const year = yearOf(game.clock.monthIndex);
-  const [townId, setTownId] = useState(game.coop.homeTownId);
-  const [comps, setComps] = useState<Components>(() => {
-    // One chemical and one seed warehouse serve every agronomy site, so a second site is a
-    // satellite: fertilizer storage and one rig, no warehouses.
-    const base: Components = typicalSite(kind, year);
-    const has = (id: ComponentId) => game.coop.facilities.some((f) => f.division === KIND_DIVISION[kind] && f.status !== 'closed' && ((f.components[id] ?? 0) > 0 || game.coop.projects.some((p) => p.facilityId === f.id && (p.components[id] ?? 0) > 0)));
-    for (const id of ['chem-warehouse', 'seed-warehouse'] as ComponentId[]) if (base[id] && has(id)) delete base[id];
-    if (kind === 'agronomy' && has('applicator')) base.applicator = 1;
-    return base;
-  });
-  const est = useMemo(() => estimateProject(game, townId, comps), [game, townId, comps]);
-  const ids = (Object.keys(COMPONENTS) as ComponentId[]).filter((id) => COMPONENTS[id].division === KIND_DIVISION[kind] && COMPONENTS[id].availableFrom <= year && (TYPICAL_SITE[kind][id] !== undefined || kind === 'agronomy' || kind === 'feedmill' || kind === 'energy'));
-  return (
-    <Panel title={`Build a new ${KIND_LABEL[kind].toLowerCase()}`}>
-      <div className="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
-        <label>Town<select className="input mt-1 w-full" value={townId} onChange={(e) => setTownId(Number(e.target.value))}>{game.world.towns.map((t) => <option key={t.id} value={t.id}>{t.name}{t.onHighway ? ' (highway)' : ''}</option>)}</select></label>
-        {ids.map((id) => (
-          <label key={id}>{COMPONENTS[id].label}{UNIT_LABEL[COMPONENTS[id].unit] ? ` (${UNIT_LABEL[COMPONENTS[id].unit]})` : ''}
-            <input className="input mt-1 w-full" type="number" min={0} value={comps[id] ?? 0} onChange={(e) => setComps({ ...comps, [id]: Math.max(0, Number(e.target.value)) })} />
-          </label>
-        ))}
-      </div>
-      <div className="mt-2 text-sm">Estimated cost <b>{money(est.cost)}</b> including site, about {est.months} months to permit and build.</div>
-      {est.problems.length > 0 && <div className="text-sm text-rust">{est.problems.join(' ')}</div>}
-      {kind === 'agronomy' && (() => {
-        const near = game.coop.facilities.filter((f) => f.division === 'AGRONOMY' && f.status !== 'closed').map((f) => game.world.distances[townId][f.townId]);
-        if (!near.length) return null;
-        const d = Math.min(...near);
-        return <div className={`mt-1 text-xs ${d < 20 ? 'text-rust' : 'text-stone-500'}`}>Our nearest agronomy site is {Math.round(d)} miles away. Farmers buy fertilizer close to home, so a second site pays when it reaches farms the first one can't (roughly 20+ miles apart). One chemical and one seed warehouse serve every site.</div>;
-      })()}
-      <div className="mt-2 flex items-center gap-4">
-        <FinanceSlider value={fin} onChange={setFin} />
-        <button className="btn btn-primary" disabled={est.problems.length > 0} onClick={() => command({ type: 'buildFacility', kind, townId, components: comps, financePct: fin })}>Approve construction</button>
-      </div>
-    </Panel>
-  );
-}

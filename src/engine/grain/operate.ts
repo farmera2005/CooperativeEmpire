@@ -10,6 +10,7 @@
 //   6. hedges rebalanced, inventory and DP liability marked to market, margin deposits
 //   7. fees, bond, report and margin breakdown
 
+import { makerOf, modelOf } from '../facilities/units';
 import { salesBoost } from '../people/sales';
 import { formatCents } from '../core/format';
 import { GOV_STORAGE } from '../../data/grain';
@@ -45,6 +46,21 @@ import { marketValue } from '../world/marketPath';
 import {
   basisAppreciationNext, bestTruckSale, carryPerMonth, futuresPrice, grainCostIndex, localBasis, priceRatio, railSale, type SaleOption,
 } from './prices';
+
+/** Fuel use of the co-op's dryers against the 2024 typical, weighted by capacity (D-129). */
+export function dryerFuelFactor(state: GameState): number {
+  let cap = 0;
+  let w = 0;
+  for (const f of state.coop.facilities) {
+    if (f.status !== 'operating') continue;
+    for (const u of f.units) {
+      if (u.component !== 'dryer') continue;
+      cap += u.qty;
+      w += u.qty * (modelOf(u.modelId).fuelUse ?? 1) * (makerOf(u.brandId, 'dryer').fuelUse ?? 1);
+    }
+  }
+  return cap > 0 ? w / cap : 1;
+}
 
 export const GRAIN_LINE: Record<Commodity, string> = { corn: 'GRAIN_CORN', soybeans: 'GRAIN_SOY', wheat: 'GRAIN_WHEAT' };
 export const YIELD_SERIES: Record<Commodity, SeriesId> = { corn: 'yieldCorn', soybeans: 'yieldSoy', wheat: 'yieldWheat' };
@@ -459,7 +475,8 @@ export function stepGrain(ctx: TickContext): void {
       const physicalGain = acceptedHarvest * (DRYING.shrinkFactorPerPoint.value - DRYING.waterLossPerPoint.value) * moisturePts;
       const fee = roundCents(acceptedHarvest * moisturePts * FEES.dryingPerPoint.value * pol.dryingFee * idx * 100);
       const propane = marketValue(path, 'propane', mi);
-      const cost = roundCents(acceptedHarvest * moisturePts * DRYING.propaneGalPerBuPoint.value * propane * 100);
+      // Older column dryers burn more per point than modern towers with heat recovery (D-129).
+      const cost = roundCents(acceptedHarvest * moisturePts * DRYING.propaneGalPerBuPoint.value * propane * 100 * dryerFuelFactor(state));
       post(state, { source: 'grain-drying', memo: 'Drying charges and dryer fuel', lines: [
         { account: '1000', division: 'GRAIN', amount: fee - cost }, { account: '6000', division: 'GRAIN', amount: -fee }, { account: '7400', division: 'GRAIN', amount: cost },
       ] });

@@ -245,6 +245,8 @@ export const FACILITY_COSTS = {
   /** Weekly breakdown probability in harvest at condition 100; rises as condition falls. */
   breakdownWeekly: s(0.005, 'low'),
   renovateCostShare: s(0.25, 'low', 'Renovation cost as share of replacement cost; restores condition'),
+  /** A renovation rebuilds units below this condition (D-129). */
+  renovateBelow: s(70, 'low'),
   renovateConditionGain: s(35, 'low'),
   renovationLifeYears: 15,
   renovationMonths: 4,

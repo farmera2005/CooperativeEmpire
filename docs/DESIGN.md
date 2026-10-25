@@ -530,6 +530,14 @@ monitored on the dashboard; breach triggers counsel warning, then legal-risk eve
 
 ## 8. Facilities (common model)
 
+> **Installed units (D-129).** A facility is the sum of its installed units: each bin, leg,
+> dryer, scale, tank, truck and building, with its catalog model, maker, year built,
+> capacity, condition and its own fixed asset. Capacity and condition are derived from
+> the units. New capacity comes only through capital projects made of catalog line items
+> (era models from period makers), with permits, lead times, staged completion, hidden
+> overruns and delays, and optional consultants who design sites and manage construction.
+> See `src/data/equipment.ts`, `src/engine/facilities/{units,projects,consultants}.ts`.
+
 ```ts
 interface Facility {
   id: FacilityId; type: FacilityTypeId; name: string; townId: TownId; division: DivisionId;

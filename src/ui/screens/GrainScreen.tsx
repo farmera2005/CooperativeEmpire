@@ -1,14 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { COMPONENTS, LOADOUT_COMPONENTS, type ComponentId, type LoadoutType } from '../../data/facilities';
 import { COMMODITIES, COMMODITY_LABEL, type Commodity } from '../../data/grain';
-import { LENDING } from '../../data/tuning';
-import {
-  competitorName, estimateProject, facilityBu, formatMonthShort, grainCapacity, netBookValue, renovationCost, specComponents, yearOf,
-  type BuildSpec, type Components, type Facility, type GameState, type GrainPolicy,
-} from '../../engine/index';
+import { competitorName, formatMonthShort, type GrainPolicy } from '../../engine/index';
 import { BreakdownView } from '../components/BreakdownView';
-import { FacilitiesPanel, FinanceSlider, OffersPanel } from '../components/FacilityPanels';
+import { FacilitiesPanel, OffersPanel } from '../components/FacilityPanels';
+import { ConsultantsPanel, ProjectPlanner } from '../components/Projects';
 import { Panel } from '../components/Panel';
 import { Term } from '../components/Term';
 import { money, num } from '../format';
@@ -199,13 +195,12 @@ function Policies() {
 
 function BuyOrBuild() {
   const game = useStore((s) => s.game)!;
-  const command = useStore((s) => s.command);
   const [fin, setFin] = useState(0.5);
-  const year = yearOf(game.clock.monthIndex);
   return (
     <div className="space-y-4">
       <OffersPanel kinds={['elevator']} fin={fin} setFin={setFin} />
-      <BuildNew year={year} game={game} fin={fin} setFin={setFin} />
+      <ProjectPlanner kinds={['elevator']} />
+      <ConsultantsPanel kinds={['elevator']} />
       <Panel title="Competing elevators">
         <table className="data">
           <thead><tr><th>Competitor</th><th>Type</th><th>Town</th><th>Capacity</th><th>Built</th></tr></thead>
@@ -217,33 +212,5 @@ function BuyOrBuild() {
         </table>
       </Panel>
     </div>
-  );
-}
-
-function BuildNew({ game, year, fin, setFin }: { game: GameState; year: number; fin: number; setFin: (v: number) => void }) {
-  const command = useStore((s) => s.command);
-  const towns = game.world.towns;
-  const [townId, setTownId] = useState(game.coop.homeTownId);
-  const [spec, setSpec] = useState<BuildSpec>({ storageType: year < 1975 ? 'storage-concrete' : 'storage-steel', storageBu: 250_000, receiveBuHr: 5_000, dryBuHr: 1_000, loadout: 'truck' });
-  const est = useMemo(() => estimateProject(game, townId, specComponents(spec)), [game, townId, spec]);
-  const loadouts: LoadoutType[] = ['truck', ...LOADOUT_COMPONENTS.map((id) => COMPONENTS[id].loadout!)];
-  return (
-    <Panel title="Build a new elevator">
-      <div className="grid grid-cols-2 gap-3 text-sm md:grid-cols-3 xl:grid-cols-6">
-        <label>Town<select className="input mt-1 w-full" value={townId} onChange={(e) => setTownId(Number(e.target.value))}>{towns.map((t) => <option key={t.id} value={t.id}>{t.name}{t.railLineIds.length ? ' (rail)' : ''}</option>)}</select></label>
-        <label>Storage type<select className="input mt-1 w-full" value={spec.storageType} onChange={(e) => setSpec({ ...spec, storageType: e.target.value as BuildSpec['storageType'] })}>
-          <option value="storage-concrete">Concrete silos</option><option value="storage-steel">Steel bins</option><option value="storage-flat">Flat storage</option></select></label>
-        <label>Storage (bu)<input className="input mt-1 w-full" type="number" step={10_000} value={spec.storageBu} onChange={(e) => setSpec({ ...spec, storageBu: Number(e.target.value) })} /></label>
-        <label>Leg (bu/hr)<input className="input mt-1 w-full" type="number" step={500} value={spec.receiveBuHr} onChange={(e) => setSpec({ ...spec, receiveBuHr: Number(e.target.value) })} /></label>
-        <label>Dryer (bu/hr)<input className="input mt-1 w-full" type="number" step={100} value={spec.dryBuHr} onChange={(e) => setSpec({ ...spec, dryBuHr: Number(e.target.value) })} /></label>
-        <label>Load-out<select className="input mt-1 w-full" value={spec.loadout} onChange={(e) => setSpec({ ...spec, loadout: e.target.value as LoadoutType })}>{loadouts.map((l) => <option key={l} value={l}>{l}</option>)}</select></label>
-      </div>
-      <div className="mt-2 text-sm">Estimated cost <b>{money(est.cost)}</b> including site, about {est.months} months to permit and build.</div>
-      {est.problems.length > 0 && <div className="text-sm text-rust">{est.problems.join(' ')}</div>}
-      <div className="mt-2 flex items-center gap-4">
-        <FinanceSlider value={fin} onChange={setFin} />
-        <button className="btn btn-primary" disabled={est.problems.length > 0} onClick={() => command({ type: 'buildElevator', townId, spec, financePct: fin })}>Approve construction</button>
-      </div>
-    </Panel>
   );
 }

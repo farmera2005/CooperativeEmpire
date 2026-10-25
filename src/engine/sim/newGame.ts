@@ -137,7 +137,7 @@ export function newGame(setupIn: GameSetup): GameState {
     coop: {
       name, homeTownId: homeTown.id, foundedMonth: startMonth, lenderId: setup.lenderId,
       regionalAffiliations: setup.regionalAffiliations, minCash: 0,
-      facilities: [], projects: [], assets: [], nextId: 1, grainPolicy: defaultGrainPolicy(), grain: emptyGrainBook(), offers: [],
+      facilities: [], projects: [], assets: [], designs: [], consultantLog: [], nextId: 1, grainPolicy: defaultGrainPolicy(), grain: emptyGrainBook(), offers: [],
       finance: emptyFinance(), grainStats: { marketBu: 0, offeredBu: 0, priceAdvantage: 0 },
       supply: emptySupply(), supplyPolicy: defaultSupplyPolicies(), patronageStats: emptyPatronageStats(),
       equityProgram: emptyEquityProgram(), regional: emptyRegional(), budget: null,
