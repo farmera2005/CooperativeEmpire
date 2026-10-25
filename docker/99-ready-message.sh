@@ -2,8 +2,7 @@
 # Printed by the nginx entrypoint just before the server starts.
 echo "=================================================================="
 echo " Agricultural Cooperative Tycoon is running."
-echo " Open http://localhost:${HOST_PORT:-8080} in your browser."
+echo " The static site is at http://localhost:${HOST_PORT:-8081}."
 echo " (Press d to detach, or run 'docker compose down' to stop.)"
-echo " To share it: docker compose --profile tunnel up (public address in the tunnel log),"
-echo " or run 'docker compose up --build app' to start and stop sharing from Settings."
+echo " The app service (with Settings > sharing controls) is at http://localhost:8080."
 echo "=================================================================="

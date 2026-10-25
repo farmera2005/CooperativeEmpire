@@ -1,9 +1,10 @@
 # Agricultural Cooperative Tycoon
 #   docker build -t ag-coop-tycoon .
-#   docker run --rm -p 8080:80 ag-coop-tycoon        → http://localhost:8080
+#   docker run --rm -p 8081:80 ag-coop-tycoon        → http://localhost:8081 (static site)
 # With the in-game Settings controls for sharing over a Cloudflare Tunnel (D-124):
 #   docker build --target app -t ag-coop-tycoon-app .
-#   docker run --rm -p 127.0.0.1:8090:8080 -v coop-tunnel:/data ag-coop-tycoon-app   → http://localhost:8090
+#   docker run --rm -p 127.0.0.1:8080:8080 -v coop-tunnel:/data ag-coop-tycoon-app   → http://localhost:8080
+#   (docker compose up --build runs this as the app service)
 # Headless balance runner (writes CSVs to ./runs):
 #   docker build --target sim -t ag-coop-sim .
 #   docker run --rm -v "$PWD/runs:/app/runs" ag-coop-sim --start 1970 --years 55 --seeds 50

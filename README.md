@@ -21,14 +21,19 @@ npm run data:review  # regenerate docs/DATA_REVIEW.md
 ## Docker
 
 ```sh
-docker compose up --build        # play at http://localhost:8080
-HOST_PORT=9090 docker compose up --build   # use another port if 8080 is taken
-# or
-docker build -t ag-coop-tycoon . && docker run --rm -p 8080:80 ag-coop-tycoon
+docker compose up --build                     # the app service: play at http://localhost:8080
+APP_PORT=9090 docker compose up --build       # use another port if 8080 is taken
+docker compose --profile static up --build    # also the plain nginx site at http://localhost:8081
 ```
 
-The image build runs the typecheck, engine lint and test suite, then serves the static site with nginx.
-Saves live in the browser's IndexedDB, so they survive container restarts (export JSON to move them).
+The `app` service runs the game on its own Node server with the Settings sharing controls and
+`cloudflared` built in (see below). It is published on this computer only (127.0.0.1); to play
+from other devices on your network, use the `static` profile (`HOST_PORT` sets its port) or share
+over a tunnel. The image build runs the typecheck, engine lint and test suite first. Saves live in
+the browser's IndexedDB, so they survive container restarts (export JSON to move them).
+
+Without Compose: `docker build --target app -t ag-coop-tycoon-app . && docker run --rm -p 127.0.0.1:8080:8080 -v coop-tunnel:/data ag-coop-tycoon-app`,
+or the static site with `docker build -t ag-coop-tycoon . && docker run --rm -p 8081:80 ag-coop-tycoon`.
 
 ## Share over the internet (Cloudflare Tunnel)
 
@@ -43,12 +48,10 @@ controls answer only on this computer (at localhost): visitors coming through th
 see them or the token. Settings are kept in `.tunnel.json` (git-ignored, readable only by you).
 Sharing stops when the game server stops.
 
-**With Docker and the Settings controls:** `docker compose up --build app`, then open
-http://localhost:8090 (set `APP_PORT` for another port). This image runs the game on its own Node
-server with `cloudflared` built in, so Settings can configure, start and stop the tunnel. It is
-published on this computer only (127.0.0.1), and the tunnel settings and token are kept in the
-`coop-tunnel` Docker volume. The plain `web` image (nginx, below) has no controls; use the
-tunnel profiles with it instead.
+**With Docker:** `docker compose up --build` starts the `app` service, which has these controls
+and `cloudflared` built in; open http://localhost:8080 and go to Settings. The tunnel settings and
+token are kept in the `coop-tunnel` Docker volume. The tunnel profiles below instead run
+`cloudflared` in its own container in front of the plain nginx site (`web`).
 
 **Quick tunnel** (no Cloudflare account; a random `https://*.trycloudflare.com` address that lasts
 until you stop it):

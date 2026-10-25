@@ -1,26 +1,16 @@
 services:
-  web:
-    build:
-      context: .
-      target: web
-    ports:
-      - "${HOST_PORT:-8080}:80"
-    environment:
-      - HOST_PORT=${HOST_PORT:-8080}
-    restart: unless-stopped
-
   # The game with in-game sharing controls (Settings > Share the game): start, stop and set up a
-  # Cloudflare Tunnel from the browser. Published on this computer only (127.0.0.1); tunnel
-  # settings and token persist in the coop-tunnel volume.
-  #   docker compose up --build app        → http://localhost:8090
+  # Cloudflare Tunnel from the browser. Published on this computer only (127.0.0.1), because the
+  # controls trust requests addressed to localhost; tunnel settings and token persist in the
+  # coop-tunnel volume.
+  #   docker compose up --build            → http://localhost:8080
   app:
     build:
       context: .
       target: app
-    profiles: ["app"]
     init: true
     ports:
-      - "127.0.0.1:${APP_PORT:-8090}:8080"
+      - "127.0.0.1:${APP_PORT:-8080}:8080"
     environment:
       - CLOUDFLARE_TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN:-}
       - TUNNEL_HOSTNAME=${TUNNEL_HOSTNAME:-}
@@ -28,8 +18,22 @@ services:
       - coop-tunnel:/data
     restart: unless-stopped
 
-  # Cloudflare Tunnel, optional. A quick tunnel needs no account and prints a random
-  # https://*.trycloudflare.com address in its log:
+  # The plain static site on nginx (no sharing controls), reachable from other devices on your
+  # network. Optional:
+  #   docker compose --profile static up --build   → http://localhost:8081
+  web:
+    build:
+      context: .
+      target: web
+    profiles: ["static", "tunnel", "named-tunnel"]
+    ports:
+      - "${HOST_PORT:-8081}:80"
+    environment:
+      - HOST_PORT=${HOST_PORT:-8081}
+    restart: unless-stopped
+
+  # Cloudflare Tunnel in its own container, in front of the static site. A quick tunnel needs no
+  # account and prints a random https://*.trycloudflare.com address in its log:
   #   docker compose --profile tunnel up --build
   tunnel:
     image: cloudflare/cloudflared:2026.9.3
