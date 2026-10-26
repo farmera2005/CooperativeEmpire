@@ -279,3 +279,57 @@ describe('valuing existing facilities (D-130)', () => {
     }
   });
 });
+
+describe('competitor plants (D-131)', () => {
+  it('every competitor site is made of units whose totals are its capacity', () => {
+    const s = newGame(setup(1985, 15));
+    for (const c of s.competitors) for (const site of c.sites) {
+      expect(site.units?.length, c.name).toBeGreaterThan(0);
+      if ((site.division ?? 'GRAIN') === 'GRAIN') {
+        const storage = site.units!.filter((u) => u.component.startsWith('storage-')).reduce((a, u) => a + u.qty, 0);
+        expect(Math.abs(storage - site.storageBu)).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  it('competitors wear, rebuild and build real units over the years', async () => {
+    const { POLICIES } = await import('../src/engine/sim/policies');
+    let s = newGame(setup(1996, 16));
+    const before = new Map<string, number>(s.competitors.flatMap((c) => c.sites.flatMap((x) => (x.units ?? []).map((u): [string, number] => [`${c.id}|${x.id}|${u.id}`, u.condition]))));
+    for (let i = 0; i < 12 * 12 && !s.outcome; i++) s = advanceMonth(s, POLICIES.idle(s)).state;
+    const units = s.competitors.filter((c) => c.status === 'active').flatMap((c) => c.sites.flatMap((x) => (x.units ?? []).map((u) => ({ key: `${c.id}|${x.id}|${u.id}`, u }))));
+    // Old units wore down; some were rebuilt; new ones were built from the catalog in these years.
+    expect(units.some(({ key, u }) => before.has(key) && u.condition < before.get(key)! - 10)).toBe(true);
+    expect(units.some(({ u }) => (u.rebuilds ?? 0) > 0)).toBe(true);
+    const built = units.filter(({ u }) => u.builtYear > 1996 && u.component !== 'site').map(({ u }) => u);
+    expect(built.length).toBeGreaterThan(0);
+    for (const u of built) {
+      const m = MODELS.find((x) => x.id === u.modelId)!;
+      expect(m, u.modelId).toBeDefined();
+      expect(m.availableFrom).toBeLessThanOrEqual(u.builtYear);
+    }
+    expect(s.competitors.some((c) => (c.plantService ?? 0) !== 0)).toBe(true);
+    expect(checkInvariants(s)).toEqual([]);
+  });
+
+  it('a competitor site bought from the market arrives with the units it has, worn as they are', () => {
+    const s = newGame(setup(1990, 17));
+    const o = s.coop.offers.find((x) => x.kind === 'elevator' && x.units)!;
+    const r = applyCommand(s, { type: 'buyFacility', offerId: o.id, financePct: 0.5 }, { boardApproved: true });
+    expect(r.ok, r.messages.map((m) => m.text).join()).toBe(true);
+    const f = r.state.coop.facilities[0];
+    expect(f.units.map((u) => [u.modelId, u.brandId, u.builtYear, u.condition])).toEqual(o.units!.map((u) => [u.modelId, u.brandId, u.builtYear, u.condition]));
+    expect(checkInvariants(r.state)).toEqual([]);
+  });
+
+  it('save migration v10 → v11 gives every competitor site its units', () => {
+    const v11 = newGame(setup(1980, 18));
+    const v10 = JSON.parse(JSON.stringify(v11));
+    v10.schemaVersion = 10;
+    for (const c of v10.competitors) for (const site of c.sites) { delete site.units; delete site.building; }
+    const m = migrate(v10);
+    expect(m.schemaVersion).toBe(SCHEMA_VERSION);
+    for (const c of m.competitors) for (const site of c.sites) expect(site.units?.length).toBeGreaterThan(0);
+    expect(checkInvariants(run(m, 6))).toEqual([]);
+  });
+});

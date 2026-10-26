@@ -13,6 +13,7 @@ import { emptyEquityProgram, emptyRegional } from '../finance/defaults';
 import { defaultAffiliations } from '../finance/regionals';
 import { emptyPeople } from '../people/leaders';
 import { ensureHomeIndependent, generateCompetitors, generateOffers, generateSupplyCompetitors } from '../competitors/competitors';
+import { ensureSiteUnits } from '../competitors/plants';
 import { defaultSupplyPolicies, emptyPatronageStats, emptySupply } from '../supply/defaults';
 import { defaultGrainPolicy, emptyGrainBook } from '../grain/defaults';
 import { formatMonth, toMonthIndex } from '../core/calendar';
@@ -176,6 +177,7 @@ export function newGame(setupIn: GameSetup): GameState {
   state.competitors = generateCompetitors(state, crng, setup.startYear);
   ensureHomeIndependent(state, crng, setup.startYear);
   generateSupplyCompetitors(state, stream(setup.gameSeed, -1, 'competitors.supply'), setup.startYear);
+  ensureSiteUnits(state);
   generateOffers(state, getMarketPath(setup.gameSeed, setup.historyMode, drift), crng, MARKETPLACE.initialOffers, startMonth, setup.startYear, homeTown.id);
 
   // Founding memos.

@@ -34,7 +34,9 @@ export function modelsFor(component: ComponentId, year: number): EquipmentModel[
 /** Years a maker line is on the market: its own years, within the brand's. */
 function lineYears(l: MakerLine): [number, number | undefined] {
   const b = getBrand(l.brandId);
-  const from = Math.max(l.from ?? 0, b?.availableFrom ?? 0);
+  // Brands dated 1970 were already on the market when the game starts; the line's own year
+  // says when it began.
+  const from = Math.max(l.from ?? 0, b && b.availableFrom > 1970 ? b.availableFrom : 0);
   const ends = [l.to, b?.availableTo].filter((x): x is number => x !== undefined);
   return [from, ends.length ? Math.min(...ends) : undefined];
 }

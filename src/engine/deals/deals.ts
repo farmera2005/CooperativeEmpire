@@ -368,7 +368,7 @@ function takeSites(state: GameState, c: Competitor, fairValue: Cents, division?:
   sites.forEach((site, i) => {
     const kind = site.kind ?? 'elevator';
     const comps = siteComponents(site);
-    const f = newFacility(state, site.townId, facilityName(state.world.towns[site.townId].name, kind), comps, 'operating', site.builtYear, site.condition, kind, competitorSiteKey(c.id, site.id));
+    const f = newFacility(state, site.townId, facilityName(state.world.towns[site.townId].name, kind), comps, 'operating', site.builtYear, site.condition, kind, competitorSiteKey(c.id, site.id), site.units);
     facs.push(f);
     lines.push(...capitalize(state, f.id, comps, parts[i], f.name, Math.max(0.3, 1 - (yearOf(mi) - site.builtYear) / 50)));
   });

@@ -55,6 +55,39 @@ export const COMPETITOR_AI = {
   shuttleProb: s(0.25, 'low', 'Chance per year a qualifying national or large co-op site upgrades'),
 };
 
+/**
+ * Competitors' plants unit by unit (D-131): they wear, get rebuilt or replaced, and grow by
+ * building catalog units from period makers, the same as ours.
+ */
+export const COMPETITOR_PLANTS = {
+  /** Wear against the component's normal rate, by financial health (upkeep money). */
+  wearStrong: s(0.8, 'low'),
+  wearWeak: s(1.4, 'low'),
+  strongAbove: 60,
+  weakBelow: 35,
+  /** Each quarter, a firm above `rebuildAbove` strength rebuilds its worst unit below `rebuildBelow` condition with this chance. */
+  rebuildAbove: 45,
+  rebuildBelow: 40,
+  rebuildProb: s(0.35, 'low'),
+  rebuildCost: 1.5,
+  /** Strong firms replace worn-out, obsolete units (wood cribs, mechanical scales) with current models. */
+  replaceAbove: 60,
+  replaceProb: s(0.25, 'low'),
+  replaceCost: 3,
+  /** Months to build an expansion beyond the units' own build time, and for a shuttle loader. */
+  expansionExtraMonths: 2,
+  shuttleMonths: 12,
+  /** A receiving leg this small for the storage gets enlarged when expanding (bu of storage per bu/hr). */
+  legRatio: 200,
+  /** Service from plant condition: (avg condition − pivot) × scale, within bounds. */
+  /** Pivot at the typical competitor plant's condition, so the effect is neutral on average. */
+  servicePivot: 70,
+  serviceScale: s(0.002, 'low', '±0.05 service across the condition range: half an expansion\'s worth, a nudge against price and distance'),
+  serviceBounds: [-0.05, 0.05] as [number, number],
+  /** Finished competitor projects within this distance of our sites make the news. */
+  newsMiles: 25,
+};
+
 export const ETHANOL = {
   /** Plants are built once the renewable fuel standard is on, through this year. */
   buildTo: 2010,

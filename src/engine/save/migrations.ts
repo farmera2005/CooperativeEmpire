@@ -11,6 +11,7 @@ import { BYLAWS_DEFAULT } from '../../data/governance';
 import { COMPONENTS, type ComponentId } from '../../data/facilities';
 import { allocateCents } from '../core/money';
 import { decompose, syncFacility, unitValue2024 } from '../facilities/units';
+import { ensureSiteUnits } from '../competitors/plants';
 import { yearOf } from '../core/calendar';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -150,6 +151,12 @@ export const MIGRATIONS: Record<number, (s: AnyState) => AnyState> = {
       syncFacility(f);
     }
     return { ...s, schemaVersion: 10 };
+  },
+  // D-131: competitor sites carry installed units, split from their totals the same way as
+  // ours (and as their valuations already were), so they can wear, be rebuilt and grow.
+  10: (s) => {
+    ensureSiteUnits(s);
+    return { ...s, schemaVersion: 11 };
   },
 };
 

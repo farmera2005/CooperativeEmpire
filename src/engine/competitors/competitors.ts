@@ -103,7 +103,7 @@ export function siteComponents(site: CompetitorSite): Components {
 
 /** What a competitor's site is worth, nominal cents: its units at modern-equivalent cost, depreciated (D-130). */
 export function siteValue(state: GameState, path: MarketPath, mi: number, comp: Competitor, site: CompetitorSite): number {
-  return usedValueOfUnits(path, mi, siteUnits(state, siteComponents(site), site.builtYear, site.condition, competitorSiteKey(comp.id, site.id)));
+  return usedValueOfUnits(path, mi, site.units ?? siteUnits(state, siteComponents(site), site.builtYear, site.condition, competitorSiteKey(comp.id, site.id)));
 }
 
 export function makeOffer(state: GameState, path: MarketPath, rng: Rng, comp: Competitor, site: CompetitorSite, mi: number, year: number): FacilityOffer {
@@ -116,7 +116,7 @@ export function makeOffer(state: GameState, path: MarketPath, rng: Rng, comp: Co
   return {
     id: state.coop.nextId++, competitorId: comp.id, townId: site.townId, kind: site.kind ?? 'elevator',
     sellerName: comp.kind === 'independent' ? `${comp.name} (owner retiring)` : competitorName(state, comp),
-    components: comps, unitsKey: competitorSiteKey(comp.id, site.id), builtYear: site.builtYear, condition: site.condition,
+    components: comps, unitsKey: competitorSiteKey(comp.id, site.id), ...(site.units ? { units: site.units.map((u) => ({ ...u })) } : {}), builtYear: site.builtYear, condition: site.condition,
     conditionEstimate: [clamp(site.condition - err(), 5, 100), clamp(site.condition + err(), 5, 100)],
     price, expiresMonth: mi + MARKETPLACE.offerMonths, diligenceDone: false,
     envLiability: rng.chance(MARKETPLACE.envLiabilityProb.value) ? nominalCents(path, mi, rng.range(e0, e1)) : 0, envFound: false,

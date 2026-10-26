@@ -15,7 +15,7 @@ import { capitalizeUnits } from './projects';
 import { decompose, makerOf, syncFacility, unitsReplacementCost, unitValue2024 } from './units';
 import { post } from '../ledger/ledger';
 import type { TickContext } from '../sim/context';
-import type { DivisionId, Facility, FixedAsset, GameState, JournalLine, MaintenanceLevel } from '../types';
+import type { DivisionId, Facility, FixedAsset, GameState, InstalledUnit, JournalLine, MaintenanceLevel } from '../types';
 import { constructionLevel, nominalCents } from '../world/macro';
 import type { MarketPath } from '../world/marketPath';
 
@@ -65,11 +65,14 @@ export function emptyGrainState(): Facility['grain'] {
  * over the site's life (D-129); `unitsKey` makes the split repeatable, so what was shown for
  * an offer is what arrives.
  */
-export function newFacility(state: GameState, townId: number, name: string, components: Components, status: Facility['status'], builtYear: number, condition: number, kind: FacilityKind = 'elevator', unitsKey?: string): Facility {
+export function newFacility(state: GameState, townId: number, name: string, components: Components, status: Facility['status'], builtYear: number, condition: number, kind: FacilityKind = 'elevator', unitsKey?: string, presetUnits?: InstalledUnit[]): Facility {
   const id = state.coop.nextId++;
-  const units = decompose(components, {
-    builtYear, nowYear: yearOf(state.clock.monthIndex), condition, key: `${state.setup.gameSeed}|${unitsKey ?? `facility|${id}`}`, nextId: () => state.coop.nextId++,
-  });
+  // A competitor's site arrives with its own units, as worn as they are (D-131).
+  const units = presetUnits
+    ? presetUnits.map((u) => { const { assetId: _a, ...rest } = u; void _a; return { ...rest, id: state.coop.nextId++ }; })
+    : decompose(components, {
+      builtYear, nowYear: yearOf(state.clock.monthIndex), condition, key: `${state.setup.gameSeed}|${unitsKey ?? `facility|${id}`}`, nextId: () => state.coop.nextId++,
+    });
   const f: Facility = {
     id, name, townId, division: KIND_DIVISION[kind], kind, ownership: 'owned', status,
     builtYear, acquiredMonth: state.clock.monthIndex, condition, components: {}, units,

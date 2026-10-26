@@ -6,6 +6,7 @@
 // Order per division: share of wallet → demand and sales by line → capacity limits →
 // purchases, inventory relief, LCM → prepay/prebuy → credit → report.
 
+import { serviceOf } from '../competitors/plants';
 import { salesBoost } from '../people/sales';
 import { addGrievance } from '../members/grievances';
 import { expectedRefundRate } from '../finance/selectors';
@@ -146,7 +147,7 @@ function sitesFor(state: GameState, d: SupplyDivision, year: number): SupplierSi
   for (const f of state.coop.facilities) if (f.division === d && f.status === 'operating') out.push({ ours: true, facility: f, posture: 0, service: 0, townId: f.townId, kind: f.kind });
   for (const c of state.competitors) {
     if (c.status !== 'active') continue;
-    for (const s of c.sites) if (s.division === d && (s.arrivalYear ?? 0) <= year) out.push({ ours: false, posture: c.posture, service: c.service, townId: s.townId, kind: s.kind ?? 'agronomy' });
+    for (const s of c.sites) if (s.division === d && (s.arrivalYear ?? 0) <= year) out.push({ ours: false, posture: c.posture, service: serviceOf(c), townId: s.townId, kind: s.kind ?? 'agronomy' });
   }
   return out;
 }

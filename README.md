@@ -27,7 +27,8 @@ capacity comes from **projects** (Buy or build > Plan a project): pick models fr
 for the current year, compare makers' pros and cons, add land, and approve; each line comes into
 service as it is finished. Worn units can be rebuilt or taken down. **Consultants** design a
 site for its market and can manage construction; not every firm is as good as its reputation.
-Sizes, years and makers come from `docs/research/equipment.md`.
+Competitors run the same kind of plants: they wear, get rebuilt and replaced, and expand by
+building real units (see a competitor's plants on Deals & Competitors). Sizes, years and makers come from `docs/research/equipment.md`.
 
 ## Accounts
 

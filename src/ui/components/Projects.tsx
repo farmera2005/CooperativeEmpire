@@ -10,7 +10,7 @@ import type { EquipmentModel, MakerLine } from '../../data/equipment';
 import {
   consultantsAvailable, decompose, designCost, designFee, designWarnings, footprintAcres, formatMonthShort, makersFor, modelOf, modelsFor,
   needsMaker, quoteProject, rebuildCost, siteAcres, trackRecord, unitPrice, yearOf,
-  type Consultant, type Facility, type FacilityOffer, type GameState, type InstalledUnit, type LineSpec,
+  type CompetitorSite, type Consultant, type Facility, type FacilityOffer, type GameState, type InstalledUnit, type LineSpec,
 } from '../../engine/index';
 import { pathFor } from '../../engine/world/macro';
 import { money, num } from '../format';
@@ -128,6 +128,7 @@ export function SiteDetail({ f }: { f: Facility }) {
 export function OfferUnits({ o }: { o: FacilityOffer }) {
   const game = useStore((s) => s.game)!;
   const units = useMemo(() => {
+    if (o.units) return o.units;
     let n = 1;
     return decompose(o.components, { builtYear: o.builtYear, nowYear: yearOf(game.clock.monthIndex), condition: o.condition, key: `${game.setup.gameSeed}|${o.unitsKey ?? `offer|${o.id}`}`, nextId: () => n++ });
   }, [game.setup.gameSeed, game.clock.monthIndex, o]);
@@ -444,5 +445,29 @@ export function ProjectsUnderWay({ facilityIds }: { facilityIds: number[] }) {
         ))}
       </div>
     </Panel>
+  );
+}
+
+const condWord = (c: number) => (c >= 75 ? 'good' : c >= 50 ? 'fair' : c >= 30 ? 'worn' : 'run down');
+
+/** A competitor's site as an outsider sees it: what is there, roughly how kept up, and what is going up (D-131). */
+export function CompetitorSiteUnits({ site }: { site: CompetitorSite }) {
+  const game = useStore((s) => s.game)!;
+  const fict = game.setup.fictionalizeBrands;
+  // Identical units (model, maker, year, size, rough condition) on one line.
+  const groups = new Map<string, { u: InstalledUnit; n: number }>();
+  for (const u of (site.units ?? []).filter((x) => x.component !== 'site')) {
+    const k = `${u.modelId}|${u.brandId ?? ''}|${u.builtYear}|${Math.round(u.qty)}|${condWord(u.condition)}`;
+    const g = groups.get(k);
+    if (g) g.n++;
+    else groups.set(k, { u, n: 1 });
+  }
+  return (
+    <div className="text-xs">
+      <ul className="mt-1 space-y-0.5">
+        {[...groups.values()].map(({ u, n }) => <li key={u.id}>{n > 1 ? `${n} × ` : ''}{modelOf(u.modelId).label}{u.brandId ? ` · ${brandName(u.brandId, fict)}` : ''} · {u.builtYear} · {capText(u.component, u.qty)}{n > 1 ? ' each' : ''} · <span className={condTone(u.condition)}>{condWord(u.condition)}</span></li>)}
+      </ul>
+      {site.building && <div className="mt-1 text-[#8a6d1a]">Building {site.building.label}, ready about {formatMonthShort(site.building.readyMonth)}</div>}
+    </div>
   );
 }

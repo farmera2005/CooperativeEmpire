@@ -11,7 +11,7 @@ import type { Commodity } from '../data/grain';
 import type { Breakdown } from './core/breakdown';
 import type { Role, Skill, TraitId } from '../data/people';
 
-export const SCHEMA_VERSION = 10;
+export const SCHEMA_VERSION = 11;
 
 export type DivisionId = 'GRAIN' | 'AGRONOMY' | 'FEED' | 'ENERGY' | 'RETAIL' | 'CORP';
 export const DIVISIONS: DivisionId[] = ['GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'RETAIL', 'CORP'];
@@ -684,6 +684,8 @@ export interface FacilityOffer {
   components: Partial<Record<ComponentId, number>>;
   /** Key that fixes how the site splits into units (D-130); older offers use `offer|<id>`. */
   unitsKey?: string;
+  /** The seller's units as they stand (D-131); what arrives if we buy. */
+  units?: InstalledUnit[];
   builtYear: number;
   /** True condition (hidden until due diligence) and the seller's estimate shown to the player. */
   condition: number;
@@ -1050,6 +1052,10 @@ export interface CompetitorSite {
   loadout: LoadoutType;
   builtYear: number;
   condition: number;
+  /** What is there, unit by unit (D-131); the totals above are derived from it. */
+  units?: InstalledUnit[];
+  /** A project under way at the site: units that come into service at `readyMonth`. */
+  building?: { units: InstalledUnit[]; readyMonth: number; label: string };
 }
 
 export interface Competitor {
@@ -1072,6 +1078,8 @@ export interface Competitor {
   war?: { until: number; bump: number };
   /** Last strategic move, for the competitor list. */
   lastMove?: string;
+  /** Service farmers see from the state of its plants (D-131), added to `service`. */
+  plantService?: number;
 }
 
 // ---------- History snapshots ----------

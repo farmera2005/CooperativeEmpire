@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { COMMODITIES, COMMODITY_LABEL, type Commodity } from '../../data/grain';
-import { competitorName, formatMonthShort, type GrainPolicy } from '../../engine/index';
+import { competitorName, formatMonthShort, yearOf, type GrainPolicy } from '../../engine/index';
 import { BreakdownView } from '../components/BreakdownView';
 import { FacilitiesPanel, OffersPanel } from '../components/FacilityPanels';
-import { ConsultantsPanel, ProjectPlanner } from '../components/Projects';
+import { CompetitorSiteUnits, ConsultantsPanel, ProjectPlanner } from '../components/Projects';
 import { Panel } from '../components/Panel';
 import { Term } from '../components/Term';
 import { money, num } from '../format';
@@ -205,8 +205,8 @@ function BuyOrBuild() {
         <table className="data">
           <thead><tr><th>Competitor</th><th>Type</th><th>Town</th><th>Capacity</th><th>Built</th></tr></thead>
           <tbody>
-            {game.competitors.filter((c) => c.status === 'active').flatMap((c) => c.sites.map((s) => (
-              <tr key={`${c.id}-${s.id}`}><td>{competitorName(game, c)}</td><td className="capitalize">{c.kind}</td><td>{game.world.towns[s.townId].name}</td><td className="text-xs">{bu(s.storageBu)} bu, {bu(s.receiveBuHr)} bu/hr, {s.loadout}</td><td>{s.builtYear}</td></tr>
+            {game.competitors.filter((c) => c.status === 'active').flatMap((c) => c.sites.filter((s) => (s.division ?? 'GRAIN') === 'GRAIN' && (s.arrivalYear ?? 0) <= yearOf(game.clock.monthIndex)).map((s) => (
+              <tr key={`${c.id}-${s.id}`}><td>{competitorName(game, c)}</td><td className="capitalize">{c.kind}</td><td>{game.world.towns[s.townId].name}</td><td className="text-xs">{bu(s.storageBu)} bu, {bu(s.receiveBuHr)} bu/hr, {s.loadout}{s.building && <span className="text-[#8a6d1a]"> · building</span>}<details><summary className="cursor-pointer text-sky">What's there</summary><CompetitorSiteUnits site={s} /></details></td><td>{s.builtYear}</td></tr>
             )))}
           </tbody>
         </table>

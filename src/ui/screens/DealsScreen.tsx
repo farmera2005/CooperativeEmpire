@@ -1,3 +1,4 @@
+import { CompetitorSiteUnits } from '../components/Projects';
 import { useState } from 'react';
 import {
   competitorName, dealTitle, forecastDealVote, formatMonth, forSale, integrationPenalty, investmentTypeOf, nominalCents, pathFor, sellerAcceptance, stakeSalePrice,
@@ -119,7 +120,11 @@ function CompetitorRow({ c, ourDivisions, busy }: { c: Competitor; ourDivisions:
     <tr className="border-t border-stone-100 align-top">
       <td className="py-1.5 font-medium">{competitorName(game, c)}{c.war && <span className="ml-1 rounded bg-rust px-1 text-xs text-white">price war</span>}</td>
       <td className="capitalize">{c.kind === 'coop' ? 'Co-op' : c.kind}</td>
-      <td className="text-xs">{divisions.map((d) => DIVISION_LABEL[d as OpDivision]).join(', ')} · {c.sites.length} site{c.sites.length > 1 ? 's' : ''}</td>
+      <td className="text-xs">{divisions.map((d) => DIVISION_LABEL[d as OpDivision]).join(', ')} · {c.sites.length} site{c.sites.length > 1 ? 's' : ''}
+        <details><summary className="cursor-pointer text-sky">Plants</summary>
+          {c.sites.map((x) => <div key={x.id} className="mt-1"><b>{game.world.towns[x.townId].name}</b><CompetitorSiteUnits site={x} /></div>)}
+        </details>
+      </td>
       <td className={strengthTone(c.strength)}>{strengthLabel(c.strength)}</td>
       <td className="max-w-xs text-xs text-stone-600">{c.lastMove ?? ''}</td>
       <td className="whitespace-nowrap text-right">

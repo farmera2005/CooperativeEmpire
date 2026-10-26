@@ -6,12 +6,13 @@
 
 import { COMPETITOR_AI, ETHANOL } from '../../data/competition';
 import { COMPONENTS } from '../../data/facilities';
-import { yearOf } from '../core/calendar';
+import { formatMonthShort, yearOf } from '../core/calendar';
 import { clamp } from '../core/math';
 import type { Rng } from '../core/rng';
 import { farmStress } from '../supply/credit';
 import type { TickContext } from '../sim/context';
-import type { Competitor, Destination, GameState } from '../types';
+import type { Competitor, CompetitorSite, Destination, GameState } from '../types';
+import { ensureSiteUnits, startExpansion, startShuttle, stepCompetitorPlants } from './plants';
 import { competitorName, makeOffer } from './competitors';
 import { proposeIncomingMerger } from '../deals/deals';
 
@@ -43,6 +44,9 @@ export function stepCompetitors(ctx: TickContext): void {
     const vulnerability = 1.4 - c.strength / 100;
     c.strength = clamp(c.strength + ai.reversion.value * (ai.equilibrium.value - c.strength) - ai.stressDrag.value * stress * vulnerability - war + rng.normal(0, ai.noise.value), 0, 100);
   }
+  // Plants wear, get rebuilt, and finish what they were building (D-131).
+  ensureSiteUnits(state);
+  stepCompetitorPlants(ctx, active, ctx.rng('competitors.plants'));
   for (const c of active) {
     if (c.status !== 'active') continue;
     const st = c.strength ?? 50;
@@ -61,7 +65,7 @@ export function stepCompetitors(ctx: TickContext): void {
         // A stronger neighbor or a national often buys the plant outright.
         const buyer = rng.chance(ai.acquireProb.value) ? acquirer(state, c, site, ai.acquireMiles) : null;
         if (buyer) {
-          buyer.sites = [...buyer.sites, { ...site, id: Math.max(0, ...buyer.sites.map((x) => x.id)) + 1 }];
+          buyer.sites = [...buyer.sites, copySite(site, Math.max(0, ...buyer.sites.map((x) => x.id)) + 1)];
           buyer.lastMove = `bought ${competitorName(state, c)}'s ${state.world.towns[site.townId].name} plant`;
           ctx.inbox({ kind: 'news', title: `${competitorName(state, buyer)} buys a failed competitor`, body: `${competitorName(state, c)} has failed, and ${competitorName(state, buyer)} bought its ${state.world.towns[site.townId].name} location from the lender.` });
           continue;
@@ -81,7 +85,7 @@ export function stepCompetitors(ctx: TickContext): void {
     if (c.kind !== 'national' && st < ai.consolidateBelow.value && rng.chance(ai.consolidateProb.value)) {
       const buyer = c.sites.length === 1 ? acquirer(state, c, c.sites[0], ai.acquireMiles) : null;
       if (buyer) {
-        buyer.sites = [...buyer.sites, { ...c.sites[0], id: Math.max(0, ...buyer.sites.map((x) => x.id)) + 1 }];
+        buyer.sites = [...buyer.sites, copySite(c.sites[0], Math.max(0, ...buyer.sites.map((x) => x.id)) + 1)];
         buyer.lastMove = `bought ${competitorName(state, c)}`;
         c.status = 'sold';
         c.lastMove = `sold to ${competitorName(state, buyer)}`;
@@ -102,7 +106,7 @@ export function stepCompetitors(ctx: TickContext): void {
         && isGrain(x) === isGrain(c) && (x.sites[0].division ?? 'GRAIN') === (c.sites[0].division ?? 'GRAIN')
         && x.sites.some((a) => c.sites.some((b) => milesBetween(state, a.townId, b.townId) <= ai.mergeMiles)));
       if (partner) {
-        c.sites = [...c.sites, ...partner.sites.map((site, i) => ({ ...site, id: c.sites.length + i + 1 }))];
+        c.sites = [...c.sites, ...partner.sites.map((site, i) => copySite(site, c.sites.length + i + 1))];
         c.name = `${c.name.replace(/ (Co-op|Elevator Co-op|Grain Co-op|Union|Farmers .*)$/, '')}–${state.world.towns[partner.sites[0].townId].name} Cooperative`;
         c.strength = clamp((st + (partner.strength ?? 50)) / 2 + 10, 0, 100);
         c.service = Math.max(c.service, partner.service);
@@ -123,14 +127,16 @@ export function stepCompetitors(ctx: TickContext): void {
       ctx.inbox({ kind: 'alert', title: `${competitorName(state, c)} starts a price war`, body: `${competitorName(state, c)} in ${town} is ${isGrain(c) ? 'bidding over the market for grain' : 'cutting prices'} to win back customers from us. Expect it to last about a year.` });
       continue;
     }
-    // Strong competitors invest: more storage and better service.
+    // Strong competitors invest: they build real units at their busiest site (D-131).
     if (st > ai.investAbove.value && rng.chance(ai.investProb.value)) {
-      const site = c.sites[0];
-      if ((site.division ?? 'GRAIN') === 'GRAIN') site.storageBu = Math.round(site.storageBu * (1 + ai.investStorage.value) / 10_000) * 10_000;
-      c.service = clamp(c.service + 0.1, -1, 1);
-      c.strength = st - 8;
-      c.lastMove = 'expanded';
-      ctx.inbox({ kind: 'news', title: `${competitorName(state, c)} expands`, body: `${competitorName(state, c)} is adding capacity and service in ${state.world.towns[site.townId].name}.` });
+      const site = [...c.sites].filter((x) => !x.building && (x.arrivalYear ?? 0) <= year).sort((a, b) => (b.storageBu || 0) - (a.storageBu || 0) || a.id - b.id)[0];
+      const what = site ? startExpansion(ctx, rng, c, site) : null;
+      if (site && what) {
+        c.service = clamp(c.service + 0.1, -1, 1);
+        c.strength = st - 8;
+        c.lastMove = 'expanding';
+        ctx.inbox({ kind: 'news', title: `${competitorName(state, c)} expands`, body: `${competitorName(state, c)} is building ${what} at ${state.world.towns[site.townId].name}, ready about ${formatMonthShort(site.building!.readyMonth)}.` });
+      }
     }
   }
   if (ctx.month === 12) {
@@ -138,6 +144,13 @@ export function stepCompetitors(ctx: TickContext): void {
     ethanolBuildOut(ctx, ctx.rng('competitors.ethanol'));
   }
 }
+
+/** A site changing hands between competitors, with its own copy of its units. */
+const copySite = (site: CompetitorSite, id: number): CompetitorSite => ({
+  ...site, id,
+  ...(site.units ? { units: site.units.map((u) => ({ ...u })) } : {}),
+  ...(site.building ? { building: { ...site.building, units: site.building.units.map((u) => ({ ...u })) } } : {}),
+});
 
 function endWars(ctx: TickContext): void {
   for (const c of ctx.state.competitors) {
@@ -169,15 +182,14 @@ function shuttleBuildOut(ctx: TickContext, rng: Rng): void {
   for (const c of state.competitors) {
     if (c.status !== 'active' || (c.kind !== 'national' && (c.strength ?? 0) < 65)) continue;
     for (const site of c.sites) {
-      if ((site.division ?? 'GRAIN') !== 'GRAIN' || site.loadout === 'shuttle') continue;
+      if ((site.division ?? 'GRAIN') !== 'GRAIN' || site.loadout === 'shuttle' || site.building) continue;
       const onMain = state.world.towns[site.townId].railLineIds.some((id) => state.world.rail[id]?.kind === 'mainline' && state.world.rail[id].status === 'active');
       if (!onMain || !rng.chance(COMPETITOR_AI.shuttleProb.value)) continue;
-      site.loadout = 'shuttle';
-      site.storageBu = Math.max(site.storageBu, 1_500_000);
-      site.receiveBuHr = Math.max(site.receiveBuHr, 40_000);
-      c.service = clamp(c.service + 0.15, -1, 1);
-      c.lastMove = 'shuttle loader';
-      ctx.inbox({ kind: 'news', title: `${competitorName(state, c)} builds a shuttle loader`, body: `${competitorName(state, c)} is building a 110-car shuttle loader at ${state.world.towns[site.townId].name}. It will pay more for grain than single-car shippers can.` });
+      // Real units: loop track and loadout, a big leg and storage to match (D-131).
+      const what = startShuttle(ctx, rng, site);
+      if (!what) continue;
+      c.lastMove = 'building a shuttle loader';
+      ctx.inbox({ kind: 'news', title: `${competitorName(state, c)} builds a shuttle loader`, body: `${competitorName(state, c)} is building a 110-car shuttle loader at ${state.world.towns[site.townId].name} (${what}), ready about ${formatMonthShort(site.building!.readyMonth)}. It will pay more for grain than single-car shippers can.` });
     }
   }
 }

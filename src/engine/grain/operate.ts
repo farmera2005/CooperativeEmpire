@@ -11,6 +11,7 @@
 //   7. fees, bond, report and margin breakdown
 
 import { makerOf, modelOf } from '../facilities/units';
+import { serviceOf } from '../competitors/plants';
 import { salesBoost } from '../people/sales';
 import { formatCents } from '../core/format';
 import { GOV_STORAGE } from '../../data/grain';
@@ -122,7 +123,7 @@ function suppliersByTown(state: GameState, maxHaul: number): Supplier[] {
       for (const s of c.sites) {
         if ((s.division ?? 'GRAIN') !== 'GRAIN') continue;
         const dist = d[t.id][s.townId];
-        if (dist <= maxHaul) out[t.id].comps.push({ posture: c.posture, service: c.service, dist });
+        if (dist <= maxHaul) out[t.id].comps.push({ posture: c.posture, service: serviceOf(c), dist });
       }
     }
   }

@@ -101,7 +101,7 @@ export function buyOffer(state: GameState, offerId: number, financePct: number):
   const town = state.world.towns[o.townId];
   const fail = financePurchase(state, o.price, financePct, `Purchase of ${facilityName(town.name, o.kind)}`);
   if (fail) return fail;
-  const f = newFacility(state, o.townId, facilityName(town.name, o.kind), o.components, 'operating', o.builtYear, o.condition, o.kind, o.unitsKey ?? `offer|${o.id}`);
+  const f = newFacility(state, o.townId, facilityName(town.name, o.kind), o.components, 'operating', o.builtYear, o.condition, o.kind, o.unitsKey ?? `offer|${o.id}`, o.units);
   if (o.envLiability > 0) f.envLiability = { cost: o.envLiability, discovered: false };
   // Remaining life reflects the age of what was bought.
   const remaining = Math.max(0.3, 1 - (yearOf(mi) - o.builtYear) / 50);
