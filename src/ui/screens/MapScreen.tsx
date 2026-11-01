@@ -77,11 +77,18 @@ export function MapScreen() {
   })() : undefined;
 
   const inBusiness = (d: string) => business === 'ALL' || d === business;
+  const sugarCo = game.coop.sugar.company;
   const sites: MapSite[] = [
     ...ours.filter((f) => inBusiness(f.division)).map((f) => ({ id: f.id, townId: f.townId, ours: true, label: `${f.name} (${f.status})`, division: f.division, inactive: f.status !== 'operating' })),
     ...game.competitors.filter((c) => c.status === 'active').flatMap((c) => c.sites
       .filter((s) => inBusiness(s.division ?? 'GRAIN') && (s.arrivalYear ?? 0) <= year)
       .map((s) => ({ townId: s.townId, ours: false, label: `${competitorName(game, c)} (${DIVISION_LABEL[(s.division ?? 'GRAIN') as Business].toLowerCase()})`, division: s.division ?? 'GRAIN' }))),
+    // The territory's investor-owned sugar company, while it runs its plants (D-133).
+    ...(sugarCo && (sugarCo.status === 'operating' || sugarCo.status === 'forSale') && inBusiness('SUGAR')
+      ? [{ townId: sugarCo.factoryTownId, label: `${sugarCo.name} beet factory` }, ...sugarCo.stationTownIds.map((t) => ({ townId: t, label: `${sugarCo.name} beet station` }))]
+        .filter((x) => !ours.some((f) => f.townId === x.townId && f.division === 'SUGAR'))
+        .map((x) => ({ ...x, ours: false, division: 'SUGAR' }))
+      : []),
   ];
   const fz = game.setup.fictionalizeBrands;
   const setTheme = (t: Theme) => setPrefs({ ...prefs, theme: t });

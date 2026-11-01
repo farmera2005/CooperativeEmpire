@@ -115,6 +115,9 @@ export function checkInvariants(state: GameState): string[] {
   // 10b. Livestock inventory ties to the groups on feed (D-111).
   const herd = (state.coop.livestock?.cohorts ?? []).reduce((a, c) => a + c.cost, 0);
   if (herd !== glOf('1250')) errors.push(`Livestock ${herd} != GL ${glOf('1250')}`);
+  // Beets in the piles and sugar in the silos tie to the sugar inventory account (D-133).
+  const sugarInv = (state.coop.sugar?.pileCost ?? 0) + (state.coop.sugar?.sugarCost ?? 0);
+  if (sugarInv !== glOf('1260')) errors.push(`Sugar & beets ${sugarInv} != GL ${glOf('1260')}`);
 
   // 10. Goodwill, net of amortization, ties to the purchases that created it.
   const n = DEALS.goodwillMonths;

@@ -5,7 +5,7 @@
 
 import { s, valueAt, type AnnualPoint, type Sourced } from './types';
 
-export type FacilityDivision = 'GRAIN' | 'AGRONOMY' | 'FEED' | 'ENERGY' | 'RETAIL' | 'CORP';
+export type FacilityDivision = 'GRAIN' | 'AGRONOMY' | 'FEED' | 'ENERGY' | 'RETAIL' | 'SUGAR' | 'CORP';
 
 export type ComponentId =
   | 'site'
@@ -19,15 +19,20 @@ export type ComponentId =
   // Energy
   | 'bulk-fuel-plant' | 'propane-storage' | 'fuel-truck' | 'cardtrol'
   // Retail
-  | 'c-store' | 'farm-store';
+  | 'c-store' | 'farm-store'
+  // Sugar (D-133)
+  | 'beet-slicing' | 'lime-kiln' | 'sugar-boiler' | 'pulp-dryer' | 'sugar-silo' | 'desugarization'
+  | 'beet-piler' | 'beet-pile' | 'beet-pile-vent';
 
 /** What kind of site a facility is; each kind belongs to one division. */
-export type FacilityKind = 'elevator' | 'agronomy' | 'feedmill' | 'energy' | 'station' | 'farmstore';
+export type FacilityKind = 'elevator' | 'agronomy' | 'feedmill' | 'energy' | 'station' | 'farmstore' | 'sugarfactory' | 'beetstation';
 export const KIND_DIVISION: Record<FacilityKind, FacilityDivision> = {
   elevator: 'GRAIN', agronomy: 'AGRONOMY', feedmill: 'FEED', energy: 'ENERGY', station: 'RETAIL', farmstore: 'RETAIL',
+  sugarfactory: 'SUGAR', beetstation: 'SUGAR',
 };
 export const KIND_LABEL: Record<FacilityKind, string> = {
   elevator: 'Grain elevator', agronomy: 'Agronomy center', feedmill: 'Feed mill', energy: 'Bulk fuel & propane plant', station: 'Fuel station & C-store', farmstore: 'Farm & home store',
+  sugarfactory: 'Beet sugar factory', beetstation: 'Beet receiving & piling station',
 };
 
 export type LoadoutType = 'truck' | 'single' | 'unit25' | 'unit50' | 'unit75' | 'shuttle';
@@ -37,7 +42,7 @@ export interface ComponentDef {
   label: string;
   division: FacilityDivision;
   /** Capacity unit the cost is quoted in. */
-  unit: 'bu' | 'buPerHr' | 'each' | 'acres' | 'tons' | 'tonsPerYr' | 'gal' | 'sqft';
+  unit: 'bu' | 'buPerHr' | 'each' | 'acres' | 'tons' | 'tonsPerYr' | 'gal' | 'sqft' | 'tpd' | 'cwt';
   /** 2024 $ per unit, low/high. */
   cost2024: Sourced<[number, number]>;
   /** Fixed-asset account: 1500 land, 1510 buildings/structures, 1520 machinery/equipment. */
@@ -105,10 +110,22 @@ export const COMPONENTS: Record<ComponentId, ComponentDef> = {
   // ---- Retail ----
   'c-store': c({ id: 'c-store', label: 'Fuel station & convenience store', division: 'RETAIL', unit: 'sqft', cost2024: s([450, 800], 'low', 'Per sq ft incl. canopy, pumps and tanks'), account: '1510', lifeYears: 30, buildMonths: 8, permitMonths: 4, availableFrom: 1960, decayPerYear: 1.5, repairRate: 0.02, ftePerUnit: 0.0014 }),
   'farm-store': c({ id: 'farm-store', label: 'Farm & home store', division: 'RETAIL', unit: 'sqft', cost2024: s([150, 260], 'low'), account: '1510', lifeYears: 39, buildMonths: 8, permitMonths: 3, availableFrom: 1900, decayPerYear: 1, repairRate: 0.015, ftePerUnit: 0.00035 }),
+  // ---- Sugar (D-133): a beet factory and its piling grounds. Anchors are low confidence: few
+  // beet factories have been built in the U.S. since the 1970s, so costs scale from plant
+  // purchases, expansions and published estimates (docs/research/sugar.md). ----
+  'beet-slicing': c({ id: 'beet-slicing', label: 'Beet processing line (wash, slice, diffuse, purify, evaporate, crystallize)', division: 'SUGAR', unit: 'tpd', cost2024: s([40_000, 60_000], 'low', 'Wahpeton (1974, ~$38M) and Renville (1975, $60M) for ~5,000 t/day were ~$45–65K per t/day in 2024 $ all in; a new factory today is put at about $1B'), account: '1520', lifeYears: 40, buildMonths: 24, permitMonths: 8, availableFrom: 1900, decayPerYear: 1.2, repairRate: 0.015, ftePerUnit: 0.012, realCost: [{ year: 1970, value: 0.75, confidence: 'low', source: 'Effluent treatment, emissions controls and automation added since the 1970s' }, { year: 1990, value: 0.88, confidence: 'low' }, { year: 2010, value: 1, confidence: 'low' }] }),
+  'lime-kiln': c({ id: 'lime-kiln', label: 'Lime kiln (juice purification lime and CO₂)', division: 'SUGAR', unit: 'each', cost2024: s([12_000_000, 20_000_000], 'low', 'Vertical shaft kiln burning limestone with coke'), account: '1520', lifeYears: 35, buildMonths: 14, permitMonths: 6, availableFrom: 1900, decayPerYear: 1.5, repairRate: 0.02, ftePerUnit: 3 }),
+  'sugar-boiler': c({ id: 'sugar-boiler', label: 'Steam boiler & turbine generator', division: 'SUGAR', unit: 'each', cost2024: s([18_000_000, 30_000_000], 'low', 'Factories make their own steam and power for evaporation'), account: '1520', lifeYears: 35, buildMonths: 14, permitMonths: 6, availableFrom: 1900, decayPerYear: 1.4, repairRate: 0.02, ftePerUnit: 4 }),
+  'pulp-dryer': c({ id: 'pulp-dryer', label: 'Pulp press, dryer & pellet mill', division: 'SUGAR', unit: 'tpd', cost2024: s([3_500, 6_000], 'low', 'Per ton/day of beets whose pulp it dries'), account: '1520', lifeYears: 25, buildMonths: 10, permitMonths: 4, availableFrom: 1930, decayPerYear: 2, repairRate: 0.025, ftePerUnit: 0.002 }),
+  'sugar-silo': c({ id: 'sugar-silo', label: 'Sugar silo & packaging/loadout', division: 'SUGAR', unit: 'cwt', cost2024: s([18, 30], 'low', 'Concrete or steel silos of 20,000–50,000 tons with conditioning'), account: '1510', lifeYears: 45, buildMonths: 14, permitMonths: 4, availableFrom: 1955, decayPerYear: 0.8, repairRate: 0.008, ftePerUnit: 0.000005 }),
+  desugarization: c({ id: 'desugarization', label: 'Molasses desugarization (chromatographic separator)', division: 'SUGAR', unit: 'each', cost2024: s([60_000_000, 110_000_000], 'medium', 'Renville $18M (1989), Hillsboro $103M (1998), Minn-Dak $70M (2015), Bay City $109M (2024)'), account: '1520', lifeYears: 25, buildMonths: 18, permitMonths: 6, availableFrom: 1989, decayPerYear: 2, repairRate: 0.03, ftePerUnit: 8 }),
+  'beet-piler': c({ id: 'beet-piler', label: 'Beet piler & tare lab', division: 'SUGAR', unit: 'tpd', cost2024: s([140, 220], 'low', 'Truck dump, screens, boom piler and sampling/tare lab'), account: '1520', lifeYears: 20, buildMonths: 4, permitMonths: 1, availableFrom: 1940, decayPerYear: 3, repairRate: 0.04, ftePerUnit: 0.0008, variableFteShare: 0.95 }),
+  'beet-pile': c({ id: 'beet-pile', label: 'Beet pile ground (graded, drained pad)', division: 'SUGAR', unit: 'tons', cost2024: s([3, 6], 'low'), account: '1510', lifeYears: 30, buildMonths: 2, permitMonths: 1, availableFrom: 1900, decayPerYear: 1, repairRate: 0.01 }),
+  'beet-pile-vent': c({ id: 'beet-pile-vent', label: 'Ventilated beet pile (ducts & fans)', division: 'SUGAR', unit: 'tons', cost2024: s([9, 14], 'low', 'Forced-air pile ventilation; covered or frozen piles hold sugar longer'), account: '1520', lifeYears: 20, buildMonths: 3, permitMonths: 1, availableFrom: 1975, decayPerYear: 2.5, repairRate: 0.025 }),
 };
 
 /** Base staff (FTE) for any site of a kind besides its components (manager/clerk). */
-export const KIND_BASE_FTE: Record<FacilityKind, number> = { elevator: 0, agronomy: 1, feedmill: 1.5, energy: 1, station: 3, farmstore: 2 };
+export const KIND_BASE_FTE: Record<FacilityKind, number> = { elevator: 0, agronomy: 1, feedmill: 1.5, energy: 1, station: 3, farmstore: 2, sugarfactory: 12, beetstation: 1 };
 
 /** Typical new-build specifications by kind (UI defaults and competitor/offer generation). */
 export const TYPICAL_SITE: Record<Exclude<FacilityKind, 'elevator'>, Partial<Record<ComponentId, number>>> = {
@@ -117,6 +134,9 @@ export const TYPICAL_SITE: Record<Exclude<FacilityKind, 'elevator'>, Partial<Rec
   energy: { site: 3, 'bulk-fuel-plant': 45_000, 'propane-storage': 45_000, 'fuel-truck': 2 },
   station: { site: 1, 'c-store': 2500 },
   farmstore: { site: 2, 'farm-store': 5000 },
+  // A 1970s-80s Great Lakes factory slicing ~3,500 tons a day, with its yard piles (D-133).
+  sugarfactory: { site: 120, 'beet-slicing': 3500, 'lime-kiln': 1, 'sugar-boiler': 1, 'pulp-dryer': 4000, 'sugar-silo': 1_000_000, 'beet-piler': 8000, 'beet-pile': 200_000 },
+  beetstation: { site: 20, 'beet-piler': 8000, 'beet-pile': 100_000 },
 };
 
 /**

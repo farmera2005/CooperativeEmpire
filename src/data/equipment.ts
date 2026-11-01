@@ -89,7 +89,7 @@ export interface ConsultingParams {
   /** Years a firm stays in business (low/high). */
   firmYears: [number, number];
   /** What a typical supply site serves, for sizing designs: crop acres (agronomy, energy), head (feed), residents (retail). */
-  siteServes: Sourced<{ agronomy: number; energy: number; feedmill: number; station: number; farmstore: number }>;
+  siteServes: Sourced<{ agronomy: number; energy: number; feedmill: number; station: number; farmstore: number; sugarfactory: number; beetstation: number }>;
   /** Share of the grain within reach a new house can expect, and receipts per bushel of space (turns). */
   grainShareNew: number;
   turns: number;
@@ -195,6 +195,29 @@ export const MODELS: EquipmentModel[] = [
   m('store-5k', 'farm-store', 'Farm & home store, 5,000 sq ft', 5_000, 1950, undefined, 0.8, 1.05, 'low'),
   m('store-10k', 'farm-store', 'Farm & home store, 10,000 sq ft', 10_000, 1970, undefined, 1.3, 1.0, 'low'),
   m('store-20k', 'farm-store', 'Farm & home store, 20,000 sq ft', 20_000, 1990, undefined, 2.2, 0.92, 'low'),
+  // ---- Sugar (D-133). Footprints include wastewater ponds and lime-cake ground. ----
+  m('slice-2000', 'beet-slicing', 'Beet processing line, 2,000 t/day', 2_000, 1900, 1980, 40, 1.15, 'low', { spec: 'tower diffuser, 3-effect evaporation', source: 'Older Great Lakes factories sliced 1,500–3,000 t/day' }),
+  m('slice-3500', 'beet-slicing', 'Beet processing line, 3,500 t/day', 3_500, 1950, undefined, 60, 1.0, 'medium', { spec: 'continuous diffuser, 5-effect evaporation', source: 'US average factory ~3,600 t/day in 1974' }),
+  m('slice-5000', 'beet-slicing', 'Beet processing line, 5,000 t/day', 5_000, 1972, undefined, 80, 0.92, 'medium', { source: 'Minn-Dak (Wahpeton) and Hillsboro, 1974: 5,000 t/day' }),
+  m('slice-8000', 'beet-slicing', 'Beet processing line, 8,000 t/day', 8_000, 1990, undefined, 110, 0.85, 'medium', { source: 'American Crystal factories 5,900–9,200 t/day (2008)' }),
+  m('slice-expand-1000', 'beet-slicing', 'Slicing-line expansion, +1,000 t/day (diffuser, evaporator, centrifugals)', 1_000, 1970, undefined, 5, 0.8, 'low', { source: 'Hillsboro expansion $66M (1979); Drayton +30% throughput (2016–)' }),
+  m('kiln-coke', 'lime-kiln', 'Coke-fired vertical lime kiln', 1, 1900, 2015, 1, 1.0, 'low'),
+  m('kiln-gas', 'lime-kiln', 'Gas-fired lime kiln', 1, 1990, undefined, 1, 1.1, 'medium', { source: 'Michigan Sugar replaced coal kilns with a gas kiln in 2021' }),
+  m('boiler-coal', 'sugar-boiler', 'Coal-fired boiler & turbine generator', 1, 1900, 2010, 2, 1.0, 'low'),
+  m('boiler-gas', 'sugar-boiler', 'Gas-fired boiler & turbine generator', 1, 1970, undefined, 1.5, 0.95, 'medium', { source: 'Michigan Sugar converted boilers from coal to gas in 2014–15' }),
+  m('pulp-dryer-2000', 'pulp-dryer', 'Pulp presses & drum dryer, 2,000 t/day of beets', 2_000, 1930, undefined, 2, 1.1, 'low'),
+  m('pulp-dryer-4000', 'pulp-dryer', 'Pulp presses, drum dryer & pellet mill, 4,000 t/day', 4_000, 1965, undefined, 3, 1.0, 'low'),
+  m('pulp-dryer-8000', 'pulp-dryer', 'Pulp presses, dryers & pellet mill, 8,000 t/day', 8_000, 1990, undefined, 4, 0.9, 'low'),
+  m('sugar-silo-200k', 'sugar-silo', 'Sugar silo, 10,000 tons', 200_000, 1955, undefined, 0.5, 1.15, 'low'),
+  m('sugar-silo-500k', 'sugar-silo', 'Sugar silo, 25,000 tons', 500_000, 1965, undefined, 0.8, 1.0, 'low'),
+  m('sugar-silo-1m', 'sugar-silo', 'Sugar silo, 50,000 tons', 1_000_000, 1985, undefined, 1.2, 0.9, 'low'),
+  m('desugar-chrom', 'desugarization', 'Molasses desugarization plant (chromatographic)', 1, 1989, undefined, 3, 1.0, 'medium', { source: 'docs/research/sugar.md (D-133)' }),
+  m('piler-2500', 'beet-piler', 'Beet piler & tare lab, 2,500 t/day', 2_500, 1940, 2000, 0.6, 1.1, 'low'),
+  m('piler-4000', 'beet-piler', 'Beet piler & tare lab, 4,000 t/day', 4_000, 1975, undefined, 0.7, 1.0, 'low'),
+  m('piler-6000', 'beet-piler', 'High-capacity beet piler & tare lab, 6,000 t/day', 6_000, 2000, undefined, 0.8, 0.92, 'low'),
+  m('beet-pad-25k', 'beet-pile', 'Beet pile ground, 25,000 tons', 25_000, 1900, undefined, 3, 1.1, 'low', { generic: true }),
+  m('beet-pad-50k', 'beet-pile', 'Beet pile ground, 50,000 tons', 50_000, 1900, undefined, 6, 1.0, 'low', { generic: true }),
+  m('beet-vent-25k', 'beet-pile-vent', 'Ventilated beet pile, 25,000 tons', 25_000, 1975, undefined, 3, 1.0, 'low', { generic: true, source: 'Red River Valley piles are ventilated or frozen and keep into March' }),
 ];
 
 const line = (brandId: string, components: ComponentId[], price: number, durability: number, upkeep: number, leadMonths: number, note: string, confidence: Confidence, extra: Partial<MakerLine> = {}): MakerLine =>
@@ -290,6 +313,20 @@ export const MAKER_LINES: MakerLine[] = [
   line('cleary', BUILDINGS, 0.97, 1.0, 1.0, 1, 'Wisconsin post-frame builder since 1978.', 'medium', { models: ['chem-wh-basic', 'chem-wh-contain', 'seed-wh-bag', 'seed-bulk-treat', 'store-5k', 'store-10k', 'store-20k'] }),
   line('varco-pruden', BUILDINGS, 0.98, 0.98, 1.0, 2, 'Pre-engineered metal buildings.', 'low'),
   line('behlen', ['chem-warehouse', 'seed-warehouse'], 0.96, 1.0, 1.0, 1, 'S-Span self-framing buildings.', 'low'),
+  // Sugar (D-133): factory engineers and process makers, boilers, separators and pilers
+  line('stearns-roger', ['beet-slicing', 'lime-kiln', 'pulp-dryer', 'sugar-silo'], 1.02, 0.96, 0.98, 4, 'Denver engineers who designed and built most U.S. beet sugar factories.', 'medium'),
+  line('bma', ['beet-slicing', 'lime-kiln', 'pulp-dryer', 'sugar-silo'], 1.08, 0.92, 0.95, 6, 'Braunschweig, Germany: diffusers, centrifugals, evaporators and whole beet factories.', 'medium'),
+  line('silver-engineering', ['beet-slicing', 'pulp-dryer'], 0.96, 1.02, 1.03, 3, 'Denver maker of continuous beet diffusers and factory equipment.', 'low'),
+  line('fives-cail', ['beet-slicing', 'lime-kiln', 'sugar-silo'], 1.04, 0.95, 0.98, 6, 'French sugar equipment and process engineering.', 'low'),
+  line('babcock-wilcox', ['sugar-boiler'], 1.04, 0.94, 0.97, 4, 'Industrial boilers since 1867.', 'high'),
+  line('combustion-engineering', ['sugar-boiler'], 1.0, 0.98, 1.0, 4, 'Industrial and utility boilers (ABB from 1990).', 'medium'),
+  line('riley-stoker', ['sugar-boiler'], 0.95, 1.03, 1.03, 3, 'Worcester, Massachusetts maker of stoker-fired industrial boilers.', 'low'),
+  line('buttner', ['pulp-dryer'], 1.05, 0.94, 0.97, 5, 'German drum dryers for beet pulp.', 'low'),
+  line('amalgamated-research', ['desugarization'], 1.0, 0.96, 0.98, 4, 'Twin Falls, Idaho developer of the coupled-loop chromatographic separator.', 'medium'),
+  line('finnsugar', ['desugarization'], 1.06, 0.94, 0.97, 6, 'Finnish pioneer of chromatographic molasses separation.', 'low'),
+  line('lockwood', ['beet-piler'], 1.0, 0.98, 1.0, 1, 'Gering, Nebraska maker of beet and potato harvesters and pilers.', 'low'),
+  line('amity', ['beet-piler'], 1.02, 0.96, 0.98, 1, 'Fargo, North Dakota maker of beet harvesters, defoliators and pilers.', 'low'),
+  line('hogenson', ['sugar-silo'], 0.97, 1.0, 1.0, 3, 'Slipform concrete silos.', 'low'),
 ];
 
 /** Traits of a unit with no maker (land, piles, local tank fabricators). */
@@ -347,7 +384,7 @@ export const CONSULTING: ConsultingParams = {
   designErrorSd: [0.45, 0.06],
   goldPlating: 0.35,
   firmYears: [12, 45],
-  siteServes: s({ agronomy: 25_000, energy: 30_000, feedmill: 8_000, station: 2_500, farmstore: 6_000 }, 'low', 'Rough scale of a typical site of the kind in the catalog'),
+  siteServes: s({ agronomy: 25_000, energy: 30_000, feedmill: 8_000, station: 2_500, farmstore: 6_000, sugarfactory: 22_000, beetstation: 8_000 }, 'low', 'Rough scale of a typical site of the kind in the catalog (beet acres for sugar)'),
   grainShareNew: 0.3,
   turns: 2.2,
 };

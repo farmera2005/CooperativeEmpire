@@ -85,3 +85,5 @@ export { confidenceWhy, satisfactionWhy } from './governance/why';
 
 export { farmEconomyView } from './world/farmEconomy';
 export type { FarmEconomyView, FarmEconomyYear } from './world/farmEconomy';
+export { beetSugarTrend, beetYield, growerReturns, productValuePerTon, recovery, shareDemand, shareDriveTowns, sugarCapacity, suggestedAcres } from './sugar/operate';
+export type { SugarCapacity } from './sugar/operate';

@@ -11,7 +11,7 @@ import { useStore } from '../store';
 import { Panel } from './Panel';
 import { OfferUnits, ProjectPlanner, ProjectsUnderWay, SiteDetail } from './Projects';
 
-const UNIT_LABEL: Record<string, string> = { bu: 'bu', buPerHr: 'bu/hr', each: '', acres: 'acres', tons: 'tons', tonsPerYr: 'tons/yr', gal: 'gal', sqft: 'sq ft' };
+const UNIT_LABEL: Record<string, string> = { bu: 'bu', buPerHr: 'bu/hr', each: '', acres: 'acres', tons: 'tons', tonsPerYr: 'tons/yr', gal: 'gal', sqft: 'sq ft', tpd: 'tons/day', cwt: 'cwt' };
 
 export function capacityText(c: Components, kind: FacilityKind = 'elevator'): string {
   if (kind === 'elevator') {

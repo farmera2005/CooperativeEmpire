@@ -420,4 +420,48 @@ export const HISTORY: HistoricalEvent[] = [
     body: 'Large crops have pushed grain prices down while input and interest costs remain high.',
     confidence: 'medium', effects: [],
   },
+  // Beet sugar (D-133): how U.S. beet factories passed to grower co-ops. News only; dates and
+  // figures from docs/research/sugar.md. Appended so earlier events keep their order.
+  {
+    id: 'acs-growers-1973', date: [1973, 2], category: 'industry', driftable: false,
+    headline: 'Red River Valley Growers Buy American Crystal Sugar',
+    body: 'Beet growers in Minnesota and North Dakota buy the American Crystal Sugar Company for about $86 million, turning its factories into a grower-owned cooperative.',
+    confidence: 'high', source: 'docs/research/sugar.md', effects: [],
+  },
+  {
+    id: 'smbsc-renville-1975', date: [1975, 10], category: 'industry', driftable: false,
+    headline: 'Growers\' Cooperative Opens New Beet Factory at Renville',
+    body: 'The Southern Minnesota Beet Sugar Cooperative slices its first beets in a $60 million factory its growers financed by buying shares tied to acres.',
+    confidence: 'high', source: 'docs/research/sugar.md', effects: [],
+  },
+  {
+    id: 'snake-river-1997', date: [1997, 1], category: 'industry', driftable: false,
+    headline: 'Idaho Growers Take Over Amalgamated Sugar',
+    body: 'The Snake River Sugar Company, a growers\' cooperative, takes control of Amalgamated Sugar\'s factories.',
+    confidence: 'medium', source: 'docs/research/sugar.md', effects: [],
+  },
+  {
+    id: 'michigan-sugar-2002', date: [2002, 2], category: 'industry', driftable: false,
+    headline: 'Growers Buy Michigan Sugar',
+    body: 'Michigan beet growers buy Michigan Sugar Company and its factories for about $45 million plus debt, as investor owners leave beet sugar.',
+    confidence: 'medium', source: 'docs/research/sugar.md', effects: [],
+  },
+  {
+    id: 'western-sugar-2002', date: [2002, 4], category: 'industry', driftable: false,
+    headline: 'Western Sugar Becomes a Growers\' Cooperative',
+    body: 'Growers in Colorado, Nebraska, Wyoming and Montana buy Western Sugar for $85 million with help from government loans.',
+    confidence: 'medium', source: 'docs/research/sugar.md', effects: [],
+  },
+  {
+    id: 'rr-beets-2008', date: [2008, 4], category: 'industry', driftable: false,
+    headline: 'Growers Plant Roundup Ready Sugar Beets',
+    body: 'Herbicide-tolerant beets go in on about half the Red River Valley\'s acres in their first year; seed costs double but weed control gets cheaper.',
+    confidence: 'medium', source: 'docs/research/sugar.md', effects: [],
+  },
+  {
+    id: 'mexico-sugar-2014', date: [2014, 12], category: 'policy', driftable: false,
+    headline: 'U.S. and Mexico Sign Sugar Suspension Agreements',
+    body: 'Minimum prices and export limits on Mexican sugar end a trade case brought by U.S. producers and steady domestic sugar prices.',
+    confidence: 'high', source: 'docs/research/sugar.md', effects: [],
+  },
 ];

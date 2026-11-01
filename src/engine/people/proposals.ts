@@ -18,7 +18,7 @@ import { marketValue } from '../world/marketPath';
 import { grainCapacity } from '../facilities/facilities';
 import { effectiveSkill } from './leaders';
 
-const DIVS: DivisionId[] = ['GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'RETAIL'];
+const DIVS: DivisionId[] = ['GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'RETAIL', 'SUGAR'];
 const LEVELS: StaffLevel[] = ['lean', 'standard', 'full'];
 const HANDLER = 'mgr.';
 const P = PROPOSALS;
@@ -80,6 +80,8 @@ const SEASON: Record<DivisionId, { ask: number; months: number[] } | undefined> 
   FEED: { ask: 10, months: [11, 12, 1, 2] },
   ENERGY: { ask: 9, months: [10, 11, 12, 1, 2] },
   RETAIL: undefined,
+  // The factory's campaign crew is hired by the sugar operation itself (D-133).
+  SUGAR: undefined,
   CORP: undefined,
 };
 

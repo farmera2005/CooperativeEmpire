@@ -11,6 +11,7 @@ import { monthOf, yearOf } from '../core/calendar';
 import { valueAt } from '../../data/types';
 import { roundCents, type Cents } from '../core/money';
 import { AGING } from '../../data/equipment';
+import { SUGAR } from '../../data/sugar';
 import { capitalizeUnits } from './projects';
 import { decompose, makerOf, syncFacility, unitsReplacementCost, unitValue2024 } from './units';
 import { post } from '../ledger/ledger';
@@ -145,6 +146,11 @@ export function facilityFte(f: Facility): number {
 
 /** How busy a farm-supply division's equipment was this month (0..1): its busiest capacity line. */
 function divisionUtilization(state: GameState, division: DivisionId): number {
+  if (division === 'SUGAR') {
+    // Pilers work the harvest; the factory crew is paid separately for the campaign (D-133).
+    const r = state.coop.sugar.report;
+    return r && r.monthIndex === state.clock.monthIndex && r.delivered > 0 ? 1 : 0;
+  }
   const report = division === 'GRAIN' || division === 'CORP' ? null : state.coop.supply[division as SupplyDivision]?.report;
   if (!report || report.monthIndex !== state.clock.monthIndex) return 0;
   return report.capacity.reduce((a, c) => Math.max(a, c.available > 0 ? Math.min(1, c.used / c.available) : 0), 0);
@@ -217,14 +223,14 @@ export function stepFacilityCosts(ctx: TickContext): void {
       let fte = paidFte(state, f);
       if (shared) fte -= (f.kind === 'elevator' ? STAFF.fteBase.value : KIND_BASE_FTE[f.kind]) * CROSS_DIVISION.sharedSiteSaving.value;
       fte *= STAFF.levelFactor.value[f.staffing.level] * valueAt(STAFF.laborIntensity, yearOf(mi));
-      const wage = f.division === 'GRAIN' ? STAFF.annualWage.value : SUPPLY_WAGES.value[f.division as SupplyDivision];
+      const wage = f.division === 'GRAIN' ? STAFF.annualWage.value : f.division === 'SUGAR' ? SUGAR.yearRoundWage2024.value : SUPPLY_WAGES.value[f.division as SupplyDivision];
       // Labor market, unfilled positions, the COO's efficiency and a tight-fisted manager.
       let wages = nominalCents(path, mi, (fte * wage * STAFF.payFactor.value[f.staffing.pay] * wageMarket(state) * (1 - vacancyShare(state, f)) * opexFactor(f.division)) / 12);
       if (f.division === 'GRAIN') {
         if (HARVEST_MONTHS.includes(monthOf(mi))) wages += roundCents(wages * STAFF.harvestOvertime.value);
       } else {
         const ot = SEASONAL_OVERTIME.value[f.division as SupplyDivision];
-        if (ot.months.includes(monthOf(mi))) wages += roundCents(wages * ot.share);
+        if (ot?.months.includes(monthOf(mi))) wages += roundCents(wages * ot.share);
         const util = SITE_UTILITIES.value[f.kind] ?? 0;
         add('7400', nominalCents(path, mi, (util * (shared ? 1 - CROSS_DIVISION.sharedSiteSaving.value : 1)) / 12));
       }

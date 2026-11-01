@@ -28,7 +28,7 @@ import { addAgendaItem } from '../governance/votes';
 import type { Role } from '../../data/people';
 import { checkReferences, coach, fire, giveRaise, hire, interview, listInternal, poach, setBonusPlan, startSearch } from '../people/hiring';
 import { abandonDeal, dealDiligence, proposeAcquisition, proposeDivisionSale, proposeJv, proposeMerger, respondDeal, submitDeal } from '../deals/deals';
-import type { BylawChange, DealTerms, OpDivision, TrainingLevel, GameState, GrainPolicy, LivestockKind, LivestockMarketing, MaintenanceLevel, PatronageProposal, PayPosition, RedemptionPolicy, StaffLevel, SupplyPolicy } from '../types';
+import type { BylawChange, DealTerms, OpDivision, TrainingLevel, GameState, GrainPolicy, LivestockKind, LivestockMarketing, MaintenanceLevel, PatronageProposal, PayPosition, RedemptionPolicy, StaffLevel, SugarPolicy, SupplyPolicy } from '../types';
 import type { RegionalCategory } from '../../data/finance';
 import { validateProposal } from '../finance/patronage';
 import { setAffiliation } from '../finance/regionals';
@@ -39,6 +39,7 @@ import { fiscalYearOf } from '../core/calendar';
 import type { FacilityKind } from '../../data/facilities';
 import type { SupplyDivision } from '../../data/supply';
 import { cloneState } from './clone';
+import { offerBeetShares, setSugarPolicy } from '../sugar/operate';
 
 export type Command =
   | { type: 'markInboxRead'; id: number }
@@ -71,6 +72,10 @@ export type Command =
   | { type: 'giveTimeOff'; leaderId: number }
   | { type: 'setTeamPolicy'; policy: { autoPayMarket: boolean; autoBonus: boolean } }
   | { type: 'setGrainPolicy'; policy: Partial<GrainPolicy> }
+  /** Beet contracts (D-133): acres wanted (null = what the plants can handle) and the payment share. */
+  | { type: 'setSugarPolicy'; policy: Partial<SugarPolicy> }
+  /** Sell growers beet shares (delivery-right preferred stock), dollars per one-acre share. */
+  | { type: 'offerBeetShares'; pricePerShare: number; maxShares: number }
   | { type: 'setLineCommitment'; amount: number }
   | { type: 'prepayTermLoan'; loanId: number; amount: number }
   | { type: 'setPatronageProposal'; proposal: PatronageProposal }
@@ -151,6 +156,7 @@ function sameSubject(a: Command | undefined, b: Command): boolean {
   if (!a || a.type !== b.type) return false;
   switch (b.type) {
     case 'setGrainPolicy':
+    case 'setSugarPolicy':
     case 'setRedemptionPolicy':
     case 'setLineCommitment':
     case 'switchLender':
@@ -218,6 +224,8 @@ function run(s: GameState, cmd: Command): CommandMessage[] {
       f.maintenance = cmd.level;
       return [];
     }
+    case 'setSugarPolicy': return setSugarPolicy(s, cmd.policy);
+    case 'offerBeetShares': return offerBeetShares(s, cmd.pricePerShare, cmd.maxShares);
     case 'setGrainPolicy': {
       const p = { ...s.coop.grainPolicy, ...cmd.policy };
       p.hedgeRatio = Math.max(0, Math.min(1.5, p.hedgeRatio));

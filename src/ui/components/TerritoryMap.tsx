@@ -10,7 +10,7 @@ export const DEFAULT_LAYERS: Record<MapLayer, boolean> = { counties: true, roads
 
 const DISTRICT_COLORS = ['#d9c77a', '#8fb879', '#7fa9c8', '#d39a80', '#b39fcf'];
 /** One color per business, used by site badges and the legend. */
-export const DIVISION_COLORS: Record<string, string> = { GRAIN: '#b8901c', AGRONOMY: '#3f5f2a', FEED: '#8a5a2b', ENERGY: '#3b6e8f', RETAIL: '#a3472b' };
+export const DIVISION_COLORS: Record<string, string> = { GRAIN: '#b8901c', AGRONOMY: '#3f5f2a', FEED: '#8a5a2b', ENERGY: '#3b6e8f', RETAIL: '#a3472b', SUGAR: '#7b4b84' };
 const DIVISION_LETTER: Record<string, string> = { GRAIN: 'G', AGRONOMY: 'A', FEED: 'F', ENERGY: 'E', RETAIL: 'R' };
 
 /** Kept for callers that shade towns directly. */

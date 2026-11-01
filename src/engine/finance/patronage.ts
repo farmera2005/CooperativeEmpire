@@ -34,12 +34,15 @@ import { addAgendaItem } from '../governance/votes';
 
 export function lineDivision(line: string): OpDivision | null {
   if (line.startsWith('GRAIN_')) return 'GRAIN';
+  if (line.startsWith('SUGAR_')) return 'SUGAR';
   return (LINES[line as LineId]?.division as OpDivision | undefined) ?? null;
 }
 
 /** Bases each division offers in the proposal builder. */
 export const BASES_FOR: Record<OpDivision, PatronageBasis[]> = {
   GRAIN: ['units', 'sales', 'margin'], AGRONOMY: ['sales', 'margin'], FEED: ['sales', 'margin'], ENERGY: ['sales', 'margin'], RETAIL: ['sales', 'margin'],
+  // Beet growers are paid patronage on tons delivered (D-133).
+  SUGAR: ['units'],
 };
 
 const nonOperating = (byAccount: Record<string, Cents>): Cents => (byAccount['8050'] ?? 0) + (byAccount['8200'] ?? 0) + (byAccount['8300'] ?? 0);

@@ -18,7 +18,7 @@ import { useStore, type ProjectDraft } from '../store';
 import { Panel } from './Panel';
 import { FinanceSlider } from './FacilityPanels';
 
-const UNIT: Record<string, string> = { bu: 'bu', buPerHr: 'bu/hr', each: '', acres: 'acres', tons: 't', tonsPerYr: 't/yr', gal: 'gal', sqft: 'sq ft' };
+const UNIT: Record<string, string> = { bu: 'bu', buPerHr: 'bu/hr', each: '', acres: 'acres', tons: 't', tonsPerYr: 't/yr', gal: 'gal', sqft: 'sq ft', tpd: 't/day', cwt: 'cwt' };
 const capText = (component: ComponentId, qty: number) => {
   const u = COMPONENTS[component].unit;
   return u === 'each' ? (qty === 1 ? '1' : num(qty, 2)) : `${num(qty)} ${UNIT[u]}`;
@@ -27,7 +27,7 @@ const capText = (component: ComponentId, qty: number) => {
 /** Components a site of this kind is built from. */
 export function kindComponents(kind: FacilityKind): ComponentId[] {
   if (kind === 'elevator') return (Object.keys(COMPONENTS) as ComponentId[]).filter((id) => id !== 'site' && COMPONENTS[id].division === 'GRAIN');
-  return (Object.keys(TYPICAL_SITE[kind]) as ComponentId[]).filter((id) => id !== 'site').concat(kind === 'energy' ? ['cardtrol'] : []);
+  return (Object.keys(TYPICAL_SITE[kind]) as ComponentId[]).filter((id) => id !== 'site').concat(kind === 'energy' ? ['cardtrol'] : kind === 'sugarfactory' ? ['desugarization', 'beet-pile-vent'] : kind === 'beetstation' ? ['beet-pile-vent'] : []);
 }
 
 /** Plain-language pros and cons of a maker against the typical one. */

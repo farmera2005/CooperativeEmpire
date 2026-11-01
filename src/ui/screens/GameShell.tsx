@@ -13,6 +13,7 @@ import { InboxScreen } from './InboxScreen';
 import { SavesScreen } from './SavesScreen';
 import { GrainScreen } from './GrainScreen';
 import { SupplyScreen } from './SupplyScreen';
+import { SugarScreen } from './SugarScreen';
 import { EquityScreen } from './EquityScreen';
 import { LenderScreen } from './LenderScreen';
 import { LocationsScreen } from './LocationsScreen';
@@ -30,6 +31,7 @@ const TABS: { id: Tab; label: string; key: string }[] = [
   { id: 'inbox', label: 'News & Inbox', key: '2' },
   { id: 'grain', label: 'Grain', key: '3' },
   { id: 'supply', label: 'Farm supply', key: '4' },
+  { id: 'sugar', label: 'Sugar beets', key: 'U' },
   { id: 'map', label: 'Map', key: '5' },
   { id: 'markets', label: 'Markets', key: '6' },
   { id: 'members', label: 'Members', key: '7' },
@@ -107,7 +109,7 @@ export function GameShell() {
           </button>
         ))}
         <div className="mt-auto p-3 text-xs text-stone-500">
-          Keys: 1–8, O, D, P, R, B, G, S, T screens; 9 equity, 0 lender, L locations; E end month, A advance until something needs attention.
+          Keys: 1–8, U, O, D, P, R, B, G, S, T screens; 9 equity, 0 lender, L locations; E end month, A advance until something needs attention.
           {isAdmin && ' M admin menu.'}
           {user && <div className="mt-1">Signed in as {user.username}</div>}
           <div className="mt-1">{autosave}</div>
@@ -136,6 +138,7 @@ export function GameShell() {
           {tab === 'inbox' && <InboxScreen />}
           {tab === 'grain' && <GrainScreen />}
           {tab === 'supply' && <SupplyScreen />}
+          {tab === 'sugar' && <SugarScreen />}
           {tab === 'map' && <MapScreen />}
           {tab === 'markets' && <MarketsScreen />}
           {tab === 'members' && <MembersScreen />}

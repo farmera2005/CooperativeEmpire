@@ -21,14 +21,15 @@ import type { DesignProposal, Facility, GameState } from '../types';
 import { constructionLevel, nominalCents, pathFor } from '../world/macro';
 import { marketValue } from '../world/marketPath';
 import { YIELD_SERIES } from '../grain/operate';
+import { SUGAR } from '../../data/sugar';
 import { grainCapacity } from './facilities';
 import { footprintAcres, makersFor, modelsFor, needsMaker, siteAcres, unitPrice } from './units';
 
 type Result = CommandMessage[];
 const err = (text: string): Result => [{ level: 'error', text }];
 
-export type Specialty = 'grain' | 'agronomy' | 'feed' | 'energy';
-const KIND_SPECIALTY: Record<FacilityKind, Specialty> = { elevator: 'grain', agronomy: 'agronomy', feedmill: 'feed', energy: 'energy', station: 'energy', farmstore: 'energy' };
+export type Specialty = 'grain' | 'agronomy' | 'feed' | 'energy' | 'sugar';
+const KIND_SPECIALTY: Record<FacilityKind, Specialty> = { sugarfactory: 'sugar', beetstation: 'sugar', elevator: 'grain', agronomy: 'agronomy', feedmill: 'feed', energy: 'energy', station: 'energy', farmstore: 'energy' };
 
 export interface Consultant {
   id: number;
@@ -83,6 +84,9 @@ export function consultantRoster(state: GameState): Consultant[] {
     const specialties = [main, ...kinds.filter((k) => k !== main && rng.chance(0.3))];
     // Grain work is the bread and butter: most firms take it.
     if (!specialties.includes('grain') && rng.chance(0.5)) specialties.push('grain');
+    // A few process-engineering firms know beet sugar (D-133); drawn on their own stream so the
+    // older rosters stay as they were.
+    if (makeRng(`consultants-sugar|${key}|${i}`).chance(0.2)) specialties.push('sugar');
     const [f0, f1] = CONSULTING.designFee.value;
     const [p0, p1] = CONSULTING.pmFeePct.value;
     const pricey = Math.max(0, Math.min(1, 0.5 * heard + 0.5 * rng.next()));
@@ -138,10 +142,11 @@ export function siteMarket(state: GameState, townId: number, kind: FacilityKind,
   const year = yearOf(state.clock.monthIndex);
   const division = KIND_DIVISION[kind];
   const dist = state.world.distances;
-  const reach = division === 'GRAIN' ? valueAt(MAX_HAUL_MILES, year) : DIVISION_CONFIG[division as SupplyDivision]?.reachMiles ?? 15;
+  const reach = division === 'GRAIN' ? valueAt(MAX_HAUL_MILES, year) : division === 'SUGAR' ? SUGAR.reachMiles.value * (kind === 'sugarfactory' ? 2 : 1) : DIVISION_CONFIG[division as SupplyDivision]?.reachMiles ?? 15;
   // Farms nearer another of our sites in the same line go there.
   const ours = state.coop.facilities.filter((f) => f.status !== 'closed' && f.division === division && f.id !== facilityId);
-  const nearerOther = (t: number) => ours.some((f) => dist[t][f.townId] < dist[t][townId]);
+  // A factory draws on its stations, so only another factory competes with it.
+  const nearerOther = (t: number) => ours.some((f) => (kind !== 'sugarfactory' || f.kind === 'sugarfactory') && dist[t][f.townId] < dist[t][townId]);
   if (kind === 'station' || kind === 'farmstore') {
     let pop = 0;
     for (const t of state.world.towns) if (dist[townId][t.id] <= reach && !nearerOther(t.id)) pop += t.population * Math.max(0.2, 1 - dist[townId][t.id] / reach);
@@ -164,11 +169,14 @@ export function siteMarket(state: GameState, townId: number, kind: FacilityKind,
         if (c === 'corn') corn += bu;
         peak += bu * Math.max(...HARVEST_CALENDAR[c]);
       }
+    } else if (division === 'SUGAR') {
+      // Beet acres growers here could put in: a rotation's share of row crops, about half signing.
+      annual += (m.acres.corn + m.acres.soybeans + (m.beetAcres ?? 0)) * SUGAR.maxRotationShare.value * 0.5 * m.weight * near;
     } else if (kind === 'feedmill') {
       annual += (m.livestock.hogs + m.livestock.dairy + m.livestock.beefCows + m.livestock.cattleOnFeed) * m.weight * near;
     } else annual += (m.acres.corn + m.acres.soybeans + m.acres.wheat + m.acres.other) * m.weight * near;
   }
-  const unit = division === 'GRAIN' ? 'bu a year' : kind === 'feedmill' ? 'head of livestock' : 'crop acres';
+  const unit = division === 'GRAIN' ? 'bu a year' : kind === 'feedmill' ? 'head of livestock' : division === 'SUGAR' ? 'beet acres' : 'crop acres';
   // The busiest week of the busiest month takes about a third of that month's harvest.
   return { annual, unit, peakWeekShare: annual > 0 ? (peak / annual) * 0.35 : 0, cornShare: annual > 0 ? corn / annual : 0 };
 }
@@ -197,13 +205,20 @@ export function idealCapacity(state: GameState, townId: number, kind: FacilityKi
     return out;
   }
   const refs = CONSULTING.siteServes.value;
-  const scale = Math.max(0.5, Math.min(3, market.annual * (kind === 'station' || kind === 'farmstore' ? 1 : CONSULTING.grainShareNew) / refs[kind]));
+  const sugar = kind === 'sugarfactory' || kind === 'beetstation';
+  const scale = Math.max(0.5, Math.min(3, market.annual * (kind === 'station' || kind === 'farmstore' || sugar ? 1 : CONSULTING.grainShareNew) / refs[kind]));
   const base = typicalSite(kind, year);
   const out: Partial<Record<ComponentId, number>> = {};
   for (const id of Object.keys(base) as ComponentId[]) {
     if (id === 'site') continue;
     const q = base[id] ?? 0;
     out[id] = COMPONENTS[id].unit === 'each' && ['chem-warehouse', 'seed-warehouse', 'pellet-mill', 'cardtrol'].includes(id) ? q : q * scale;
+  }
+  if (kind === 'sugarfactory') {
+    // Kilns and boilers to match the slicing line.
+    const tpd = out['beet-slicing'] ?? 0;
+    out['lime-kiln'] = Math.max(1, Math.ceil(tpd / SUGAR.kilnTpd.value));
+    out['sugar-boiler'] = Math.max(1, Math.ceil(tpd / SUGAR.boilerTpd.value));
   }
   return out;
 }

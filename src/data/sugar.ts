@@ -1,0 +1,119 @@
+// Sugar beets (D-133): growing, storing and processing beets into sugar, pulp and molasses at a
+// co-op factory fed by piling stations, with growers paid per ton and through patronage.
+// Numbers from docs/research/sugar.md (USDA ERS, extension, co-op reports); most are low or
+// medium confidence.
+
+import { s, type AnnualPoint } from './types';
+
+const ap = (pts: [number, number][], confidence: 'high' | 'medium' | 'low', source?: string): AnnualPoint[] =>
+  pts.map(([year, value], i) => ({ year, value, confidence, ...(i === 0 && source ? { source } : {}) }));
+
+export const SUGAR = {
+  /** Growers haul beets to a piling station or the factory within this distance (miles). */
+  reachMiles: s(30, 'medium', 'Receiving stations are spaced so most growers haul 10–30 miles'),
+  /** Beets take at most this share of a grower's row-crop acres (rotation: one year in three or four). */
+  maxRotationShare: s(0.25, 'medium', 'Beets one year in three to four to manage disease (Cercospora, Rhizoctonia, nematodes)'),
+  /** Beet yield in the eastern Corn Belt / Great Lakes beet country, tons an acre. */
+  yieldTonsPerAcre: ap([[1970, 17], [1982, 18.5], [2002, 22], [2010, 25], [2023, 31]], 'medium', 'American Crystal 17.5 t/a (1982), US 22.1 (2000–05), American Crystal ~32 (2023–24); Michigan historically 15–20'),
+  /** Sugar content at harvest, % of beet weight, and its year-to-year spread. */
+  sugarPct: ap([[1970, 15.5], [1990, 16.5], [2010, 17.5], [2023, 18.3]], 'medium', 'American Crystal 18.5% sugar in 2023–24'),
+  sugarPctSd: s(0.7, 'low'),
+  /** A wet fall lowers sugar content (points). */
+  wetFallSugarPenalty: s(0.6, 'low'),
+  /** Grower's cost to raise an acre of beets, 2024 $ (seed, fertilizer, chemicals, harvest, land charge excluded). */
+  growerCostPerAcre2024: s(1350, 'medium', 'NDSU/U of M budgets: $472 (1976/77), $1,099 (2018), $1,350 (2022), $1,563 (2024) per acre'),
+  /** Harvest: pre-pile in September (sliced at once), the main harvest in October. */
+  harvest: { prepileMonth: 9, prepileShare: s(0.15, 'medium'), mainMonth: 10 },
+  /** Harvest days a piler works in the months it is open. */
+  pilerDays: { 9: 8, 10: 24 } as Record<number, number>,
+  /** Sugar lost from piled beets each month as a share of the sugar in them, by calendar month (warm months worst). */
+  pileSugarLossPerMonth: s([0.008, 0.008, 0.012, 0.025, 0.04, 0.06, 0.07, 0.07, 0.035, 0.025, 0.015, 0.01], 'medium', 'Piles lose 0.2–0.5 lb sucrose/ton/day (under 0.13 chilled and sound, ~1.1 damaged) out of ~330 lb a ton'),
+  /** Weight shrink of piled beets per month. */
+  pileShrinkPerMonth: s(0.004, 'low'),
+  /** Ventilated piles keep this share of the losses. */
+  ventilatedLossShare: s(0.6, 'low', 'Forced-air ventilation cools piles and cuts respiration losses'),
+  /** Beets still piled at the end of this month are written off. */
+  campaignEndMonth: 5,
+  /** Months the factory slices: from the pre-pile harvest until the piles are gone (or spoil). */
+  campaignMonths: [9, 10, 11, 12, 1, 2, 3, 4, 5],
+  /** Share of a month the factory runs during the campaign (maintenance stops, breakdowns). */
+  uptime: s(0.92, 'medium'),
+  /** Share of the sugar in sliced beets recovered as sugar, before desugarization. */
+  extraction: ap([[1970, 0.79], [1990, 0.81], [2010, 0.82]], 'medium', 'USDA recovery ~15.0–15.35% of beet weight (2020s) at ~18% sugar; 10–15% of the sugar is lost to molasses without desugarization'),
+  /** Molasses desugarization recovers this much more of the sugar in beets. */
+  desugarizationGain: s(0.06, 'medium', 'Chromatographic separators recover 81–88% of the sugar in molasses; first US plant at Renville 1989'),
+  /** Co-products per ton of beets sliced. */
+  pulpTonsPerTon: s(0.05, 'medium', 'Dried pulp pellets ~100 lb per ton of beets'),
+  molassesTonsPerTon: s(0.0375, 'medium', '~75 lb molasses per ton of beets'),
+  /** Desugarization takes this share of the molasses. */
+  desugarizedMolassesShare: s(0.7, 'low'),
+  /** Wet pulp sold without drying fetches this share of pellet value. */
+  wetPulpValueShare: s(0.35, 'low'),
+  /** Processing inputs per ton sliced: natural gas (MMBtu), lime rock, coke, chemicals and supplies (2024 $). */
+  energyMmbtuPerTon: ap([[1970, 1.6], [1990, 1.3], [2010, 1.1]], 'low', '140–200 kWh of heat per tonne before pulp drying, which can be up to half of factory energy'),
+  suppliesPerTon2024: s(12, 'low', 'Lime rock and coke (~0.25 t limestone per t sugar), chemicals, packaging; processing runs ~$35–45/t all in (2020)'),
+  /** Seasonal campaign crew per 1,000 tons a day of slicing, FTE during campaign months. */
+  campaignFtePer1000Tpd: s(15, 'low', 'American Crystal: ~1,400 full-time and ~900 seasonal staff across six factories slicing ~13M tons'),
+  campaignWage2024: s(52_000, 'low'),
+  /** Year-round factory and station wage, 2024 $. */
+  yearRoundWage2024: s(62_000, 'low', 'Unionized factory trades and operators'),
+  /** Hauling beets from piling stations to the factory, 2024 $ per ton-mile and per ton. */
+  haulPerTonMile2024: s(0.14, 'medium', 'Co-op hauling allowances of $0.058–0.079/ton-mile (2025) are set at half the commercial rate'),
+  haulPerTon2024: s(2, 'low'),
+  /** Selling through a marketing agency: share of sugar revenue. */
+  marketingCostPct: s(0.04, 'low'),
+  /** Grower payment at delivery as a share of the product value of a ton (sugar at its content, pulp, molasses). */
+  defaultGrowerShare: 0.5,
+  /** What grower co-ops pay out in all (delivery payments plus patronage), as a share of a ton's product value; growers count on it before there is a record. */
+  growerNetShare: s(0.65, 'low', 'American Crystal paid ~$70–83/ton (2022–24) against ~$110–130 of sugar, pulp and molasses at wholesale less freight'),
+  growerShareBounds: [0.35, 0.7] as [number, number],
+  /** Growers sign up when beets beat corn; this many points of willingness per unit of the ratio of returns above 0.8. */
+  signupSlope: s(0.7, 'low'),
+  /** Corn's return over direct costs per acre against its gross value (to compare with beets). */
+  cornNetShare: s(0.35, 'low'),
+  /** Pulp pellets trade at this share of corn's value per ton. */
+  pulpCornRatio: s(0.9, 'medium', 'Pellets $140/ton (2019) to $220/ton (2020), near corn on a feeding-value basis'),
+  /** Molasses, 2024 $ per ton. */
+  molasses2024: s(120, 'low'),
+  /** Sugar kept in silos beyond capacity must be sold at once at this discount. */
+  overflowDiscount: s(0.05, 'low'),
+  /**
+   * Beet shares (delivery-right preferred stock). Growers buy a share for each acre they want to
+   * grow; it is how grower co-ops financed buying or building factories. Growers subscribe when
+   * a share pays back quickly against beets' advantage over corn: all in at this many years or
+   * fewer, none at the upper figure.
+   */
+  sharePaybackYears: s<[number, number]>([1.5, 7], 'low', 'American Crystal shares traded at $3,778–5,400 an acre (2011–24) against ~$1,000+ a year of beet returns over direct costs'),
+  /** Months between share drives. */
+  shareDriveGapMonths: 12,
+  /** Capacity each lime kiln, boiler and pulp dryer unit supports, tons of beets a day. */
+  kilnTpd: s(6000, 'low'),
+  boilerTpd: s(4500, 'low'),
+};
+
+/**
+ * Refined beet sugar, Midwest wholesale, $ per cwt (annual). Used for the "sugar" market series
+ * (markets.ts). Beet sugar sells a little under cane in the Midwest.
+ */
+export const SUGAR_PRICE_SOURCE = 'USDA ERS Sugar and Sweeteners Yearbook, Midwest refined beet sugar wholesale';
+
+/**
+ * The investor-owned sugar company in the territory (D-133). Through the 1970s–2000s most U.S.
+ * beet factories passed from investor-owned companies to grower co-ops (American Crystal 1973,
+ * Amalgamated 1997, Michigan Sugar and Western Sugar 2002) or closed. Every game has one such
+ * fictional company that sells out to growers or shuts its factory.
+ */
+export const SUGAR_COMPANY = {
+  names: ['Northern Beet Sugar Company', 'Lakeshore Sugar Company', 'Prairie Star Sugar Company', 'Wolf River Sugar Company', 'Maple Valley Sugar Company'],
+  /** Years after the game starts that the company decides to sell. */
+  saleAfterYears: [3, 14] as [number, number],
+  /** Asking price against the used value of the plants: sellers who would otherwise close. */
+  priceShare: s<[number, number]>([0.2, 0.4], 'low', 'Growers bought American Crystal for $86M (1973) and Michigan Sugar\'s four factories for $45M plus $18.5M of debt (2002)'),
+  /** Months the sale stays open before the factory closes. */
+  offerMonths: 12,
+  /** The factory's first campaign and the condition of its plants when offered. */
+  builtYear: [1905, 1955] as [number, number],
+  condition: [45, 75] as [number, number],
+  stations: 2,
+  stationMiles: [10, 28] as [number, number],
+};

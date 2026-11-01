@@ -1,5 +1,6 @@
 // Read-only helpers for the UI. Nothing here changes state.
 
+import { SUGAR } from '../data/sugar';
 import { COMMODITIES, MAX_HAUL_MILES, type Commodity } from '../data/grain';
 import { DIVISION_CONFIG } from '../data/supply';
 import { valueAt } from '../data/types';
@@ -30,8 +31,20 @@ export function grainShareByTown(state: GameState): Record<number, { share: numb
 }
 
 /** Share of wallet by town for a supply division (farm-weighted; retail uses town shares). */
-export function supplyShareByTown(state: GameState, division: 'AGRONOMY' | 'FEED' | 'ENERGY' | 'RETAIL'): Record<number, number> {
+export function supplyShareByTown(state: GameState, division: 'AGRONOMY' | 'FEED' | 'ENERGY' | 'RETAIL' | 'SUGAR'): Record<number, number> {
   const out: Record<number, number> = {};
+  if (division === 'SUGAR') {
+    // Beet acres under contract against what a full rotation could grow (D-133).
+    const by: Record<number, [number, number]> = {};
+    for (const m of state.members.list) {
+      if (m.status !== 'active') continue;
+      const v = (by[m.townId] ??= [0, 0]);
+      v[0] += (m.beetAcres ?? 0) * m.weight;
+      v[1] += (m.acres.corn + m.acres.soybeans + (m.beetAcres ?? 0)) * SUGAR.maxRotationShare.value * m.weight;
+    }
+    for (const [t, [a, p]] of Object.entries(by)) out[Number(t)] = p > 0 ? Math.min(1, a / p) : 0;
+    return out;
+  }
   if (division === 'RETAIL') {
     const book = state.coop.supply.RETAIL;
     for (const t of state.world.towns) out[t.id] = Math.max(book.townShare[`station:${t.id}`] ?? 0, book.townShare[`farmstore:${t.id}`] ?? 0);
@@ -76,7 +89,7 @@ export function facilityCatchment(state: GameState, facilityId: number): Facilit
   if (!f || f.status === 'closed') return null;
   const d = f.division;
   const year = yearOf(state.clock.monthIndex);
-  const reachMiles = d === 'GRAIN' ? valueAt(MAX_HAUL_MILES, year) : d === 'CORP' ? 0 : DIVISION_CONFIG[d].reachMiles;
+  const reachMiles = d === 'GRAIN' ? valueAt(MAX_HAUL_MILES, year) : d === 'CORP' ? 0 : d === 'SUGAR' ? SUGAR.reachMiles.value : DIVISION_CONFIG[d].reachMiles;
   const sites = state.coop.facilities.filter((x) => x.division === d && (x.status === 'operating' || x.id === f.id)).sort((a, b) => a.id - b.id);
   const dist = state.world.distances;
   /** Our site that serves a town: the nearest within reach, the lower id on a tie. */
@@ -104,7 +117,7 @@ export function facilityCatchment(state: GameState, facilityId: number): Facilit
   } else {
     const path = pathFor(state);
     const yields = Object.fromEntries(COMMODITIES.map((c) => [c, marketValue(path, YIELD_SERIES[c], state.clock.monthIndex)])) as Record<Commodity, number>;
-    unit = d === 'GRAIN' ? 'bushels a year' : d === 'FEED' ? 'head of livestock' : 'crop acres';
+    unit = d === 'GRAIN' ? 'bushels a year' : d === 'FEED' ? 'head of livestock' : d === 'SUGAR' ? 'beet acres' : 'crop acres';
     const base: Record<number, number> = {};
     for (const m of state.members.list) {
       if (m.status !== 'active' || !served.has(m.townId)) continue;
@@ -118,7 +131,8 @@ export function facilityCatchment(state: GameState, facilityId: number): Facilit
         all += bu;
       } else {
         const size = (d === 'FEED' ? head : crop) * m.weight;
-        v = size * (m.share[d] ?? 0);
+        // Beet growers deliver their whole contract to us (D-133).
+        v = d === 'SUGAR' ? (m.beetAcres ?? 0) * m.weight : size * (m.share[d] ?? 0);
         all = size;
       }
       const b = byTown[m.townId];

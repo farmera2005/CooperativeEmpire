@@ -28,6 +28,7 @@ import { stepBoardRelations } from '../governance/review';
 import { stepAnnualMeeting, stepMemberDemocracy } from '../governance/elections';
 import { stepDepreciation, stepFacilityCosts, stepProjects } from '../facilities/facilities';
 import { stepGrain } from '../grain/operate';
+import { stepSugar } from '../sugar/operate';
 import { stepFarmEconomyReports } from '../world/farmEconomy';
 import { stepSupply } from '../supply/operate';
 import { stepCapperVolstead } from './capperVolstead';
@@ -114,6 +115,7 @@ export function advanceMonth(state: GameState, decisions: Command[] = [], opts: 
   stepGrain(ctx);
   stepSupply(ctx);
   stepLivestock(ctx);
+  stepSugar(ctx);
   stepCapperVolstead(ctx);
   // 14. cross-division effects — M3
   // 15. working capital: facility and corporate overhead

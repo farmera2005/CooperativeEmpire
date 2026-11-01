@@ -149,7 +149,7 @@ interface Alert {
 function DivisionTable({ fyStart }: { fyStart: number }) {
   const game = useStore((s) => s.game)!;
   const mi = game.clock.monthIndex;
-  const divs: DivisionId[] = ['GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'RETAIL', 'CORP'];
+  const divs: DivisionId[] = ['GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'RETAIL', 'SUGAR', 'CORP'];
   const rows = divs.map((d) => ({ d, is: incomeStatement(game.ledger, fyStart, mi, d) })).filter((r) => r.d === 'CORP' || r.is.sales || r.is.serviceIncome || r.is.totalOpex);
   const cv = capperVolsteadRatio(game);
   const total = incomeStatement(game.ledger, fyStart, mi);

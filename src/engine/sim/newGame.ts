@@ -1,5 +1,7 @@
 // New game setup and the founding sequence (DESIGN §3).
 
+import { defaultSugarPolicy, emptySugarBook } from '../sugar/operate';
+import { generateSugarCompany } from '../sugar/company';
 import { emptyTech } from '../world/tech';
 import { emptyRegulation } from '../world/regulation';
 import { brandsAvailable, getBrand } from '../../data/brands';
@@ -140,7 +142,7 @@ export function newGame(setupIn: GameSetup): GameState {
       regionalAffiliations: setup.regionalAffiliations, minCash: 0,
       facilities: [], projects: [], assets: [], designs: [], consultantLog: [], nextId: 1, grainPolicy: defaultGrainPolicy(), grain: emptyGrainBook(), offers: [],
       finance: emptyFinance(), grainStats: { marketBu: 0, offeredBu: 0, priceAdvantage: 0 },
-      supply: emptySupply(), supplyPolicy: defaultSupplyPolicies(), patronageStats: emptyPatronageStats(),
+      supply: emptySupply(), supplyPolicy: defaultSupplyPolicies(), sugar: emptySugarBook(), sugarPolicy: defaultSugarPolicy(), patronageStats: emptyPatronageStats(),
       equityProgram: emptyEquityProgram(), regional: emptyRegional(), budget: null,
     },
     people: emptyPeople(),
@@ -179,6 +181,7 @@ export function newGame(setupIn: GameSetup): GameState {
   generateSupplyCompetitors(state, stream(setup.gameSeed, -1, 'competitors.supply'), setup.startYear);
   ensureSiteUnits(state);
   generateOffers(state, getMarketPath(setup.gameSeed, setup.historyMode, drift), crng, MARKETPLACE.initialOffers, startMonth, setup.startYear, homeTown.id);
+  state.coop.sugar.company = generateSugarCompany(state, startMonth);
 
   // Founding memos.
   const dir = governance.directors.map((d) => {

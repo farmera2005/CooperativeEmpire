@@ -5,7 +5,7 @@ import type { EquityProgram, PatronageProposal, RedemptionPolicy, RegionalBook }
 export function defaultProposal(): PatronageProposal {
   return {
     pooling: 'byDivision',
-    basis: { GRAIN: 'units', AGRONOMY: 'sales', FEED: 'sales', ENERGY: 'sales', RETAIL: 'sales' },
+    basis: { GRAIN: 'units', AGRONOMY: 'sales', FEED: 'sales', ENERGY: 'sales', RETAIL: 'sales', SUGAR: 'units' },
     lossTreatment: 'absorbUnallocated',
     pools: { ALL: { cash: 0.3, qualified: 0.7, nonqualified: 0, unallocated: 0 } },
     passDeduction: 0,

@@ -10,7 +10,9 @@ export type BrandCategory =
   | 'fuelFlag' | 'lubricant' | 'grainBuyer' | 'railroad' | 'equipment' | 'applicationEquipment' | 'bins'
   | 'trucks' | 'retailProgram' | 'retailCompetitor' | 'propaneCompetitor' | 'software' | 'dataService'
   // Facility equipment makers and builders (D-129)
-  | 'dryers' | 'grainHandling' | 'scales' | 'elevatorBuilder' | 'fertEquipment' | 'tanks' | 'feedMillEquipment' | 'fuelEquipment' | 'buildings';
+  | 'dryers' | 'grainHandling' | 'scales' | 'elevatorBuilder' | 'fertEquipment' | 'tanks' | 'feedMillEquipment' | 'fuelEquipment' | 'buildings'
+  // Sugar factory equipment (D-133)
+  | 'sugarEquipment';
 
 export type SupplyLine = 'grain' | 'agronomy' | 'feed' | 'energy' | 'retail';
 
@@ -228,6 +230,19 @@ export const BRANDS: Brand[] = [
   b('morton-buildings', 'Morton Buildings', 'Mortonville Buildings', 'buildings', 1970, undefined, 'medium', { notes: 'Morton, IL, 1903; employee-owned.' }),
   b('cleary', 'Cleary Building', 'Clearwater Building', 'buildings', 1978, undefined, 'medium', { notes: 'Verona, WI, 1978.' }),
   b('varco-pruden', 'Varco-Pruden', 'Varden-Pruitt', 'buildings', 1970, undefined, 'low'),
+  // Sugar factory engineers and equipment (D-133)
+  b('stearns-roger', 'Stearns-Roger', 'Stearman-Rogers Engineering', 'sugarEquipment', 1970, 1987, 'low', { notes: 'Denver; designed and built beet factories; to United Engineers in the 1980s (year not confirmed).' }),
+  b('bma', 'BMA (Braunschweigische Maschinenbauanstalt)', 'Brunswick Machine Works', 'sugarEquipment', 1970, undefined, 'medium', { notes: 'Braunschweig, Germany, 1853.' }),
+  b('silver-engineering', 'Silver Engineering Works', 'Sterling Engineering Works', 'sugarEquipment', 1970, 1995, 'low', { notes: 'Denver; continuous diffusers. End year not found; 1995 assumed.' }),
+  b('fives-cail', 'Fives-Cail Babcock', 'Fives Process', 'sugarEquipment', 1970, undefined, 'low'),
+  b('babcock-wilcox', 'Babcock & Wilcox', 'Babbitt & Wilcox', 'sugarEquipment', 1970, undefined, 'high'),
+  b('combustion-engineering', 'Combustion Engineering', 'Combustion Works', 'sugarEquipment', 1970, 1990, 'medium', { notes: 'Acquired by ABB 1990.' }),
+  b('riley-stoker', 'Riley Stoker', 'Ridley Stoker', 'sugarEquipment', 1970, 2000, 'low', { notes: 'End year assumed.' }),
+  b('buttner', 'Büttner', 'Bittner Dryers', 'sugarEquipment', 1970, undefined, 'low'),
+  b('amalgamated-research', 'Amalgamated Research (ARI)', 'Applied Separation Research', 'sugarEquipment', 1989, undefined, 'medium', { notes: 'Twin Falls, ID; research arm of Amalgamated Sugar.' }),
+  b('finnsugar', 'Finnsugar', 'Nordic Sugar Engineering', 'sugarEquipment', 1980, undefined, 'low'),
+  b('lockwood', 'Lockwood', 'Lockhart Beet Equipment', 'sugarEquipment', 1970, 2008, 'low', { notes: 'Gering, NE. End year assumed.' }),
+  b('amity', 'Amity Technology', 'Amber Technology', 'sugarEquipment', 1985, undefined, 'low', { notes: 'Fargo, ND.' }),
   // Retail programs and competitors
   b('true-value', 'True Value', 'True Hardware', 'retailProgram', 1970, undefined, 'medium'),
   b('ace', 'Ace Hardware', 'Acme Hardware', 'retailProgram', 1970, undefined, 'medium'),

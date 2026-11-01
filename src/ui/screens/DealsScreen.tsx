@@ -16,7 +16,7 @@ const STAGE_LABEL: Record<DealStage, string> = {
   proposed: 'They approached us', study: 'Study under way', terms: 'Ready for terms', board: 'Before our board',
   members: 'Member vote', closing: 'Closing', integration: 'Integrating', closed: 'Closed', dead: 'Ended',
 };
-const DIVISION_LABEL: Record<OpDivision, string> = { GRAIN: 'Grain', AGRONOMY: 'Agronomy', FEED: 'Feed', ENERGY: 'Energy', RETAIL: 'Retail' };
+const DIVISION_LABEL: Record<OpDivision, string> = { GRAIN: 'Grain', AGRONOMY: 'Agronomy', FEED: 'Feed', ENERGY: 'Energy', RETAIL: 'Retail', SUGAR: 'Sugar' };
 const JV_DIVISIONS: OpDivision[] = ['AGRONOMY', 'FEED', 'ENERGY'];
 
 /** Strength is not published; the trade hears whether a company is struggling or flush. */

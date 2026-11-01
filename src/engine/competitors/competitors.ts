@@ -157,6 +157,8 @@ const SUPPLY_NAMES: Record<FacilityKind, string[]> = {
   energy: ['{s} Oil Co.', '{t} Propane', '{s} Fuel Service'],
   station: ['{s} Service Station', '{t} Gas & Go', '{s} Mobil-style Station'],
   farmstore: ['{s} Hardware', '{t} Farm & Home'],
+  sugarfactory: [],
+  beetstation: [],
 };
 
 /** Typical site components for a supply competitor, scaled. */

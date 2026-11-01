@@ -8,7 +8,7 @@ import { useStore } from '../store';
 
 const GROUPS: { id: SeriesGroup; label: string }[] = [
   { id: 'grain', label: 'Grain & meal' }, { id: 'livestock', label: 'Livestock & milk' }, { id: 'energy', label: 'Energy' },
-  { id: 'fertilizer', label: 'Fertilizer' }, { id: 'rates', label: 'Interest rates' }, { id: 'macro', label: 'Economy & land' }, { id: 'yields', label: 'Yields' },
+  { id: 'fertilizer', label: 'Fertilizer' }, { id: 'rates', label: 'Interest rates' }, { id: 'macro', label: 'Economy & land' }, { id: 'yields', label: 'Yields' }, { id: 'sugar', label: 'Sugar' },
 ];
 
 const fmt = (id: SeriesId, v: number) => {

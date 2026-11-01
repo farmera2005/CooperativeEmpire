@@ -9,8 +9,8 @@ import { s, type AnnualPoint, type Sourced } from './types';
 
 export type SupplyDivision = 'AGRONOMY' | 'FEED' | 'ENERGY' | 'RETAIL';
 export const SUPPLY_DIVISIONS: SupplyDivision[] = ['AGRONOMY', 'FEED', 'ENERGY', 'RETAIL'];
-export const DIVISION_LABEL: Record<SupplyDivision | 'GRAIN' | 'CORP', string> = {
-  GRAIN: 'Grain', AGRONOMY: 'Agronomy', FEED: 'Feed', ENERGY: 'Energy', RETAIL: 'Retail', CORP: 'Corporate',
+export const DIVISION_LABEL: Record<SupplyDivision | 'GRAIN' | 'SUGAR' | 'CORP', string> = {
+  GRAIN: 'Grain', AGRONOMY: 'Agronomy', FEED: 'Feed', ENERGY: 'Energy', RETAIL: 'Retail', SUGAR: 'Sugar', CORP: 'Corporate',
 };
 
 export type LineId =
@@ -345,7 +345,7 @@ export const SELLING_COST_PCT: Record<SupplyDivision, AnnualPoint[]> = {
   RETAIL: ap([[1970, 0]]),
 };
 
-export const SITE_UTILITIES = s<Record<string, number>>({ agronomy: 30_000, feedmill: 60_000, energy: 12_000, station: 40_000, farmstore: 25_000 }, 'low');
+export const SITE_UTILITIES = s<Record<string, number>>({ agronomy: 30_000, feedmill: 60_000, energy: 12_000, station: 40_000, farmstore: 25_000, sugarfactory: 600_000, beetstation: 15_000 }, 'low');
 /** Extra wages in busy months as share of regular wages, by division. */
 export const SEASONAL_OVERTIME = s<Record<SupplyDivision, { months: number[]; share: number }>>({
   AGRONOMY: { months: [3, 4, 5, 10, 11], share: 0.35 },

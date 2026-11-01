@@ -42,6 +42,18 @@ site for its market and can manage construction; not every firm is as good as it
 Competitors run the same kind of plants: they wear, get rebuilt and replaced, and expand by
 building real units (see a competitor's plants on Deals & Competitors). Sizes, years and makers come from `docs/research/equipment.md`.
 
+## Sugar beets
+
+A co-op can go into beet sugar (**Sugar beets**, key U). A beet factory needs a processing line,
+lime kilns and boilers to match, a pulp dryer and sugar silos, and pilers and pile ground at the
+factory and at receiving stations near the growers. Growers sign contracts each February, deliver
+in September and October, and are paid a share of a ton's value at delivery; the rest of the
+factory's savings comes back as patronage on tons. Piled beets lose sugar until they are sliced,
+and piles left in late spring spoil. Every game has an investor-owned sugar company that some
+years in offers its factory and stations to the growers — or closes. Sell growers **beet
+shares** (stock tied to acres) to raise the equity a purchase or a new factory needs. Sources are
+in `docs/research/sugar.md`.
+
 ## Accounts
 
 When the game runs on its own server (`npm run dev`, `npm run preview`, `npm run share`, or the

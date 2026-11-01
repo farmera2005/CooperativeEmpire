@@ -12,6 +12,8 @@ import { COMPONENTS, type ComponentId } from '../../data/facilities';
 import { allocateCents } from '../core/money';
 import { decompose, syncFacility, unitValue2024 } from '../facilities/units';
 import { ensureSiteUnits } from '../competitors/plants';
+import { defaultSugarPolicy, emptySugarBook } from '../sugar/operate';
+import { generateSugarCompany } from '../sugar/company';
 import { yearOf } from '../core/calendar';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -157,6 +159,18 @@ export const MIGRATIONS: Record<number, (s: AnyState) => AnyState> = {
   10: (s) => {
     ensureSiteUnits(s);
     return { ...s, schemaVersion: 11 };
+  },
+  // D-133: the sugar beet division — its books, policy, patronage tally, budget line and
+  // proposal basis start empty.
+  11: (s) => {
+    s.coop.sugar ??= emptySugarBook();
+    s.coop.sugarPolicy ??= defaultSugarPolicy();
+    s.coop.patronageStats.SUGAR ??= { member: 0, nonmember: 0 };
+    if (s.coop.budget?.lines && !s.coop.budget.lines.SUGAR) s.coop.budget.lines.SUGAR = { ...s.coop.budget.lines.RETAIL, ...Object.fromEntries(Object.keys(s.coop.budget.lines.RETAIL).map((k) => [k, 0])) };
+    if (s.coop.equityProgram?.proposal?.basis) s.coop.equityProgram.proposal.basis.SUGAR ??= 'units';
+    // The territory's sugar company arrives with the update; it sells some years from now.
+    if (s.coop.sugar.company === undefined) s.coop.sugar.company = generateSugarCompany(s, s.clock.monthIndex);
+    return { ...s, schemaVersion: 12 };
   },
 };
 

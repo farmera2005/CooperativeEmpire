@@ -10,6 +10,7 @@ import * as finance from './finance';
 import * as governance from './governance';
 import * as people from './people';
 import * as supply from './supply';
+import * as sugar from './sugar';
 import * as grain from './grain';
 import * as history from './history';
 import * as law from './law';
@@ -28,6 +29,7 @@ export const DATA_REGISTRY: Record<string, Record<string, unknown>> = {
   'economy.ts': economy as unknown as Record<string, unknown>,
   'grain.ts': grain as unknown as Record<string, unknown>,
   'supply.ts': supply as unknown as Record<string, unknown>,
+  'sugar.ts': sugar as unknown as Record<string, unknown>,
   'finance.ts': finance as unknown as Record<string, unknown>,
   'governance.ts': governance as unknown as Record<string, unknown>,
   'people.ts': people as unknown as Record<string, unknown>,

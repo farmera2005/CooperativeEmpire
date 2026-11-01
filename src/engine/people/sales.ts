@@ -3,6 +3,7 @@
 // prospects fills in — scaled by the division manager's sales skill, and they recruit members.
 // Their pay, benefits and expenses post monthly to the division.
 
+import { SUGAR } from '../../data/sugar';
 import { PEOPLE, SALES_FORCE } from '../../data/people';
 import { STAFF } from '../../data/grain';
 import { DIVISION_CONFIG } from '../../data/supply';
@@ -30,7 +31,7 @@ export const salesStaff = (s: GameState, d: OpDivision): number => (SALES_DIVISI
  * only those with livestock. A rep calls on growers who can buy from us, not the whole territory.
  */
 function prospects(s: GameState, d: OpDivision): number {
-  const reach = d === 'GRAIN' ? null : DIVISION_CONFIG[d].reachMiles;
+  const reach = d === 'GRAIN' ? null : d === 'SUGAR' ? SUGAR.reachMiles.value : DIVISION_CONFIG[d].reachMiles;
   const towns = [...new Set(s.coop.facilities.filter((f) => f.division === d && f.status === 'operating').map((f) => f.townId))].sort((a, b) => a - b);
   const dist = s.world.distances;
   let n = 0;

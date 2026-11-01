@@ -12,9 +12,11 @@ export type SeriesId =
   | 'anhydrous' | 'urea' | 'uan28' | 'dap' | 'potash'
   | 'prime' | 'tbill'
   | 'cpi' | 'constructionIndex' | 'landValue' | 'netFarmIncome'
-  | 'yieldCorn' | 'yieldSoy' | 'yieldWheat';
+  | 'yieldCorn' | 'yieldSoy' | 'yieldWheat'
+  // Appended after the original series so procedural draws for older series keep their order (D-133).
+  | 'sugar';
 
-export type SeriesGroup = 'grain' | 'livestock' | 'energy' | 'fertilizer' | 'rates' | 'macro' | 'yields';
+export type SeriesGroup = 'grain' | 'livestock' | 'energy' | 'fertilizer' | 'rates' | 'macro' | 'yields' | 'sugar';
 
 export interface MarketSeriesDef {
   id: SeriesId;
@@ -408,6 +410,21 @@ export const MARKET_SERIES: Record<SeriesId, MarketSeriesDef> = {
     ], 'medium', 'USDA NASS state yields, Illinois/Indiana blend (from memory)', [yrs(2024, 2025, 'low')]),
     seasonality: null, noiseSd: 0,
     procedural: { reversion: 0, sd: 0 },
+  },
+  sugar: {
+    id: 'sugar', label: 'Refined beet sugar, Midwest', unit: '$/cwt', group: 'sugar', kind: 'price', decimals: 2,
+    annual: annual(1970, [
+      11.9, 12.5, 12.9, 15.1, 30.0, 22.5, 16.5, 14.8, 17.0, 19.4,
+      36.3, 27.5, 27.0, 27.5, 26.5, 25.0, 24.5, 23.6, 25.5, 28.0,
+      30.0, 25.5, 24.0, 25.0, 25.5, 26.0, 28.5, 27.0, 26.0, 25.5,
+      21.0, 23.5, 25.5, 24.5, 23.0, 32.0, 33.0, 26.0, 28.0, 35.0,
+      50.0, 55.0, 40.0, 29.0, 34.0, 32.0, 33.0, 33.0, 33.0, 36.0,
+      37.0, 39.0, 58.0, 66.0, 50.0, 38.0,
+    ], 'low', 'USDA ERS Sugar and Sweeteners Yearbook, wholesale refined beet sugar, Midwest markets ($/cwt = ¢/lb); anchors 1974, 1975, 1980, 1981, 1987, 1990, 2010/11, 2012/13, 2022/23, 2024/25 from docs/research/sugar.md, years between from memory', [yrs(1980, 1981, 'medium'), yrs(2010, 2013, 'medium')]),
+    seasonality: null, noiseSd: 0.03,
+    // The U.S. sugar program (loan rates, tariff-rate quotas, marketing allotments) holds domestic
+    // prices well above and steadier than the world market.
+    procedural: { reversion: 0.02, sd: 0.035 },
   },
 };
 

@@ -35,6 +35,7 @@ export const ACCOUNTS: Account[] = [
   a('1230', 'Energy inventory', 'asset', 'operating', { bsGroup: 'currentAssets' }),
   a('1240', 'Retail inventory', 'asset', 'operating', { bsGroup: 'currentAssets' }),
   a('1250', 'Livestock inventory', 'asset', 'operating', { bsGroup: 'currentAssets' }),
+  a('1260', 'Sugar & beet inventory', 'asset', 'operating', { bsGroup: 'currentAssets' }),
   a('1300', 'Prepaid supplier deposits', 'asset', 'operating', { bsGroup: 'currentAssets' }),
   a('1310', 'Margin deposits', 'asset', 'operating', { bsGroup: 'currentAssets' }),
   a('1320', 'Open grain contracts - gains', 'asset', 'operating', { bsGroup: 'currentAssets' }),

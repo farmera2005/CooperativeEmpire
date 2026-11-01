@@ -15,7 +15,7 @@ export function boardSizeFor(members: number): number {
 function petIssues(rng: Rng, m: Member): PetIssue[] {
   const out: PetIssue[] = [{ kind: 'hometown', townId: m.townId }];
   const r = rng.next();
-  const divs: DivisionId[] = ['GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'RETAIL'];
+  const divs: DivisionId[] = ['GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'RETAIL', 'SUGAR'];
   if (r < 0.25) out.push({ kind: 'redemption' });
   else if (r < 0.45) out.push({ kind: 'patronageCash' });
   else if (r < 0.65) out.push({ kind: 'division', division: rng.pick(divs), favor: rng.chance(0.6) });

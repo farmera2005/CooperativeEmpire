@@ -11,10 +11,10 @@ import type { Commodity } from '../data/grain';
 import type { Breakdown } from './core/breakdown';
 import type { Role, Skill, TraitId } from '../data/people';
 
-export const SCHEMA_VERSION = 11;
+export const SCHEMA_VERSION = 12;
 
-export type DivisionId = 'GRAIN' | 'AGRONOMY' | 'FEED' | 'ENERGY' | 'RETAIL' | 'CORP';
-export const DIVISIONS: DivisionId[] = ['GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'RETAIL', 'CORP'];
+export type DivisionId = 'GRAIN' | 'AGRONOMY' | 'FEED' | 'ENERGY' | 'RETAIL' | 'SUGAR' | 'CORP';
+export const DIVISIONS: DivisionId[] = ['GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'RETAIL', 'SUGAR', 'CORP'];
 
 export type HistoryMode = 'strict' | 'drift';
 export type Difficulty = 'easy' | 'normal' | 'hard';
@@ -176,6 +176,10 @@ export interface Member {
   joinedMonth: number;
   exitMonth?: number;
   acres: Record<CropId, number>;
+  /** Acres contracted to our sugar factory this crop year, carried within `acres.other` (D-133). */
+  beetAcres?: number;
+  /** Beet shares held: preferred stock that carries the right and duty to grow this many acres (D-133). */
+  beetShares?: number;
   livestock: Record<SpeciesId, number>;
   sizeClass: 'small' | 'mid' | 'large' | 'mega';
   loyalty: number;
@@ -771,6 +775,9 @@ export interface CoopState {
   grainStats: { marketBu: number; offeredBu: number; priceAdvantage: number };
   supply: Record<SupplyDivision, SupplyBook>;
   supplyPolicy: Record<SupplyDivision, SupplyPolicy>;
+  /** The sugar beet business (D-133). */
+  sugar: SugarBook;
+  sugarPolicy: SugarPolicy;
   /** Salespeople by business unit (D-109). */
   salesForce?: Partial<Record<OpDivision, number>>;
   /** Livestock the co-op owns, in the feed division (D-111). */
@@ -814,7 +821,7 @@ export interface LivestockBook {
   /** Groups sold (last 36). */
   sales: { monthIndex: number; kind: LivestockKind; head: number; revenue: Cents; cost: Cents }[];
 }
-export const OP_DIVISIONS: OpDivision[] = ['GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'RETAIL'];
+export const OP_DIVISIONS: OpDivision[] = ['GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'RETAIL', 'SUGAR'];
 export type PatronageBasis = 'units' | 'sales' | 'margin';
 export type LossTreatment = 'absorbUnallocated' | 'carryForward' | 'chargeAllocated' | 'netAgainstPools';
 
@@ -1370,4 +1377,88 @@ export interface GameState {
   firedEvents: FiredEvent[];
   history: MonthSnapshot[];
   outcome: null | { kind: 'fired' | 'liquidated' | 'absorbed'; monthIndex: number; text: string };
+}
+
+/** What the co-op offers beet growers (D-133). */
+export interface SugarPolicy {
+  /** Acres we want under contract for next crop; null = what the factory and stations can handle. */
+  targetAcres: number | null;
+  /** Payment at delivery as a share of a ton's product value; the rest is retained and comes back as patronage. */
+  growerShare: number;
+}
+
+/** Beets in storage at one site (piling station or factory yard). */
+export interface BeetPile {
+  facilityId: number;
+  tons: number;
+}
+
+export interface SugarCampaign {
+  /** Crop year (harvest in the fall of this year). */
+  year: number;
+  contractedAcres: number;
+  growers: number;
+  deliveredTons: number;
+  /** Beets that could not be received (stations full) and stayed in the field. */
+  leftInFieldTons: number;
+  avgSugarPct: number;
+  slicedTons: number;
+  sugarCwt: number;
+  pulpTons: number;
+  molassesTons: number;
+  /** Beets lost in storage: shrink, spoilage and what was left when the campaign ended. */
+  storageLossTons: number;
+  growerPayments: Cents;
+  /** Set when the last of the crop has been sliced (or written off). */
+  closed?: boolean;
+}
+
+export interface SugarMonthReport {
+  monthIndex: number;
+  delivered: number;
+  sliced: number;
+  sliceCapacity: number;
+  pileTons: number;
+  pileSugarPct: number;
+  sugarMade: number;
+  sugarSold: number;
+  sugarPrice: number;
+  revenue: Cents;
+  growerPayments: Cents;
+  processingCost: Cents;
+  haulCost: Cents;
+  /** What limits slicing: slicers, lime kilns, boilers. */
+  bottleneck: string | null;
+}
+
+export interface SugarBook {
+  /** Beets piled, by site, with their average sugar content and book cost. */
+  piles: BeetPile[];
+  pileSugarPct: number;
+  pileCost: Cents;
+  /** Sugar in silos and warehouses (cwt) and its book cost. */
+  sugarCwt: number;
+  sugarCost: Cents;
+  campaign: SugarCampaign | null;
+  campaigns: SugarCampaign[];
+  report: SugarMonthReport | null;
+  reports: SugarMonthReport[];
+  /** The investor-owned sugar company in the territory, which sells out to growers or closes (D-133). */
+  company?: SugarCompany | null;
+  /** Share drives: growers buying delivery-right stock to finance a factory. */
+  shareDrives?: { monthIndex: number; pricePerShare: Cents; offered: number; sold: number; growers: number; raised: Cents }[];
+}
+
+/** A fictional investor-owned beet sugar company with a factory and piling stations in the territory. */
+export interface SugarCompany {
+  name: string;
+  factoryTownId: number;
+  stationTownIds: number[];
+  builtYear: number;
+  /** Month it puts the factory and stations up for sale to growers (or closes). */
+  saleMonth: number;
+  status: 'operating' | 'forSale' | 'sold' | 'closed';
+  offerIds: number[];
+  /** Last month to buy the factory before it closes for good. */
+  deadline?: number;
 }

@@ -17,4 +17,4 @@ export const emptySupply = (): Record<SupplyDivision, SupplyBook> =>
 export const defaultSupplyPolicies = (): Record<SupplyDivision, SupplyPolicy> =>
   Object.fromEntries(SUPPLY_DIVISIONS.map((d) => [d, defaultSupplyPolicy()])) as Record<SupplyDivision, SupplyPolicy>;
 export const emptyPatronageStats = (): Record<DivisionId, { member: number; nonmember: number }> =>
-  ({ GRAIN: { member: 0, nonmember: 0 }, AGRONOMY: { member: 0, nonmember: 0 }, FEED: { member: 0, nonmember: 0 }, ENERGY: { member: 0, nonmember: 0 }, RETAIL: { member: 0, nonmember: 0 }, CORP: { member: 0, nonmember: 0 } });
+  ({ GRAIN: { member: 0, nonmember: 0 }, AGRONOMY: { member: 0, nonmember: 0 }, FEED: { member: 0, nonmember: 0 }, ENERGY: { member: 0, nonmember: 0 }, RETAIL: { member: 0, nonmember: 0 }, SUGAR: { member: 0, nonmember: 0 }, CORP: { member: 0, nonmember: 0 } });
