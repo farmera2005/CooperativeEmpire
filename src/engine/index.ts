@@ -82,3 +82,6 @@ export { distributionFor } from './reports/annual';
 export { newScenario, scenarioGoals } from './sim/scenarios';
 export type { GoalStatus } from './sim/scenarios';
 export { confidenceWhy, satisfactionWhy } from './governance/why';
+
+export { farmEconomyView } from './world/farmEconomy';
+export type { FarmEconomyView, FarmEconomyYear } from './world/farmEconomy';

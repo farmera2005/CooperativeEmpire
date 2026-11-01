@@ -19,6 +19,18 @@ npm run sim -- --start 1970 --years 55 --policy baseline --seeds 50   # headless
 npm run data:review  # regenerate docs/DATA_REVIEW.md
 ```
 
+## The farm economy
+
+Prices follow history, and the co-op feels them through the farms around it. Each year brings
+its own local weather (a territory-wide yield shock, county differences, and now and then hail,
+a dry pocket, flooding or a derecho in one county). Farmers shift acres between corn and
+soybeans with the price ratio, cut nitrogen when it is dear and phosphorus and potash when money
+is short, and expand or cut herds with the hog and cattle cycles. Posted prices lag wholesale,
+so a spike squeezes margins and a drop widens them. Big crops bring wide harvest basis, good
+carry and wider elevator margins; short crops the reverse. A short local crop also adds to bad
+debts. The Dashboard's **Farm economy** panel shows where things stand and the years played; the
+inbox carries a planting outlook (March), crop conditions (July) and a harvest report (November).
+
 ## Building facilities
 
 Facilities are made of individual units — each bin, leg, dryer, scale, tank, truck and building,

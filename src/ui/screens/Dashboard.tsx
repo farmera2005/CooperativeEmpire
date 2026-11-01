@@ -4,6 +4,7 @@ import { COMMODITIES } from '../../data/grain';
 import { scenarioGoals, balanceSheet, balanceSheetRating, capperVolsteadRatio, fiscalYearOf, fiscalYearStart, formatMonthShort, incomeStatement, ratios, satisfactionWhy, type DivisionId, type GameState } from '../../engine/index';
 import { DIVISION_LABEL } from '../../data/supply';
 import { Why } from '../components/Why';
+import { FarmEconomyPanel } from '../components/FarmEconomy';
 import { Panel, Stat } from '../components/Panel';
 import { Term } from '../components/Term';
 import { money, num, pct } from '../format';
@@ -110,6 +111,7 @@ export function Dashboard() {
           </div>
         </Panel>
       </div>
+      <FarmEconomyPanel />
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Panel title="Latest news and memos" right={<button className="text-xs text-sky underline" onClick={() => setTab('inbox')}>Inbox</button>}>
           <ul className="space-y-1 text-sm">

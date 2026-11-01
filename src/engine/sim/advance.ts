@@ -28,6 +28,7 @@ import { stepBoardRelations } from '../governance/review';
 import { stepAnnualMeeting, stepMemberDemocracy } from '../governance/elections';
 import { stepDepreciation, stepFacilityCosts, stepProjects } from '../facilities/facilities';
 import { stepGrain } from '../grain/operate';
+import { stepFarmEconomyReports } from '../world/farmEconomy';
 import { stepSupply } from '../supply/operate';
 import { stepCapperVolstead } from './capperVolstead';
 import { stepJoining } from '../members/joining';
@@ -109,6 +110,7 @@ export function advanceMonth(state: GameState, decisions: Command[] = [], opts: 
   demographicsMonthly(ctx);
   stepJoining(ctx);
   // 10–13. competitor prices, demand, share of wallet and divisions (grain; others in M3)
+  stepFarmEconomyReports(ctx);
   stepGrain(ctx);
   stepSupply(ctx);
   stepLivestock(ctx);

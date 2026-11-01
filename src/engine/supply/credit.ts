@@ -1,5 +1,6 @@
 // Customer credit (DESIGN §9.2): receivables by age, collections, finance charges, bad debt.
 
+import { localStress } from '../world/farmEconomy';
 import { flagOn } from '../world/events';
 import { CHOICE_EFFECTS } from '../../data/events';
 import { CREDIT } from '../../data/supply';
@@ -71,7 +72,8 @@ export function stepCredit(ctx: TickContext, division: DivisionId, book: SupplyB
   book.allowance -= writeOff;
 
   // Allowance target and bad debt expense.
-  const stress = farmStress(ctx) * (flagOn(state, 'creditTight') ? CHOICE_EFFECTS.tightenStress.value : 1);
+  // National farm income, plus a short local crop (D-132).
+  const stress = (farmStress(ctx) + localStress(state, ctx.mi)) * (flagOn(state, 'creditTight') ? CHOICE_EFFECTS.tightenStress.value : 1);
   const rate = CREDIT.lossRate.value[policy.credit] * (1 + CREDIT.stressMultiplier.value * stress);
   const target = roundCents(next.past90 * CREDIT.allowancePast90.value + next.past60 * CREDIT.allowancePast60.value + (next.current + next.past30 + next.harvest) * rate);
   const expense = target - book.allowance;

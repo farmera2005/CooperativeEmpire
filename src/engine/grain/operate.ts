@@ -11,6 +11,7 @@
 //   7. fees, bond, report and margin breakdown
 
 import { makerOf, modelOf } from '../facilities/units';
+import { townYieldFactor } from '../world/farmEconomy';
 import { serviceOf } from '../competitors/plants';
 import { salesBoost } from '../people/sales';
 import { formatCents } from '../core/format';
@@ -252,7 +253,9 @@ export function stepGrain(ctx: TickContext): void {
     // Volumes this month.
     const onFarm = Math.min(0.95, onFarmBase + (big ? ON_FARM_LARGE_BONUS.value : 0));
     const feedCorn = (Object.keys(FEED_CORN_PER_HEAD.value) as (keyof typeof FEED_CORN_PER_HEAD.value)[]).reduce((a, k) => a + (m.livestock[k] ?? 0) * FEED_CORN_PER_HEAD.value[k], 0);
-    const yf = farmYieldFactor(m.id);
+    // This farm's yields: its own ability, and its county's weather this year and last (D-132).
+    const yf = farmYieldFactor(m.id) * townYieldFactor(state, year, m.townId);
+    const yfPrev = farmYieldFactor(m.id) * townYieldFactor(state, year - 1, m.townId);
     let anyBusiness = false;
     for (const c of COMMODITIES) {
       const line = GRAIN_LINE[c];
@@ -270,7 +273,7 @@ export function stepGrain(ctx: TickContext): void {
       if (hs > 0) harvestBu = Math.max(0, prodNow) * hs * (1 - of);
       if (c === 'wheat') steadyBu = Math.max(0, prodNow) * of * ON_FARM_WHEAT_SCHEDULE[month - 1];
       else {
-        const prod = month <= 8 ? acres * yieldsPrev[c] * yf - (c === 'corn' ? feedCorn : 0) : Math.max(0, prodNow);
+        const prod = month <= 8 ? acres * yieldsPrev[c] * yfPrev - (c === 'corn' ? feedCorn : 0) : Math.max(0, prodNow);
         steadyBu = Math.max(0, prod) * of * ON_FARM_SELL_SCHEDULE[month - 1];
       }
       const total = (harvestBu + steadyBu) * m.weight;

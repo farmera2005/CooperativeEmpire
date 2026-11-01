@@ -1,6 +1,7 @@
 // Grain prices for a month: futures, destination basis, the local market bid, our bid,
 // carry, and freight. Everything the farmer and the merchandiser compare.
 
+import { basisSeasonFactor, carryFactor, marginFactor } from '../world/farmEconomy';
 import { ETHANOL } from '../../data/competition';
 import {
   BASIS_SEASON, DEST_BASIS, GRAIN_COST_INDEX, HEDGING, NORMAL_MARGIN, POSTURE_BID, RAIL_FREIGHT, TRUCK_FREIGHT,
@@ -48,7 +49,8 @@ export const railFreight = (loadout: Exclude<LoadoutType, 'truck'>, idx: number)
 
 /** Destination basis (nominal $/bu vs futures) for a kind and commodity this month. */
 export function destinationBasis(state: GameState, kind: DestinationKind, c: Commodity, mi: number, idx: number): number {
-  return (DEST_BASIS[kind][c] + BASIS_SEASON[c][monthOf(mi) - 1] + (state.coop.grain.basisNoise[c] ?? 0)) * idx;
+  // A big local crop swings the season wider (deep harvest discount, strong recovery); a short one flattens it (D-132).
+  return (DEST_BASIS[kind][c] + BASIS_SEASON[c][monthOf(mi) - 1] * basisSeasonFactor(state, c, mi) + (state.coop.grain.basisNoise[c] ?? 0)) * idx;
 }
 
 export interface SaleOption {
@@ -83,7 +85,8 @@ export function railSale(state: GameState, c: Commodity, mi: number, idx: number
 /** The local market cash bid (basis) a typical country elevator posts this month. */
 export function localBasis(state: GameState, c: Commodity, mi: number, idx: number): number {
   const best = bestTruckSale(state, c, mi, idx, null);
-  return (best?.netBasis ?? -0.3 * idx) - NORMAL_MARGIN[c] * idx;
+  // Elevators take a wider margin when a big crop must move and fight for bushels in a short one (D-132).
+  return (best?.netBasis ?? -0.3 * idx) - NORMAL_MARGIN[c] * idx * marginFactor(state, c, mi);
 }
 
 export const postureBid = (p: Posture, idx: number): number => POSTURE_BID.value[p] * idx;
@@ -98,7 +101,8 @@ export function priceRatio(path: MarketPath, c: Commodity, mi: number): number {
 /** Carry captured per month by hedged storage ($/bu/month, nominal). Negative = inverted market. */
 export function carryPerMonth(path: MarketPath, c: Commodity, mi: number, idx: number): number {
   const ratio = priceRatio(path, c, mi);
-  return HEDGING.carryPerMonth.value[c] * idx * (1 - HEDGING.inversionSlope.value * Math.max(0, ratio - 1.05));
+  // Big crops pay storage; short ones invert the market (D-132).
+  return HEDGING.carryPerMonth.value[c] * idx * carryFactor(path, c, mi) * (1 - HEDGING.inversionSlope.value * Math.max(0, ratio - 1.05));
 }
 
 /** Seasonal basis change expected next month ($/bu nominal). */

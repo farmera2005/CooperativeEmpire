@@ -2,6 +2,7 @@
 // Monthly: deaths. January: retirements, structural exits/consolidation, livestock trends,
 // crop mix, size classes, record pruning.
 
+import { plantingShift } from '../world/farmEconomy';
 import { REGIONS, SPECIES, type RegionDef } from '../../data/regions/eccb';
 import { DEMOGRAPHICS, SETUP } from '../../data/tuning';
 import { valueAt } from '../../data/types';
@@ -173,12 +174,19 @@ function januaryPass(ctx: TickContext, region: RegionDef): void {
     }
   }
 
-  // Crop mix, size class, urban creep.
+  // Crop mix, size class, urban creep. Farmers lean to corn or soybeans by the soybean:corn
+  // price ratio against its norm (D-132).
   const creep = 1 - region.farmlandLossPerYear.value;
+  const shift = plantingShift(ctx.path, year);
   for (const m of list) {
     if (m.status !== 'active') continue;
     const tot = Math.round(totalAcres(m) * creep);
     m.acres = cropSplit(rng, tot, region, year);
+    const rowCrops = m.acres.corn + m.acres.soybeans;
+    const move = Math.round(rowCrops * shift);
+    const take = move > 0 ? Math.min(move, m.acres.soybeans) : Math.max(move, -m.acres.corn);
+    m.acres.corn += take;
+    m.acres.soybeans -= take;
     m.sizeClass = sizeClassOf(tot, region);
   }
 

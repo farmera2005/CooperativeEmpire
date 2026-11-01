@@ -1,5 +1,6 @@
 // Supply prices: wholesale cost per unit, the market (competitors') price, and ours.
 
+import { PRICE_LAG } from '../../data/economy';
 import { FEED_DEMAND, LINES, DIVISION_CONFIG, SUPPLIER_VOLUME, type LineDef, type LineId, type SupplyDivision } from '../../data/supply';
 import { valueAt } from '../../data/types';
 import { incomeStatement } from '../ledger/statements';
@@ -7,7 +8,7 @@ import { pathFor, priceLevel } from '../world/macro';
 import type { SeriesId } from '../../data/markets';
 import { yearOf } from '../core/calendar';
 import type { GameState, Posture } from '../types';
-import { futuresPrice, localBasis } from '../grain/prices';
+import { futuresPrice, grainCostIndex, localBasis } from '../grain/prices';
 import { marketValue, type MarketPath } from '../world/marketPath';
 
 export interface LinePrice {
@@ -44,6 +45,23 @@ export function lineCost(state: GameState, path: MarketPath, def: LineDef, mi: n
 }
 
 /** The going price in the territory. */
+/**
+ * The replacement cost posted prices are set from (D-132): an average over the last few months
+ * in real terms, so a wholesale spike squeezes the margin before shelf prices catch up and a
+ * drop widens it; inflation alone does not.
+ */
+export function laggedCost(state: GameState, path: MarketPath, id: LineId, mi: number, cost: number, pl: number): number {
+  const lag = PRICE_LAG.value[id] ?? 1;
+  if (lag <= 1) return cost;
+  let real = cost / pl;
+  for (let k = 1; k < lag; k++) {
+    const m = mi - k;
+    const plk = priceLevel(path, m);
+    real += lineCost(state, path, LINES[id], m, (grainCostIndex(path, m) + plk) / 2, plk) / plk;
+  }
+  return (real / lag) * pl;
+}
+
 export function marketPrice(def: LineDef, cost: number, idx: number, pl: number): number {
   if (def.cost.kind === 'fixed2024') return pl;
   if (def.margin.kind === 'pct') return cost * (1 + def.margin.value);
@@ -61,7 +79,7 @@ export function ourPrice(def: LineDef, market: number, posture: Posture): number
 export function linePrice(state: GameState, path: MarketPath, id: LineId, mi: number, idx: number, pl: number, posture: Posture, discount = 0): LinePrice {
   const def = LINES[id];
   const cost = lineCost(state, path, def, mi, idx, pl);
-  const market = marketPrice(def, cost, idx, pl);
+  const market = marketPrice(def, laggedCost(state, path, id, mi, cost, pl), idx, pl);
   const ours = SUPPLIER_VOLUME.excludedLines.includes(id) ? cost : cost * (1 - discount);
   return { cost: ours, market, ours: ourPrice(def, market, posture) };
 }

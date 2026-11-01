@@ -7,6 +7,7 @@
 // purchases, inventory relief, LCM → prepay/prebuy → credit → report.
 
 import { serviceOf } from '../competitors/plants';
+import { inputDemand, townYieldFactor, type InputDemand } from '../world/farmEconomy';
 import { salesBoost } from '../people/sales';
 import { addGrievance } from '../members/grievances';
 import { expectedRefundRate } from '../finance/selectors';
@@ -75,7 +76,12 @@ function rollBreakdowns(ctx: TickContext, d: SupplyDivision, facs: Facility[]): 
 }
 
 /** Annual demand per member, by line, in line units ($ lines in 2024 dollars). */
-function memberAnnualDemand(m: Member, year: number, hdd: number, harvestMoisture: number, onFarmShare: number, cornYield: number): Partial<Record<LineId, number>> {
+/**
+ * A farm's yearly needs. `inp` moves them with the economy (D-132): nitrogen rates with the
+ * fertilizer:corn price ratio, P&K and crop protection with farm income, feed with where each
+ * livestock cycle stands; `cornYield` is this farm's own (local weather).
+ */
+function memberAnnualDemand(m: Member, year: number, hdd: number, harvestMoisture: number, onFarmShare: number, cornYield: number, inp: InputDemand): Partial<Record<LineId, number>> {
   const a = m.acres;
   const crop = a.corn + a.soybeans + a.wheat + a.other;
   const ad = AGRONOMY_DEMAND;
@@ -89,14 +95,14 @@ function memberAnnualDemand(m: Member, year: number, hdd: number, harvestMoistur
   const manuf = valueAt(FEED_DEMAND.manufacturedShare, year);
   const ed = ENERGY_DEMAND;
   return {
-    FERT_N: (a.corn * nLbs + a.wheat * nLbs * ad.wheatNShare.value) * ad.tonsPerLbN.value,
-    FERT_PK: a.corn * pk.corn + a.soybeans * pk.soybeans + a.wheat * pk.wheat + a.other * pk.other,
-    CROP_PROTECTION: (a.corn * cp.corn + a.soybeans * cp.soybeans + a.wheat * cp.wheat + a.other * cp.other) * cpIdx,
+    FERT_N: (a.corn * nLbs + a.wheat * nLbs * ad.wheatNShare.value) * ad.tonsPerLbN.value * inp.nRate,
+    FERT_PK: (a.corn * pk.corn + a.soybeans * pk.soybeans + a.wheat * pk.wheat + a.other * pk.other) * inp.pk,
+    CROP_PROTECTION: (a.corn * cp.corn + a.soybeans * cp.soybeans + a.wheat * cp.wheat + a.other * cp.other) * cpIdx * inp.cropProtection,
     SEED: (a.corn * sd.corn + a.soybeans * sd.soybeans + a.wheat * sd.wheat + a.other * sd.other) * seedIdx * ad.seedRetailShare.value,
     APPLICATION: crop * valueAt(ad.customShare, year) * ad.passesPerAcre.value,
-    FEED_SWINE: m.livestock.hogs * fd.hogs * manuf,
-    FEED_DAIRY: m.livestock.dairy * fd.dairy * manuf,
-    FEED_BEEF: (m.livestock.beefCows * fd.beefCows + m.livestock.cattleOnFeed * fd.cattleOnFeed) * manuf,
+    FEED_SWINE: m.livestock.hogs * inp.herds.hogs * fd.hogs * manuf,
+    FEED_DAIRY: m.livestock.dairy * inp.herds.dairy * fd.dairy * manuf,
+    FEED_BEEF: (m.livestock.beefCows * inp.herds.beefCows * fd.beefCows + m.livestock.cattleOnFeed * inp.herds.cattleOnFeed * fd.cattleOnFeed) * manuf,
     FUEL_DIESEL: crop * valueAt(ed.dieselPerAcre, year),
     FUEL_GAS: crop * valueAt(ed.gasolinePerAcre, year),
     // Heating (annualized from this month's degree days is handled per month below) + drying.
@@ -168,6 +174,7 @@ export function stepSupply(ctx: TickContext): void {
   const weather = state.world.weather;
   const onFarm = SUPPLY_SHARE.onFarmDryingShare.value;
   const cornYield = marketValue(path, 'yieldCorn', mi);
+  const inp = inputDemand(state, mi);
 
   // Which divisions each member already buys from us (for bundling).
   const bundled = (m: Member, except: string): number => {
@@ -245,7 +252,7 @@ export function stepSupply(ctx: TickContext): void {
         acc.shareSum += share;
         acc.shareN++;
         const hdd = weather.hdd;
-        const annual = memberAnnualDemand(m, year, hddNormalYear, weather.harvestMoisture, onFarm, cornYield);
+        const annual = memberAnnualDemand(m, year, hddNormalYear, weather.harvestMoisture, onFarm, cornYield * townYieldFactor(state, year, m.townId), inp);
         for (const id of lines) {
           if (id === 'FEED_TOLL') continue;
           const a = (annual[id] ?? 0) * m.weight;
