@@ -43,6 +43,11 @@ export interface GameSetup {
   lenderId: string;
   regionalAffiliations: { regionalId: string; lines: ('grain' | 'agronomy' | 'feed' | 'energy' | 'retail')[] }[];
   homeTownId?: number;
+  /**
+   * What the growers organize (D-134): a grain and farm-supply co-op (the default) or a sugar beet
+   * growers' co-op that buys the territory's beet factory and stations at founding.
+   */
+  coopType?: 'grain' | 'sugar';
   /** Set when the game began as a scenario (DESIGN §19). */
   scenarioId?: string;
   /** Debug mode (D-105): testing tools on the Debug screen. Chosen at creation only. */
@@ -1385,6 +1390,11 @@ export interface SugarPolicy {
   targetAcres: number | null;
   /** Payment at delivery as a share of a ton's product value; the rest is retained and comes back as patronage. */
   growerShare: number;
+  /**
+   * 'proceeds': each February the share is reset to what last year's results could pay with a
+   * small margin kept, so growers carry the sugar price as grower co-ops' do (D-134). Default fixed.
+   */
+  paymentBasis?: 'fixed' | 'proceeds';
 }
 
 /** Beets in storage at one site (piling station or factory yard). */

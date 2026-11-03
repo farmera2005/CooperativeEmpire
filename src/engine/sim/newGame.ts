@@ -1,7 +1,8 @@
 // New game setup and the founding sequence (DESIGN §3).
 
 import { defaultSugarPolicy, emptySugarBook } from '../sugar/operate';
-import { generateSugarCompany } from '../sugar/company';
+import { foundSugarCooperative, generateSugarCompany } from '../sugar/company';
+import { SUGAR_COMPANY } from '../../data/sugar';
 import { emptyTech } from '../world/tech';
 import { emptyRegulation } from '../world/regulation';
 import { brandsAvailable, getBrand } from '../../data/brands';
@@ -10,7 +11,7 @@ import { REGIONS } from '../../data/regions/eccb';
 import { GOVERNANCE_SETUP, LENDING, SETUP } from '../../data/tuning';
 import { MARKETPLACE } from '../../data/grain';
 import { formatCents } from '../core/format';
-import { defaultCommitment, emptyFinance } from '../finance/lender';
+import { defaultCommitment, emptyFinance, lineDrawn, renewalCommitment } from '../finance/lender';
 import { emptyEquityProgram, emptyRegional } from '../finance/defaults';
 import { defaultAffiliations } from '../finance/regionals';
 import { emptyPeople } from '../people/leaders';
@@ -70,9 +71,9 @@ export function defaultHomeTown(t: Territory): Town {
   return [...t.towns].sort((a, b) => Number(b.isCountySeat) - Number(a.isCountySeat) || Math.hypot(a.x - cx, a.y - cy) - Math.hypot(b.x - cx, b.y - cy))[0];
 }
 
-export function suggestCoopNames(t: Territory, year: number, seed: number, count = 5): string[] {
+export function suggestCoopNames(t: Territory, year: number, seed: number, count = 5, coopType: GameSetup['coopType'] = 'grain'): string[] {
   const rng = stream(seed, -1, 'setup.names', year);
-  const patterns = COOP_NAME_PATTERNS.filter((p) => year >= p.from && year < p.to);
+  const patterns = coopType === 'sugar' ? SUGAR_COMPANY.namePatterns.map((pattern) => ({ pattern })) : COOP_NAME_PATTERNS.filter((p) => year >= p.from && year < p.to);
   const out = new Set<string>();
   for (let i = 0; i < 50 && out.size < count; i++) {
     const town = rng.weighted(t.towns, (x) => x.population);
@@ -124,7 +125,7 @@ export function newGame(setupIn: GameSetup): GameState {
   const customers = territoryCustomers({ ...setup, startingMembers: members });
   const list = generateMembers(setup.gameSeed, territory.towns, region, setup.startYear, startMonth, members, customers);
   const governance = electFoundingBoard(stream(setup.gameSeed, -1, 'governance.founding'), list, territory.districts.length, setup.startYear);
-  const name = setup.coopName.trim() || suggestCoopNames(territory, setup.startYear, setup.gameSeed, 1)[0];
+  const name = setup.coopName.trim() || suggestCoopNames(territory, setup.startYear, setup.gameSeed, 1, setup.coopType)[0];
 
   const state: GameState = {
     schemaVersion: SCHEMA_VERSION,
@@ -181,7 +182,12 @@ export function newGame(setupIn: GameSetup): GameState {
   generateSupplyCompetitors(state, stream(setup.gameSeed, -1, 'competitors.supply'), setup.startYear);
   ensureSiteUnits(state);
   generateOffers(state, getMarketPath(setup.gameSeed, setup.historyMode, drift), crng, MARKETPLACE.initialOffers, startMonth, setup.startYear, homeTown.id);
-  state.coop.sugar.company = generateSugarCompany(state, startMonth);
+  const sugarStart = setup.coopType === 'sugar';
+  state.coop.sugar.company = generateSugarCompany(state, startMonth, sugarStart ? homeTown.id : undefined);
+  // A sugar growers' co-op buys the territory's beet factory at founding (D-134).
+  const sugarFounding = sugarStart ? foundSugarCooperative(state, SUGAR_COMPANY.foundingFinancePct.value) : null;
+  // The seasonal line covers the campaign's beets and what was taken over with the factory.
+  if (sugarStart) state.coop.finance.lineCommitment = Math.max(state.coop.finance.lineCommitment, renewalCommitment(state), roundCents(lineDrawn(state) * 1.25));
 
   // Founding memos.
   const dir = governance.directors.map((d) => {
@@ -193,11 +199,11 @@ export function newGame(setupIn: GameSetup): GameState {
   const push = (title: string, body: string) => state.inbox.push({ id: state.nextInboxId++, monthIndex: startMonth, kind: 'memo', title, body, read: false });
   push(
     `${name} is organized`,
-    `At an organizing meeting in ${homeTown.name}, ${founders.length} farmers subscribed for member stock and elected a board of ${governance.directors.length} directors. The board has hired you as General Manager.\n\nBoard of directors:\n${dir.join('\n')}`,
+    `At an organizing meeting in ${homeTown.name}, ${founders.length} farmers subscribed for member stock and elected a board of ${governance.directors.length} directors. The board has hired you as General Manager.${sugarFounding ? `\n\n${sugarFounding}` : sugarStart ? `\n\nThe growers meant to buy ${state.coop.sugar.company?.name ?? 'the sugar company'}'s beet factory, but the money did not come together. The factory and stations stay on offer for a year (Sugar beets screen); a share drive can raise more.` : ''}\n\nBoard of directors:\n${dir.join('\n')}`,
   );
   push(
     'Banking and supply arrangements',
-    `The board approved ${lender} as the cooperative's lender and affiliation with: ${regionals}.\n\nThe cooperative owns no facilities yet. The usual first move is to buy an existing elevator from a retiring independent owner or to build one: see the Grain screen's "Buy or build" tab. The lender has approved a seasonal line of ${formatCents(state.coop.finance.lineCommitment)} and will finance up to ${Math.round(LENDING.maxFinancePct.value * 100)}% of facility purchases with term debt.`,
+    `The board approved ${lender} as the cooperative's lender and affiliation with: ${regionals}.\n\n${sugarStart ? 'The cooperative\'s business is its beet factory and stations. It can add grain and farm supply later.' : 'The cooperative owns no facilities yet. The usual first move is to buy an existing elevator from a retiring independent owner or to build one: see the Grain screen\'s "Buy or build" tab.'} The lender has approved a seasonal line of ${formatCents(state.coop.finance.lineCommitment)} and will finance up to ${Math.round(LENDING.maxFinancePct.value * 100)}% of facility purchases with term debt.`,
   );
   push('Welcome', `It is ${formatMonth(startMonth)}. Review the markets, your members, and the map. End the month when ready.`);
   state.history.push(snapshot(state));

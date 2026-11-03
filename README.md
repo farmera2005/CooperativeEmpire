@@ -51,7 +51,11 @@ in September and October, and are paid a share of a ton's value at delivery; the
 factory's savings comes back as patronage on tons. Piled beets lose sugar until they are sliced,
 and piles left in late spring spoil. Every game has an investor-owned sugar company that some
 years in offers its factory and stations to the growers — or closes. Sell growers **beet
-shares** (stock tied to acres) to raise the equity a purchase or a new factory needs. Sources are
+shares** (stock tied to acres) to raise the equity a purchase or a new factory needs.
+
+You can also **start as a sugar beet growers' cooperative** (New Game > Kind of cooperative): the
+growers buy the sugar company's factory and stations at the organizing meeting with beet shares
+and a term loan, take over the campaign under way, and pay growers from proceeds. Sources are
 in `docs/research/sugar.md`.
 
 ## Accounts

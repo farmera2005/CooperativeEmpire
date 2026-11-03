@@ -34,7 +34,7 @@ export function NewGameScreen() {
     [setup.mapSeed, setup.regionId, setup.startYear, setup.startingMembers, setup.territoryCustomers],
   );
   const homeTownId = setup.homeTownId !== undefined && setup.homeTownId < territory.towns.length ? setup.homeTownId : defaultHomeTown(territory).id;
-  const suggestions = useMemo(() => suggestCoopNames(territory, setup.startYear, setup.mapSeed + nameSeed * 7919, 6), [territory, setup.startYear, setup.mapSeed, nameSeed]);
+  const suggestions = useMemo(() => suggestCoopNames(territory, setup.startYear, setup.mapSeed + nameSeed * 7919, 6, setup.coopType), [territory, setup.startYear, setup.mapSeed, nameSeed, setup.coopType]);
   const lenders = availableLenders(setup.startYear);
   const regionals = availableRegionals(setup.startYear, setup.regionId);
   const lenderId = lenders.some((l) => l.id === setup.lenderId) ? setup.lenderId : lenders[0].id;
@@ -69,6 +69,13 @@ export function NewGameScreen() {
       </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <section className="panel space-y-3 p-4">
+          <fieldset>
+            <legend className="text-sm font-semibold">Kind of cooperative</legend>
+            <div className="mt-1 space-y-1 text-sm">
+              <label className="flex items-start gap-2"><input type="radio" name="coopType" checked={(setup.coopType ?? 'grain') === 'grain'} onChange={() => up({ coopType: 'grain', coopName: '' })} /><span><b>Grain &amp; farm supply</b>: start with capital and no plants; buy or build an elevator first.</span></label>
+              <label className="flex items-start gap-2"><input type="radio" name="coopType" checked={setup.coopType === 'sugar'} onChange={() => up({ coopType: 'sugar', coopName: '' })} /><span><b>Sugar beet growers</b>: the growers buy the territory's beet factory and stations from a sugar company leaving the business, financed with beet shares (stock tied to acres) and a term loan. The home town is the factory town.</span></label>
+            </div>
+          </fieldset>
           <label className="block">
             <span className="text-sm font-semibold">Cooperative name</span>
             <input className="input mt-1 w-full" value={setup.coopName} placeholder={suggestions[0]} onChange={(e) => up({ coopName: e.target.value })} />

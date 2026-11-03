@@ -8,7 +8,7 @@
 // the year; pulp and molasses are sold as made. Growers are paid a share of a ton's product
 // value at delivery and the rest of the division's savings comes back as patronage on tons.
 
-import { SUGAR } from '../../data/sugar';
+import { SUGAR, SUGAR_COMPANY } from '../../data/sugar';
 import { valueAt } from '../../data/types';
 import { monthOf, yearOf } from '../core/calendar';
 import { clamp } from '../core/math';
@@ -172,6 +172,7 @@ export function contractBeets(ctx: TickContext): void {
   if (prev && prev.deliveredTons > 0) state.coop.sugar.campaigns = [...state.coop.sugar.campaigns, prev].slice(-30);
   const sites = state.coop.facilities.filter((f) => (f.kind === 'beetstation' || f.kind === 'sugarfactory') && (f.status === 'operating' || f.status === 'underConstruction')).sort((a, b) => a.id - b.id);
   const hasFactory = state.coop.facilities.some((f) => f.kind === 'sugarfactory' && f.status !== 'closed');
+  resetShareFromProceeds(ctx);
   const target = state.coop.sugarPolicy.targetAcres ?? suggestedAcres(state, year);
   state.coop.sugar.campaign = null;
   if (!hasFactory || !sites.length || target <= 0) return;
@@ -179,6 +180,7 @@ export function contractBeets(ctx: TickContext): void {
   const ratio = beets / Math.max(1, corn);
   const willing = clamp(0.2 + SUGAR.signupSlope.value * (ratio - 0.8), 0.03, 0.95);
   const growers = eligibleGrowers(state, sites);
+  transferShares(state, growers.map((g) => g.m));
   // Shareholders grow their shares first (it is their right and their duty); others fill what is
   // left of the target as they are willing. If shares exceed the target everyone is cut back alike.
   const shareAcres = (m: Member) => Math.min(m.beetShares ?? 0, (m.acres.corn + m.acres.soybeans) * SUGAR.maxRotationShare.value * 1.6);
@@ -437,6 +439,34 @@ const dist = (state: GameState, facilityId: number, to: Facility): number => {
 
 export type { SugarCampaign };
 
+/**
+ * Paying from proceeds (D-134): set the delivery share to what a ton of beets is worth at
+ * today's prices less what it cost last year to process it and run the plants, keeping a small
+ * margin. Growers then carry the sugar price, as grower co-ops' do.
+ */
+function resetShareFromProceeds(ctx: TickContext): void {
+  const { state, mi } = ctx;
+  const p = state.coop.sugarPolicy;
+  if (p.paymentBasis !== 'proceeds') return;
+  const reps = state.coop.sugar.reports.filter((r) => r.monthIndex >= mi - 12);
+  const sliced = reps.reduce((a, r) => a + r.sliced, 0);
+  if (sliced <= 0) return;
+  const is = incomeStatement(state.ledger, Math.max(state.ledger.firstMonth, mi - 12), mi - 1, DIV);
+  const perTon = (reps.reduce((a, r) => a + r.processingCost + r.haulCost, 0) + is.totalOpex + is.interestNet) / 100 / sliced;
+  const value = productValuePerTon(state, mi, beetSugarTrend(yearOf(mi)));
+  // What a ton actually brought in last year (after pile losses and the like), at today's sugar price.
+  const avgPrice = reps.reduce((a, r) => a + r.sugarPrice, 0) / reps.length;
+  const realized = (is.sales / 100 / sliced) * (avgPrice > 0 ? marketValue(pathFor(state), 'sugar', mi) / avgPrice : 1);
+  if (value <= 0 || realized <= 0) return;
+  const wanted = (realized * (1 - SUGAR.proceedsMargin.value) - perTon) / value;
+  const [lo, hi] = SUGAR.growerShareBounds;
+  // Cuts take effect at once; raises come a step at a time, as boards are wary of paying out a good year.
+  const next = Math.round(clamp(Math.min(wanted, p.growerShare + SUGAR.proceedsMaxRaise.value), lo, hi) * 100) / 100;
+  if (next === p.growerShare) return;
+  ctx.inbox({ kind: 'memo', title: `Beet payment set at ${Math.round(next * 100)}% from proceeds`, body: `Paying from proceeds, the delivery payment for the coming crop moves from ${Math.round(p.growerShare * 100)}% to ${Math.round(next * 100)}% of a ton's value. A ton sliced brought in about $${realized.toFixed(2)} at today's sugar price; processing it and running the plants cost $${perTon.toFixed(2)} a ton last year, and the co-op keeps ${Math.round(SUGAR.proceedsMargin.value * 100)}% of sales.` });
+  state.coop.sugarPolicy = { ...p, growerShare: next };
+}
+
 /** Set the beet contract policy (D-133). */
 export function setSugarPolicy(state: GameState, policy: Partial<SugarPolicy>): { level: 'info' | 'error'; text: string }[] {
   const next = { ...state.coop.sugarPolicy, ...policy };
@@ -493,12 +523,20 @@ export function offerBeetShares(state: GameState, pricePerShare: number, maxShar
   const d = shareDemand(state, pricePerShare);
   if (d.shares <= 0) return [{ level: 'error', text: 'At that price no grower would buy shares: beets do not pay enough over corn to earn it back.' }];
   const scale = Math.min(1, maxShares / d.shares);
+  const r = issueBeetShares(state, d.perGrower.map((g) => ({ m: g.m, shares: Math.floor(g.shares * scale) })), pricePerShare, Math.round(maxShares));
+  if (r.raised <= 0) return [{ level: 'error', text: 'No shares were sold.' }];
+  const { growers, sold, raised } = r;
+  return [{ level: 'info', text: `${Math.round(growers)} growers bought ${Math.round(sold).toLocaleString('en-US')} beet shares, raising $${Math.round(raised / 100).toLocaleString('en-US')} of equity.` }];
+}
+
+/** Sell beet shares to the growers given (whole shares per farm), posting the stock (D-133). */
+export function issueBeetShares(state: GameState, perGrower: { m: Member; shares: number }[], pricePerShare: number, offered: number): { sold: number; growers: number; raised: Cents } {
   let sold = 0;
   let growers = 0;
   let raised = 0;
   const lines: { account: string; division: 'SUGAR'; amount: Cents; memberId?: number }[] = [];
-  for (const g of d.perGrower) {
-    const n = Math.floor(g.shares * scale);
+  for (const g of perGrower) {
+    const n = Math.floor(g.shares);
     if (n <= 0) continue;
     // Members are cohorts of `weight` farms; each buys n shares.
     const cash = roundCents(n * pricePerShare * 100 * g.m.weight);
@@ -509,8 +547,99 @@ export function offerBeetShares(state: GameState, pricePerShare: number, maxShar
     growers += g.m.weight;
     raised += cash;
   }
-  if (raised <= 0) return [{ level: 'error', text: 'No shares were sold.' }];
+  if (raised <= 0) return { sold: 0, growers: 0, raised: 0 };
   post(state, { source: 'beet-shares', memo: `Beet shares sold to ${Math.round(growers)} growers`, lines: [{ account: '1000', division: 'SUGAR', amount: raised }, ...lines] });
-  book.shareDrives = [...(book.shareDrives ?? []), { monthIndex: mi, pricePerShare: roundCents(pricePerShare * 100), offered: Math.round(maxShares), sold: Math.round(sold), growers: Math.round(growers), raised }];
-  return [{ level: 'info', text: `${Math.round(growers)} growers bought ${Math.round(sold).toLocaleString('en-US')} beet shares, raising $${Math.round(raised / 100).toLocaleString('en-US')} of equity.` }];
+  const book = state.coop.sugar;
+  book.shareDrives = [...(book.shareDrives ?? []), { monthIndex: state.clock.monthIndex, pricePerShare: roundCents(pricePerShare * 100), offered, sold: Math.round(sold), growers: Math.round(growers), raised }];
+  return { sold, growers, raised };
+}
+
+/**
+ * Seasonal credit a beet factory needs (nominal cents): grower payments for a campaign's beets
+ * are carried in inventory until the sugar is sold through the year.
+ */
+export function sugarLineNeed(state: GameState): Cents {
+  if (!sugarSites(state).factories.length) return 0;
+  const mi = state.clock.monthIndex;
+  const year = yearOf(mi);
+  const tons = suggestedAcres(state, year) * beetYield(year);
+  return roundCents(tons * productValuePerTon(state, mi, beetSugarTrend(year)) * state.coop.sugarPolicy.growerShare * 100);
+}
+
+/**
+ * Take over a selling company's campaign in progress (D-134): when growers buy a factory in
+ * winter or spring, the beets still in its piles and the sugar in its silos come with it, at
+ * what they cost the company, carried on the seasonal line. Returns what was paid (cents).
+ */
+export function takeOverCampaign(state: GameState, factory: Facility): Cents {
+  const mi = state.clock.monthIndex;
+  const month = monthOf(mi);
+  if (month > SUGAR.campaignEndMonth) return 0;
+  const crop = yearOf(mi) - 1;
+  const tons = suggestedAcres(state, crop) * beetYield(crop);
+  if (tons <= 0) return 0;
+  const path = pathFor(state);
+  const perMonth = sugarCapacity(state).tpd * 30 * SUGAR.uptime.value;
+  // Slicing has run since September; sugar has been sold evenly since then.
+  const months = month + 12 - SUGAR.harvest.prepileMonth;
+  const sliced = Math.min(tons, perMonth * months);
+  const piled = tons - sliced;
+  const sugarPct = beetSugarTrend(crop);
+  const made = (sliced * 2000 * sugarPct) / 100 / 100 * recovery(state, crop);
+  const cwt = made * Math.max(0, 1 - months / 12);
+  const share = state.coop.sugarPolicy.growerShare;
+  const pileCost = roundCents(piled * productValuePerTon(state, mi, sugarPct) * share * 100);
+  const sugarCost = roundCents(cwt * marketValue(path, 'sugar', mi) * Math.min(0.95, share + SUGAR_COMPANY.takeoverProcessingShare.value) * 100);
+  const book = state.coop.sugar;
+  if (piled > 0) book.piles = [{ facilityId: factory.id, tons: piled }];
+  book.pileSugarPct = sugarPct;
+  book.pileCost = pileCost;
+  book.sugarCwt = cwt;
+  book.sugarCost = sugarCost;
+  const acres = Math.round(tons / beetYield(crop));
+  book.campaigns = [...book.campaigns, {
+    year: crop, contractedAcres: acres, growers: 0, deliveredTons: tons, leftInFieldTons: 0, avgSugarPct: sugarPct,
+    slicedTons: sliced, sugarCwt: made, pulpTons: sliced * SUGAR.pulpTonsPerTon.value, molassesTons: sliced * SUGAR.molassesTonsPerTon.value,
+    storageLossTons: 0, growerPayments: 0, ...(piled > 0 ? {} : { closed: true }),
+  }];
+  const paid = pileCost + sugarCost;
+  if (paid > 0) {
+    post(state, {
+      source: 'sugar-takeover', memo: 'Beets in the piles and sugar in the silos taken over with the factory',
+      lines: [{ account: '1260', division: DIV, amount: paid, facilityId: factory.id }, { account: '2000', division: 'CORP', amount: -paid }],
+    });
+  }
+  return paid;
+}
+
+/**
+ * Beet shares stay with the land (D-134): shares of members who have left are sold to growers
+ * near the plants, in proportion to the rotation acres they could plant, and their stock goes
+ * with them. The money changes hands between farmers; the co-op's equity is unchanged.
+ */
+function transferShares(state: GameState, buyers: Member[]): void {
+  const sellers = state.members.list.filter((m) => m.status !== 'active' && (m.beetShares ?? 0) > 0).sort((a, b) => a.id - b.id);
+  if (!sellers.length || !buyers.length) return;
+  const room = buyers.map((m) => Math.max(0, (m.acres.corn + m.acres.soybeans + (m.beetAcres ?? 0)) * SUGAR.maxRotationShare.value - (m.beetShares ?? 0)) * m.weight);
+  const totalRoom = room.reduce((a, b) => a + b, 0);
+  if (totalRoom <= 0) return;
+  const pref = state.equity.preferredStock;
+  for (const sel of sellers) {
+    const shares = (sel.beetShares ?? 0) * sel.weight;
+    const stock = pref[sel.id] ?? 0;
+    let movedStock = 0;
+    buyers.forEach((b, i) => {
+      const part = room[i] / totalRoom;
+      if (part <= 0) return;
+      b.beetShares = (b.beetShares ?? 0) + (shares * part) / b.weight;
+      const cents = Math.floor(stock * part);
+      movedStock += cents;
+      if (cents) pref[b.id] = (pref[b.id] ?? 0) + cents;
+    });
+    // Rounding pennies go to the grower who took the most.
+    const top = buyers[room.indexOf(Math.max(...room))];
+    if (stock - movedStock) pref[top.id] = (pref[top.id] ?? 0) + stock - movedStock;
+    sel.beetShares = 0;
+    if (stock) delete pref[sel.id];
+  }
 }

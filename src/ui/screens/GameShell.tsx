@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { balance, formatMonth, fiscalYearOf, openDecisions, STATUS_LABEL } from '../../engine/index';
 import { money } from '../format';
 import { useStore, type Tab } from '../store';
-import { GUIDE, guideProgress } from '../guide';
+import { guideProgress } from '../guide';
 import { Dashboard } from './Dashboard';
 import { MapScreen } from './MapScreen';
 import { MarketsScreen } from './MarketsScreen';
@@ -198,12 +198,12 @@ function GuidePanel() {
   const setGuide = useStore((s) => s.setGuide);
   const setTab = useStore((s) => s.setTab);
   if (!on) return null;
-  const { step, index } = guideProgress(game, visited);
+  const { step, index, total } = guideProgress(game, visited);
   return (
     <aside aria-label="Guide" className="flex items-start gap-3 border-b border-stone-300 bg-[#eef3e8] px-4 py-2 text-sm">
       {step ? (
         <>
-          <span className="mt-0.5 shrink-0 rounded bg-field px-1.5 text-xs text-white">{index + 1}/{GUIDE.length}</span>
+          <span className="mt-0.5 shrink-0 rounded bg-field px-1.5 text-xs text-white">{index + 1}/{total}</span>
           <div className="min-w-0 flex-1"><b>{step.title}.</b> {step.text}</div>
           <button className="btn shrink-0 text-xs" onClick={() => setTab(step.tab)}>Show me</button>
         </>

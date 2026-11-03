@@ -67,6 +67,12 @@ export const SUGAR = {
   /** What grower co-ops pay out in all (delivery payments plus patronage), as a share of a ton's product value; growers count on it before there is a record. */
   growerNetShare: s(0.65, 'low', 'American Crystal paid ~$70–83/ton (2022–24) against ~$110–130 of sugar, pulp and molasses at wholesale less freight'),
   growerShareBounds: [0.35, 0.7] as [number, number],
+  /** Paying from proceeds: margin of sales the co-op keeps when it resets the share. */
+  /** Paying from proceeds: the most the share rises in a year (points of value). */
+  proceedsMaxRaise: s(0.04, 'low'),
+  /** Delivery share a sugar co-op founded at game start begins with. */
+  foundingGrowerShare: 0.45,
+  proceedsMargin: s(0.04, 'low', 'Beet co-ops pay growers nearly all net proceeds, keeping a little for reserves and debt service'),
   /** Growers sign up when beets beat corn; this many points of willingness per unit of the ratio of returns above 0.8. */
   signupSlope: s(0.7, 'low'),
   /** Corn's return over direct costs per acre against its gross value (to compare with beets). */
@@ -116,4 +122,12 @@ export const SUGAR_COMPANY = {
   condition: [45, 75] as [number, number],
   stations: 2,
   stationMiles: [10, 28] as [number, number],
+  /** A sugar co-op founded at game start (D-134): working cash raised with the shares, as a share of the price. */
+  /** Share of the founding purchase financed with a term loan. */
+  foundingFinancePct: s(0.6, 'low', 'Co-op lenders financed grower purchases of factories against beet shares and the plants'),
+  /** Names growers gave sugar co-ops ({town}, {county}). */
+  namePatterns: ['{county} Beet Growers Cooperative', '{town} Sugar Cooperative', '{county} Sugar Beet Growers Association', '{town} Valley Sugar Cooperative', 'Growers\' Sugar Cooperative of {county} County'],
+  /** Sugar taken over with a factory is valued at the growers' share of its price plus this much for processing. */
+  takeoverProcessingShare: s(0.12, 'low'),
+  foundingWorkingCash: s(0.15, 'low', 'Enough to carry the first months before the seasonal line is set to the crop'),
 };

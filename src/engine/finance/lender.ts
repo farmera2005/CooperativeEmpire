@@ -3,6 +3,7 @@
 // lender's risk spread from covenant standing (covenants.ts).
 
 import { brandsAvailable, getBrand } from '../../data/brands';
+import { sugarLineNeed } from '../sugar/operate';
 import { COVENANTS, LENDER, lenderKind } from '../../data/finance';
 import { LENDING } from '../../data/tuning';
 import { valueAt } from '../../data/types';
@@ -47,7 +48,8 @@ export function borrowingBase(state: GameState): Cents {
     hedged += p.book * hedgedShare;
     unhedged += p.book * (1 - hedgedShare);
   }
-  const other = balance(l, '1210') + balance(l, '1220') + balance(l, '1230') + balance(l, '1240');
+  // Sugar and beets in store are lent against like other inventory (D-133).
+  const other = balance(l, '1210') + balance(l, '1220') + balance(l, '1230') + balance(l, '1240') + balance(l, '1260');
   const base = adv.receivables * Math.max(0, balance(l, '1100') + balance(l, '1150'))
     + adv.hedgedGrain * hedged + adv.unhedgedGrain * unhedged + adv.otherInventory * other
     + adv.marginDeposits * Math.max(0, balance(l, '1310'))
@@ -80,7 +82,7 @@ export function renewalCommitment(state: GameState): Cents {
     const cap = grainCapacity(f.components);
     need += (cap.storageBu + cap.pileBu) * marketValue(path, 'soybeans', mi) * 0.5 + (cap.storageBu + cap.pileBu) * marketValue(path, 'corn', mi) * 0.5;
   }
-  const want = Math.max(defaultCommitment(state), roundCents(need * LENDING.inventoryFinanceShare.value * 100));
+  const want = Math.max(defaultCommitment(state), roundCents(need * LENDING.inventoryFinanceShare.value * 100) + roundCents(sugarLineNeed(state) * LENDING.inventoryFinanceShare.value));
   return Math.min(want, maxCommitment(state));
 }
 

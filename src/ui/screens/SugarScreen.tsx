@@ -109,7 +109,7 @@ function Overview() {
                 <tr key={x.year}>
                   <td>{x.year}{x.closed ? '' : ' (slicing)'}</td><td className="r">{num(x.contractedAcres)}</td><td className="r">{num(x.deliveredTons)}</td>
                   <td className="r">{x.contractedAcres ? (x.deliveredTons / x.contractedAcres).toFixed(1) : '—'}</td><td className="r">{x.avgSugarPct.toFixed(1)}</td>
-                  <td className="r">{num(x.slicedTons)}</td><td className="r">{num(x.sugarCwt)}</td><td className="r">{num(x.storageLossTons)}</td><td className="r">{num(x.leftInFieldTons)}</td><td className="r">{money(x.growerPayments, { compact: true })}</td>
+                  <td className="r">{num(x.slicedTons)}</td><td className="r">{num(x.sugarCwt)}</td><td className="r">{num(x.storageLossTons)}</td><td className="r">{num(x.leftInFieldTons)}</td><td className="r">{x.growerPayments || x.growers ? money(x.growerPayments, { compact: true }) : <span className="text-xs text-stone-500">bought with the factory</span>}</td>
                 </tr>
               ))}
             </tbody>
@@ -144,6 +144,7 @@ function Contracts() {
           <label className="block"><input type="checkbox" checked={p.targetAcres === null} onChange={(e) => command({ type: 'setSugarPolicy', policy: { targetAcres: e.target.checked ? null : suggested } })} /> Contract what our plants can handle ({num(suggested)} acres this year)</label>
           {p.targetAcres !== null && <label className="block">Target <CommitNumber min={0} max={500_000} value={p.targetAcres} onCommit={(v) => command({ type: 'setSugarPolicy', policy: { targetAcres: v } })} /> acres</label>}
           <label className="block">Pay growers <CommitNumber min={Math.round(lo * 100)} max={Math.round(hi * 100)} value={Math.round(p.growerShare * 100)} onCommit={(v) => command({ type: 'setSugarPolicy', policy: { growerShare: v / 100 } })} />% of a ton's value at delivery</label>
+          <label className="block"><input type="checkbox" checked={p.paymentBasis === 'proceeds'} onChange={(e) => command({ type: 'setSugarPolicy', policy: { paymentBasis: e.target.checked ? 'proceeds' : 'fixed' } })} /> Pay from proceeds: each February reset the share to what last year's sugar sales could pay after the factory's costs (growers carry the sugar price)</label>
           <table className="data">
             <tbody>
               <tr><td>Value of a ton of beets now</td><td className="r">${value.toFixed(2)}</td><td className="text-xs text-stone-500">sugar at {beetSugarTrend(year).toFixed(1)}% and {pct(recovery(game, year), 0)} recovery, plus pulp and molasses</td></tr>

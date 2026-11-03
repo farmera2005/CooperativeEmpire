@@ -118,3 +118,48 @@ describe('save migration v11 → v12 (sugar)', () => {
     expect(checkInvariants(run(m, 6))).toEqual([]);
   });
 });
+
+describe('starting as a sugar cooperative (D-134)', () => {
+  const sugarStart = (year: number, seed = 3) => newGame({ ...setup(year, seed), capitalPreset: 'typical', coopType: 'sugar' });
+
+  it('the growers buy the factory, stations and campaign in progress at founding', () => {
+    const s = sugarStart(1980);
+    const co = s.coop.sugar.company!;
+    expect(co.status).toBe('sold');
+    expect(co.factoryTownId).toBe(s.coop.homeTownId);
+    const kinds = s.coop.facilities.map((f) => f.kind);
+    expect(kinds).toContain('sugarfactory');
+    expect(kinds.filter((k) => k === 'beetstation').length).toBeGreaterThan(0);
+    expect(Object.values(s.equity.preferredStock).reduce((a, b) => a + b, 0)).toBeGreaterThan(0);
+    expect(s.coop.sugar.sugarCwt + s.coop.sugar.piles.reduce((a, p) => a + p.tons, 0)).toBeGreaterThan(0);
+    expect(s.coop.sugarPolicy.paymentBasis).toBe('proceeds');
+    expect(s.coop.offers.some((o) => co.offerIds.includes(o.id))).toBe(false);
+    expect(s.inbox[0].body).toContain('beet shares');
+    expect(checkInvariants(s)).toEqual([]);
+    expect(JSON.stringify(sugarStart(1980))).toBe(JSON.stringify(s));
+  });
+
+  it('runs its first campaign and stays solvent', () => {
+    const s = run(sugarStart(1985, 4), 10);
+    expect(s.outcome ?? null).toBeNull();
+    const c = s.coop.sugar.campaign!;
+    expect(c.year).toBe(1985);
+    expect(c.deliveredTons).toBeGreaterThan(0);
+    expect(s.coop.sugar.campaigns.some((x) => x.year === 1984 && x.closed)).toBe(true);
+    expect(checkInvariants(s)).toEqual([]);
+  }, 60_000);
+
+  it('passes a departed grower\'s shares and stock to growers near the plants', () => {
+    const s = sugarStart(1990, 5);
+    const holder = s.members.list.find((m) => (m.beetShares ?? 0) > 0)!;
+    const stock = Object.values(s.equity.preferredStock).reduce((a, b) => a + b, 0);
+    const shares = s.members.list.reduce((a, m) => a + (m.beetShares ?? 0) * m.weight, 0);
+    holder.status = 'retired';
+    const t = run(s, 2);
+    expect(t.members.list.find((m) => m.id === holder.id)!.beetShares ?? 0).toBe(0);
+    expect(t.equity.preferredStock[holder.id] ?? 0).toBe(0);
+    expect(Object.values(t.equity.preferredStock).reduce((a, b) => a + b, 0)).toBe(stock);
+    expect(t.members.list.reduce((a, m) => a + (m.beetShares ?? 0) * m.weight, 0)).toBeCloseTo(shares, 3);
+    expect(checkInvariants(t)).toEqual([]);
+  }, 60_000);
+});
