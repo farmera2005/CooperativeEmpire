@@ -85,5 +85,6 @@ export { confidenceWhy, satisfactionWhy } from './governance/why';
 
 export { farmEconomyView } from './world/farmEconomy';
 export type { FarmEconomyView, FarmEconomyYear } from './world/farmEconomy';
-export { beetSugarTrend, beetYield, growerReturns, productValuePerTon, recovery, shareDemand, shareDriveTowns, sugarCapacity, suggestedAcres } from './sugar/operate';
+export { agCoverage, agEffect, agriculturistCost, beetGrowers, beetSugarTrend, beetYield, growerReturns, productValuePerTon, recommendedAgriculturists, recovery, shareDemand, shareDriveTowns, sugarCapacity, sugarUptime, suggestedAcres } from './sugar/operate';
+export { cccCapacity, cccLoanRate } from './sugar/finance';
 export type { SugarCapacity } from './sugar/operate';

@@ -29,6 +29,7 @@ import { stepAnnualMeeting, stepMemberDemocracy } from '../governance/elections'
 import { stepDepreciation, stepFacilityCosts, stepProjects } from '../facilities/facilities';
 import { stepGrain } from '../grain/operate';
 import { stepSugar } from '../sugar/operate';
+import { stepCccLoans } from '../sugar/finance';
 import { stepFarmEconomyReports } from '../world/farmEconomy';
 import { stepSupply } from '../supply/operate';
 import { stepCapperVolstead } from './capperVolstead';
@@ -132,6 +133,8 @@ export function advanceMonth(state: GameState, decisions: Command[] = [], opts: 
   stepRegionalAnnual(ctx);
   stepLenderPatronage(ctx);
   // 19. treasury: loans, line interest, borrowing base, sweep
+  // Cheap CCC sugar loans first, then the line (D-135).
+  stepCccLoans(ctx);
   stepLender(ctx);
   // 20. random events; decisions past their deadline take the default
   stepRandomEvents(ctx);

@@ -3,8 +3,8 @@
 
 import { annual, s } from './types';
 
-export type Role = 'CFO' | 'COO' | 'GRAIN' | 'AGRONOMY' | 'FEED' | 'ENERGY' | 'RETAIL' | 'SAFETY' | 'HR' | 'MARKETING' | 'IT';
-export const ROLES: Role[] = ['CFO', 'COO', 'GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'RETAIL', 'SAFETY', 'HR', 'MARKETING', 'IT'];
+export type Role = 'CFO' | 'COO' | 'GRAIN' | 'AGRONOMY' | 'FEED' | 'ENERGY' | 'RETAIL' | 'SUGAR' | 'AGRI' | 'SAFETY' | 'HR' | 'MARKETING' | 'IT';
+export const ROLES: Role[] = ['CFO', 'COO', 'GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'RETAIL', 'SUGAR', 'AGRI', 'SAFETY', 'HR', 'MARKETING', 'IT'];
 
 export type Skill = 'leadership' | 'operations' | 'sales' | 'merchandising' | 'finance' | 'safety' | 'memberRelations' | 'innovation';
 export const SKILLS: Skill[] = ['leadership', 'operations', 'sales', 'merchandising', 'finance', 'safety', 'memberRelations', 'innovation'];
@@ -34,6 +34,9 @@ export const ROLE_DEFS: Record<Role, RoleDef> = {
   AGRONOMY: { label: 'Agronomy division manager', salary: 95_000, primary: ['sales', 'operations'], unlock: { divisionSites: 2, divisionGross2024: 3_000_000 } },
   FEED: { label: 'Feed division manager', salary: 90_000, primary: ['sales', 'operations'], unlock: { divisionSites: 2, divisionGross2024: 2_500_000 } },
   ENERGY: { label: 'Energy division manager', salary: 90_000, primary: ['sales', 'operations'], unlock: { divisionSites: 2, divisionGross2024: 2_500_000 } },
+  // Sugar (D-135): a factory manager runs the campaign; the agricultural manager runs the growers' side.
+  SUGAR: { label: 'Sugar factory manager', salary: 135_000, primary: ['operations', 'leadership'], unlock: { divisionSites: 1, divisionGross2024: 2_000_000 } },
+  AGRI: { label: 'Agricultural manager (sugar beets)', salary: 105_000, primary: ['memberRelations', 'operations'], unlock: { divisionSites: 1, divisionGross2024: 4_000_000 } },
   RETAIL: { label: 'Retail manager', salary: 80_000, primary: ['sales', 'leadership'], unlock: { divisionSites: 3, divisionGross2024: 2_000_000 } },
   SAFETY: { label: 'Safety director', salary: 85_000, primary: ['safety', 'operations'], unlock: { minOperatingSites: 4, minGross2024: 6_000_000, fromYear: 1975 } },
   HR: { label: 'Human resources manager', salary: 80_000, primary: ['leadership', 'memberRelations'], unlock: { minFte: 60 } },
@@ -109,7 +112,7 @@ export const TRAITS: Record<TraitId, TraitDef> = {
   oldSchool: { label: 'Old School', description: 'Farmers trust him or her; new technology waits. Member relations +2, innovation −3.', skills: { memberRelations: 2, innovation: -3 }, prob: 0.2 },
   rainmaker: { label: 'Rainmaker', description: 'Sells. Sales +3.', skills: { sales: 3 }, prob: 0.15, roles: ['AGRONOMY', 'FEED', 'ENERGY', 'RETAIL', 'MARKETING'] },
   tightWithADollar: { label: 'Tight With a Dollar', description: 'Cuts costs (division opex −3%) but staff morale suffers.', prob: 0.15 },
-  builder: { label: 'Builder', description: 'Brings projects in on budget (overruns −) and keeps pushing for new ones.', prob: 0.15, roles: ['COO', 'GRAIN', 'AGRONOMY', 'FEED', 'ENERGY'] },
+  builder: { label: 'Builder', description: 'Brings projects in on budget (overruns −) and keeps pushing for new ones.', prob: 0.15, roles: ['COO', 'GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'SUGAR'] },
   coasting: { label: 'Coasting to Retirement', description: 'Effects −20%, and retiring soon.', prob: 0.1 },
   peoplePerson: { label: 'People Person', description: 'Staff stay. Turnover in the division −25%, morale +.', prob: 0.15 },
 };
@@ -117,7 +120,8 @@ export const TRAITS: Record<TraitId, TraitDef> = {
 export type EffectKey =
   | 'grain.basis' | 'grain.throughput' | 'supply.share' | 'agronomy.application' | 'feed.mill' | 'energy.delivery' | 'finance.spread'
   | 'finance.forecast' | 'coo.opex' | 'coo.decay' | 'safety.incidents' | 'safety.insurance' | 'hr.turnover' | 'members.satisfaction'
-  | 'members.election' | 'innovation.adoption' | 'staff.morale' | 'division.opex';
+  | 'members.election' | 'innovation.adoption' | 'staff.morale' | 'division.opex'
+  | 'sugar.uptime' | 'sugar.extraction' | 'sugar.pileLoss' | 'sugar.signup';
 
 export interface EffectRow {
   role: Role | 'division';
@@ -146,6 +150,10 @@ export const EFFECTS: EffectRow[] = [
   { role: 'AGRONOMY', skill: 'operations', key: 'agronomy.application', perPoint: 0.03, min: -0.18, max: 0.3, unit: '× acres/day', description: 'Custom application acres per rig-day' },
   { role: 'FEED', skill: 'operations', key: 'feed.mill', perPoint: 0.024, min: -0.15, max: 0.24, unit: '× mill tons', description: 'Feed mill throughput' },
   { role: 'ENERGY', skill: 'operations', key: 'energy.delivery', perPoint: 0.024, min: -0.15, max: 0.24, unit: '× gallons/truck', description: 'Delivery truck gallons per month' },
+  { role: 'SUGAR', skill: 'operations', key: 'sugar.uptime', perPoint: 0.006, min: -0.04, max: 0.04, unit: 'points of uptime', description: 'Share of the campaign the factory runs' },
+  { role: 'SUGAR', skill: 'innovation', key: 'sugar.extraction', perPoint: 0.002, min: -0.012, max: 0.015, unit: 'points of recovery', description: 'Sugar recovered from the beets sliced' },
+  { role: 'AGRI', skill: 'operations', key: 'sugar.pileLoss', perPoint: -0.04, min: -0.3, max: 0.25, unit: '× pile losses', description: 'Sugar lost in the piles' },
+  { role: 'AGRI', skill: 'memberRelations', key: 'sugar.signup', perPoint: 0.015, min: -0.1, max: 0.12, unit: 'willingness', description: 'Growers\' willingness to sign beet contracts' },
   { role: 'CFO', skill: 'finance', key: 'finance.spread', perPoint: -0.08, min: -0.6, max: 0.4, unit: 'points', description: 'Lender\'s spread on our line and new term loans' },
   { role: 'CFO', skill: 'finance', key: 'finance.forecast', perPoint: -0.08, min: -0.8, max: 0.6, unit: '× forecast error', description: 'Error in budgets and the CFO\'s notes' },
   { role: 'COO', skill: 'operations', key: 'coo.opex', perPoint: -0.008, min: -0.08, max: 0.05, unit: '× site operating cost', description: 'Wages, repairs and utilities at every site' },

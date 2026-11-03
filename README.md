@@ -55,7 +55,11 @@ shares** (stock tied to acres) to raise the equity a purchase or a new factory n
 
 You can also **start as a sugar beet growers' cooperative** (New Game > Kind of cooperative): the
 growers buy the sugar company's factory and stations at the organizing meeting with beet shares
-and a term loan, take over the campaign under way, and pay growers from proceeds. Sources are
+and a term loan, take over the campaign under way, and pay growers from proceeds.
+Growers are paid in installments (60% at delivery, the rest by August), and sugar in store can be
+pledged for USDA CCC loans, forfeited at the loan rate when the market is lower. On the People
+screen, hire a sugar factory manager and an agricultural manager, and set the agriculturists
+(field staff) and the campaign crew. Sources are
 in `docs/research/sugar.md`.
 
 ## Accounts

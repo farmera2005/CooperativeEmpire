@@ -163,3 +163,56 @@ describe('starting as a sugar cooperative (D-134)', () => {
     expect(checkInvariants(t)).toEqual([]);
   }, 60_000);
 });
+
+describe('sugar finance and staff (D-135)', () => {
+  const sugarStart = (year: number, seed = 3) => newGame({ ...setup(year, seed), capitalPreset: 'typical', coopType: 'sugar' });
+
+  it('pays growers in installments, borrows from the CCC first and stays inside the line', () => {
+    let s = sugarStart(2005, 2);
+    let owedAfterHarvest = 0;
+    let usedCcc = false;
+    for (let i = 0; i < 24 && !s.outcome; i++) {
+      s = advanceMonth(s).state;
+      expect(s.coop.finance.overLimit, `month ${i}`).toBe(false);
+      const month = (s.coop.sugar.report!.monthIndex % 12) + 1;
+      if (month === 11) owedAfterHarvest = Math.max(owedAfterHarvest, s.coop.sugar.growerPayable ?? 0);
+      usedCcc ||= (s.coop.sugar.cccLoan ?? 0) > 0;
+      if (month === 8) expect(s.coop.sugar.growerPayable ?? 0).toBe(0); // paid off by August
+    }
+    expect(owedAfterHarvest).toBeGreaterThan(0);
+    expect(usedCcc).toBe(true);
+    expect(checkInvariants(s)).toEqual([]);
+  }, 90_000);
+
+  it('forfeits sugar to the CCC when the market is below the loan rate', () => {
+    const s = run(sugarStart(2000, 1), 14);
+    expect(s.coop.sugar.reports.some((r) => (r.forfeitedCwt ?? 0) > 0)).toBe(true);
+    expect(checkInvariants(s)).toEqual([]);
+  }, 90_000);
+
+  it('a sugar co-op needs a factory manager and an agricultural manager once it is big enough', () => {
+    const s = run(sugarStart(1990, 2), 13);
+    expect(s.people.needed).toEqual(expect.arrayContaining(['SUGAR', 'AGRI']));
+  }, 60_000);
+
+  it('sets agriculturists and the campaign crew within bounds', () => {
+    const s = sugarStart(1990);
+    expect(applyCommand(s, { type: 'setSugarPolicy', policy: { agriculturists: 500 } }).ok).toBe(false);
+    const r = applyCommand(s, { type: 'setSugarPolicy', policy: { agriculturists: 8, campaignCrew: 'full' } });
+    expect(r.ok).toBe(true);
+    expect(r.state.coop.sugarPolicy.campaignCrew).toBe('full');
+  });
+
+  it('save migration v12 → v13 starts grower payables and CCC loans at zero', () => {
+    const v13 = newGame(setup(1985, 7));
+    const v12 = JSON.parse(JSON.stringify(v13));
+    v12.schemaVersion = 12;
+    delete v12.coop.sugar.growerPayable;
+    delete v12.coop.sugar.cccLoan;
+    const m = migrate(v12);
+    expect(m.schemaVersion).toBe(SCHEMA_VERSION);
+    expect(m.coop.sugar.growerPayable).toBe(0);
+    expect(m.coop.sugar.cccLoan).toBe(0);
+    expect(checkInvariants(run(m, 3))).toEqual([]);
+  });
+});

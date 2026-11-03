@@ -172,6 +172,13 @@ export const MIGRATIONS: Record<number, (s: AnyState) => AnyState> = {
     if (s.coop.sugar.company === undefined) s.coop.sugar.company = generateSugarCompany(s, s.clock.monthIndex);
     return { ...s, schemaVersion: 12 };
   },
+  // D-135: sugar finance — grower payments owed and CCC sugar loans start at zero (deliveries
+  // already paid in full stay paid). Agriculturists are suggested at the next contracting.
+  12: (s) => {
+    s.coop.sugar.growerPayable ??= 0;
+    s.coop.sugar.cccLoan ??= 0;
+    return { ...s, schemaVersion: 13 };
+  },
 };
 
 export interface SaveFile {

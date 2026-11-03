@@ -118,6 +118,9 @@ export function checkInvariants(state: GameState): string[] {
   // Beets in the piles and sugar in the silos tie to the sugar inventory account (D-133).
   const sugarInv = (state.coop.sugar?.pileCost ?? 0) + (state.coop.sugar?.sugarCost ?? 0);
   if (sugarInv !== glOf('1260')) errors.push(`Sugar & beets ${sugarInv} != GL ${glOf('1260')}`);
+  // What growers are still owed and the CCC sugar loans tie to their accounts (D-135).
+  if ((state.coop.sugar?.growerPayable ?? 0) !== -glOf('2115')) errors.push(`Grower payable ${state.coop.sugar?.growerPayable ?? 0} != GL ${-glOf('2115')}`);
+  if ((state.coop.sugar?.cccLoan ?? 0) !== -glOf('2050')) errors.push(`CCC loans ${state.coop.sugar?.cccLoan ?? 0} != GL ${-glOf('2050')}`);
 
   // 10. Goodwill, net of amortization, ties to the purchases that created it.
   const n = DEALS.goodwillMonths;

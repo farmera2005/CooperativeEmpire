@@ -11,7 +11,7 @@ import { REGIONS } from '../../data/regions/eccb';
 import { GOVERNANCE_SETUP, LENDING, SETUP } from '../../data/tuning';
 import { MARKETPLACE } from '../../data/grain';
 import { formatCents } from '../core/format';
-import { defaultCommitment, emptyFinance, lineDrawn, renewalCommitment } from '../finance/lender';
+import { borrowingBase, defaultCommitment, emptyFinance, lineDrawn, renewalCommitment } from '../finance/lender';
 import { emptyEquityProgram, emptyRegional } from '../finance/defaults';
 import { defaultAffiliations } from '../finance/regionals';
 import { emptyPeople } from '../people/leaders';
@@ -187,7 +187,10 @@ export function newGame(setupIn: GameSetup): GameState {
   // A sugar growers' co-op buys the territory's beet factory at founding (D-134).
   const sugarFounding = sugarStart ? foundSugarCooperative(state, SUGAR_COMPANY.foundingFinancePct.value) : null;
   // The seasonal line covers the campaign's beets and what was taken over with the factory.
-  if (sugarStart) state.coop.finance.lineCommitment = Math.max(state.coop.finance.lineCommitment, renewalCommitment(state), roundCents(lineDrawn(state) * 1.25));
+  if (sugarStart) {
+    state.coop.finance.lineCommitment = Math.max(state.coop.finance.lineCommitment, renewalCommitment(state), roundCents(lineDrawn(state) * 1.25));
+    state.coop.finance.borrowingBase = borrowingBase(state);
+  }
 
   // Founding memos.
   const dir = governance.directors.map((d) => {

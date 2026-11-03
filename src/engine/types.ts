@@ -11,7 +11,7 @@ import type { Commodity } from '../data/grain';
 import type { Breakdown } from './core/breakdown';
 import type { Role, Skill, TraitId } from '../data/people';
 
-export const SCHEMA_VERSION = 12;
+export const SCHEMA_VERSION = 13;
 
 export type DivisionId = 'GRAIN' | 'AGRONOMY' | 'FEED' | 'ENERGY' | 'RETAIL' | 'SUGAR' | 'CORP';
 export const DIVISIONS: DivisionId[] = ['GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'RETAIL', 'SUGAR', 'CORP'];
@@ -1395,6 +1395,10 @@ export interface SugarPolicy {
    * small margin kept, so growers carry the sugar price as grower co-ops' do (D-134). Default fixed.
    */
   paymentBasis?: 'fixed' | 'proceeds';
+  /** Field staff (D-135); undefined until set (contracting suggests a number). */
+  agriculturists?: number;
+  /** Campaign crew level (D-135). */
+  campaignCrew?: 'lean' | 'standard' | 'full';
 }
 
 /** Beets in storage at one site (piling station or factory yard). */
@@ -1437,6 +1441,10 @@ export interface SugarMonthReport {
   growerPayments: Cents;
   processingCost: Cents;
   haulCost: Cents;
+  /** Grower installments paid, CCC loan balance and sugar forfeited to the CCC this month (D-135). */
+  installments?: Cents;
+  cccLoan?: Cents;
+  forfeitedCwt?: number;
   /** What limits slicing: slicers, lime kilns, boilers. */
   bottleneck: string | null;
 }
@@ -1455,6 +1463,10 @@ export interface SugarBook {
   reports: SugarMonthReport[];
   /** The investor-owned sugar company in the territory, which sells out to growers or closes (D-133). */
   company?: SugarCompany | null;
+  /** Grower payments still owed for delivered beets (GL 2115), paid monthly through August (D-135). */
+  growerPayable?: Cents;
+  /** USDA CCC sugar loans outstanding against sugar in store (GL 2050). */
+  cccLoan?: Cents;
   /** Share drives: growers buying delivery-right stock to finance a factory. */
   shareDrives?: { monthIndex: number; pricePerShare: Cents; offered: number; sold: number; growers: number; raised: Cents }[];
 }

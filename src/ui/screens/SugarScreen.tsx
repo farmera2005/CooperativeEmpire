@@ -3,10 +3,11 @@
 
 import { useState } from 'react';
 import { Bar, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { SUGAR } from '../../data/sugar';
+import { SUGAR, SUGAR_FINANCE } from '../../data/sugar';
 import {
   beetSugarTrend, beetYield, fiscalYearOf, fiscalYearStart, formatMonth, formatMonthShort, growerReturns, incomeStatement, productValuePerTon,
   recovery, shareDemand, shareDriveTowns, sugarCapacity, suggestedAcres, yearOf,
+  cccCapacity, cccLoanRate, lineDrawn,
 } from '../../engine/index';
 import { CommitNumber } from '../components/CommitNumber';
 import { FacilitiesPanel, OffersPanel } from '../components/FacilityPanels';
@@ -50,6 +51,27 @@ function CompanyPanel() {
   return <Panel title="The territory's sugar company"><p className="text-sm">{text}</p></Panel>;
 }
 
+/** How the crop is financed (D-135): growers paid in installments, CCC sugar loans, the line. */
+function FinancePanel() {
+  const game = useStore((s) => s.game)!;
+  const book = game.coop.sugar;
+  const fin = game.coop.finance;
+  const rate = cccLoanRate(game);
+  const r = book.report;
+  const limit = Math.min(fin.lineCommitment, fin.borrowingBase);
+  return (
+    <Panel title="Financing the crop">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Stat label="Owed to growers" value={money(book.growerPayable ?? 0, { compact: true })} sub={`${Math.round(SUGAR_FINANCE.initialPaymentShare.value * 100)}% paid at delivery, the rest monthly to August${r?.installments ? `; ${money(r.installments, { compact: true })} this month` : ''}`} />
+        <Stat label="CCC sugar loans" value={money(book.cccLoan ?? 0, { compact: true })} sub={rate > 0 ? `loan rate $${rate.toFixed(2)}/cwt; up to ${money(cccCapacity(game), { compact: true })} on sugar in store` : 'no CCC loan program this year'} />
+        <Stat label="Seasonal line" value={`${money(lineDrawn(game), { compact: true })} of ${money(limit, { compact: true })}`} sub={`commitment ${money(fin.lineCommitment, { compact: true })}, borrowing base ${money(fin.borrowingBase, { compact: true })}`} tone={fin.overLimit ? 'bad' : 'neutral'} />
+        <Stat label="Sugar forfeited to CCC" value={r?.forfeitedCwt ? `${num(r.forfeitedCwt)} cwt` : '—'} sub="when the market is below the loan rate" />
+      </div>
+      <p className="mt-2 text-xs text-stone-500">Beet co-ops pay growers an initial payment at delivery and the rest as the sugar sells. Sugar in store can be pledged to the USDA Commodity Credit Corporation for nonrecourse loans at the loan rate, cheaper than the line; we draw them first and repay as sugar sells. If the market falls below the loan rate, pledged sugar is forfeited and the loan rate is our price. The lender advances {Math.round(SUGAR_FINANCE.sugarAdvance.value * 100)}% on unpledged sugar and {Math.round(SUGAR_FINANCE.beetAdvance.value * 100)}% on piled beets.</p>
+    </Panel>
+  );
+}
+
 function Overview() {
   const game = useStore((s) => s.game)!;
   const book = game.coop.sugar;
@@ -79,9 +101,10 @@ function Overview() {
             <Stat label="Sugar in silos" value={`${num(book.sugarCwt)} cwt`} sub={`capacity ${num(cap.siloCwt)} cwt`} />
             <Stat label="Recovery" value={pct(recovery(game, yearOf(mi)), 0)} sub={cap.desugarization ? 'with molasses desugarization' : 'of the sugar in the beets'} />
           </div>
+          <FinancePanel />
           {c && (
             <Panel title={`Crop ${c.year}`}>
-              <p className="text-sm">{num(c.growers)} growers contracted {num(c.contractedAcres)} acres. {c.deliveredTons > 0 ? `Delivered ${num(c.deliveredTons)} tons at ${c.avgSugarPct.toFixed(1)}% sugar; paid growers ${money(c.growerPayments, { compact: true })} at delivery.` : `Harvest starts with pre-pile in September; trend yield ${beetYield(c.year).toFixed(1)} t/acre at ${beetSugarTrend(c.year).toFixed(1)}% sugar.`}{c.leftInFieldTons > 0 ? ` ${num(c.leftInFieldTons)} tons stayed in the field for want of pilers or pile ground.` : ''}</p>
+              <p className="text-sm">{num(c.growers)} growers contracted {num(c.contractedAcres)} acres. {c.deliveredTons > 0 ? `Delivered ${num(c.deliveredTons)} tons at ${c.avgSugarPct.toFixed(1)}% sugar; growers earned ${money(c.growerPayments, { compact: true })} at delivery prices, ${Math.round(SUGAR_FINANCE.initialPaymentShare.value * 100)}% paid then and the rest by August.` : `Harvest starts with pre-pile in September; trend yield ${beetYield(c.year).toFixed(1)} t/acre at ${beetSugarTrend(c.year).toFixed(1)}% sugar.`}{c.leftInFieldTons > 0 ? ` ${num(c.leftInFieldTons)} tons stayed in the field for want of pilers or pile ground.` : ''}</p>
             </Panel>
           )}
           <Panel title="Beets received, sliced and piled (tons)">
@@ -103,7 +126,7 @@ function Overview() {
       {book.campaigns.length > 0 && (
         <Panel title="Past campaigns">
           <table className="data">
-            <thead><tr><th>Crop</th><th className="r">Acres</th><th className="r">Delivered (t)</th><th className="r">t/acre</th><th className="r">Sugar %</th><th className="r">Sliced (t)</th><th className="r">Sugar (cwt)</th><th className="r">Storage loss</th><th className="r">Left in field</th><th className="r">Paid at delivery</th></tr></thead>
+            <thead><tr><th>Crop</th><th className="r">Acres</th><th className="r">Delivered (t)</th><th className="r">t/acre</th><th className="r">Sugar %</th><th className="r">Sliced (t)</th><th className="r">Sugar (cwt)</th><th className="r">Storage loss</th><th className="r">Left in field</th><th className="r">Grower payments</th></tr></thead>
             <tbody>
               {[...book.campaigns].reverse().map((x) => (
                 <tr key={x.year}>

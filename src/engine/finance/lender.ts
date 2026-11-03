@@ -4,6 +4,7 @@
 
 import { brandsAvailable, getBrand } from '../../data/brands';
 import { sugarLineNeed } from '../sugar/operate';
+import { SUGAR_FINANCE } from '../../data/sugar';
 import { COVENANTS, LENDER, lenderKind } from '../../data/finance';
 import { LENDING } from '../../data/tuning';
 import { valueAt } from '../../data/types';
@@ -49,10 +50,13 @@ export function borrowingBase(state: GameState): Cents {
     unhedged += p.book * (1 - hedgedShare);
   }
   // Sugar and beets in store are lent against like other inventory (D-133).
-  const other = balance(l, '1210') + balance(l, '1220') + balance(l, '1230') + balance(l, '1240') + balance(l, '1260');
+  const other = balance(l, '1210') + balance(l, '1220') + balance(l, '1230') + balance(l, '1240');
+  // Refined sugar (net of what is pledged to the CCC) and piled beets have their own advance rates (D-135).
+  const sb = state.coop.sugar;
+  const sugarBase = sb ? Math.max(0, sb.sugarCost * SUGAR_FINANCE.sugarAdvance.value - (sb.cccLoan ?? 0)) + Math.max(0, sb.pileCost) * SUGAR_FINANCE.beetAdvance.value : 0;
   const base = adv.receivables * Math.max(0, balance(l, '1100') + balance(l, '1150'))
     + adv.hedgedGrain * hedged + adv.unhedgedGrain * unhedged + adv.otherInventory * other
-    + adv.marginDeposits * Math.max(0, balance(l, '1310'))
+    + adv.marginDeposits * Math.max(0, balance(l, '1310')) + sugarBase
     + LENDING.unsecuredEquityShare.value * Math.max(0, memberEquity(state));
   return Math.max(0, roundCents(base));
 }

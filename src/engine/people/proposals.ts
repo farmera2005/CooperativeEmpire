@@ -141,7 +141,7 @@ export function draftProposals(ctx: TickContext, l: Leader, rng: Rng): Draft[] {
   }
 
   // Customer credit, at the start of the year (a supply division's terms).
-  if (d !== 'GRAIN' && m === 1) {
+  if (d !== 'GRAIN' && d !== 'SUGAR' && m === 1) {
     const pol = state.coop.supplyPolicy[d as SupplyDivision];
     const now = farmStress(ctx);
     const truth = farmStress({ ...ctx, mi: mi + 12 }) - now;

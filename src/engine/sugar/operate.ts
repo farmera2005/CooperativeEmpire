@@ -8,7 +8,9 @@
 // the year; pulp and molasses are sold as made. Growers are paid a share of a ton's product
 // value at delivery and the rest of the division's savings comes back as patronage on tons.
 
-import { SUGAR, SUGAR_COMPANY } from '../../data/sugar';
+import { SUGAR, SUGAR_COMPANY, SUGAR_FINANCE, SUGAR_STAFF } from '../../data/sugar';
+import { PEOPLE } from '../../data/people';
+import { effect } from '../people/leaders';
 import { valueAt } from '../../data/types';
 import { monthOf, yearOf } from '../core/calendar';
 import { clamp } from '../core/math';
@@ -78,7 +80,7 @@ function pileSpace(f: Facility): { tons: number; ventilated: number } {
 export function suggestedAcres(state: GameState, year: number): number {
   const cap = sugarCapacity(state);
   const { receiving } = sugarSites(state);
-  const perMonth = cap.tpd * 30 * SUGAR.uptime.value;
+  const perMonth = cap.tpd * 30 * sugarUptime(state);
   const yieldT = beetYield(year);
   if (perMonth <= 0 || yieldT <= 0) return 0;
   // Slicing from September through February leaves the warm-weather months as a cushion.
@@ -95,7 +97,38 @@ export const beetSugarTrend = (year: number): number => valueAt(SUGAR.sugarPct, 
 
 /** Share of the sugar in beets recovered as sugar. */
 export const recovery = (state: GameState, year: number): number =>
-  valueAt(SUGAR.extraction, year) + (sugarCapacity(state).desugarization ? SUGAR.desugarizationGain.value : 0);
+  valueAt(SUGAR.extraction, year) + (sugarCapacity(state).desugarization ? SUGAR.desugarizationGain.value : 0) + effect(state, 'sugar.extraction');
+
+/** Share of a campaign month the factory runs: the base, the factory manager and the campaign crew (D-135). */
+export function sugarUptime(state: GameState): number {
+  return SUGAR.uptime.value + effect(state, 'sugar.uptime') + SUGAR_STAFF.crew.value[state.coop.sugarPolicy.campaignCrew ?? 'standard'].uptime;
+}
+
+/** Beet growers we work with (farms): those with a contract or shares. */
+export function beetGrowers(state: GameState): number {
+  return state.members.list.reduce((a, m) => a + (m.status === 'active' && ((m.beetAcres ?? 0) > 0 || (m.beetShares ?? 0) > 0) ? m.weight : 0), 0);
+}
+
+/** Share of growers our agriculturists can work with (0–1). */
+export function agCoverage(state: GameState): number {
+  const n = state.coop.sugarPolicy.agriculturists ?? 0;
+  const g = beetGrowers(state);
+  return g > 0 ? Math.min(1, (n * SUGAR_STAFF.growersPerAgriculturist.value) / g) : n > 0 ? 1 : 0;
+}
+
+/** The agriculturists' pull on yields, sugar, sign-ups and piles: diminishing returns on coverage. */
+export const agEffect = (state: GameState): number => Math.pow(agCoverage(state), 0.7);
+
+/** Agriculturists for full coverage of today's growers. */
+export const recommendedAgriculturists = (state: GameState): number =>
+  Math.max(1, Math.round(beetGrowers(state) / SUGAR_STAFF.growersPerAgriculturist.value));
+
+/** Agriculturists' cost for a year, nominal cents (wages, benefits, vehicles). */
+export function agriculturistCost(state: GameState, mi: number): Cents {
+  const pl = priceLevel(pathFor(state), mi);
+  const n = state.coop.sugarPolicy.agriculturists ?? 0;
+  return roundCents(n * (SUGAR_STAFF.agriculturistWage2024.value * (1 + PEOPLE.benefitsRate.value) + SUGAR_STAFF.agriculturistExpense2024.value) * pl * 100);
+}
 
 /** Product value of a ton of beets at a sugar content, nominal $ (sugar, pulp pellets, molasses). */
 export function productValuePerTon(state: GameState, mi: number, sugarPct: number): number {
@@ -178,7 +211,7 @@ export function contractBeets(ctx: TickContext): void {
   if (!hasFactory || !sites.length || target <= 0) return;
   const { beets, corn } = growerReturns(state, mi);
   const ratio = beets / Math.max(1, corn);
-  const willing = clamp(0.2 + SUGAR.signupSlope.value * (ratio - 0.8), 0.03, 0.95);
+  const willing = clamp(0.2 + SUGAR.signupSlope.value * (ratio - 0.8) + effect(state, 'sugar.signup') + SUGAR_STAFF.maxSignupGain.value * agEffect(state), 0.03, 0.95);
   const growers = eligibleGrowers(state, sites);
   transferShares(state, growers.map((g) => g.m));
   // Shareholders grow their shares first (it is their right and their duty); others fill what is
@@ -206,6 +239,7 @@ export function contractBeets(ctx: TickContext): void {
     acres += got * o.m.weight;
     n += o.m.weight;
   }
+  if (state.coop.sugarPolicy.agriculturists === undefined) state.coop.sugarPolicy = { ...state.coop.sugarPolicy, agriculturists: recommendedAgriculturists(state) };
   state.coop.sugar.campaign = {
     year, contractedAcres: Math.round(acres), growers: Math.round(n), deliveredTons: 0, leftInFieldTons: 0, avgSugarPct: 0,
     slicedTons: 0, sugarCwt: 0, pulpTons: 0, molassesTons: 0, storageLossTons: 0, growerPayments: 0,
@@ -242,7 +276,7 @@ export function stepSugar(ctx: TickContext): void {
     const share = month === SUGAR.harvest.prepileMonth ? SUGAR.harvest.prepileShare.value : 1 - SUGAR.harvest.prepileShare.value;
     const rng = ctx.rng('sugar.harvest');
     if (month === SUGAR.harvest.prepileMonth) {
-      c.avgSugarPct = beetSugarTrend(year) + SUGAR.sugarPctSd.value * rng.normal() - (state.world.weather.wetFall ? SUGAR.wetFallSugarPenalty.value : 0);
+      c.avgSugarPct = beetSugarTrend(year) + SUGAR.sugarPctSd.value * rng.normal() - (state.world.weather.wetFall ? SUGAR.wetFallSugarPenalty.value : 0) + SUGAR_STAFF.maxSugarGain.value * agEffect(state);
     }
     const sugarPct = c.avgSugarPct || beetSugarTrend(year);
     const pay = productValuePerTon(state, mi, sugarPct) * state.coop.sugarPolicy.growerShare;
@@ -250,7 +284,7 @@ export function stepSugar(ctx: TickContext): void {
     // What each site can take: its pilers over the harvest days, and its free pile ground.
     const room = new Map<number, number>();
     // A factory also takes beets straight from the field for what it slices this month.
-    const fresh = factories.length ? (cap.tpd * days * SUGAR.uptime.value) / factories.length : 0;
+    const fresh = factories.length ? (cap.tpd * days * sugarUptime(state)) / factories.length : 0;
     for (const f of receiving) {
       const piled = book.piles.find((p) => p.facilityId === f.id)?.tons ?? 0;
       const direct = f.kind === 'sugarfactory' && f.status === 'operating' ? fresh : 0;
@@ -262,7 +296,7 @@ export function stepSugar(ctx: TickContext): void {
     for (const g of eligibleGrowers(state, receiving)) {
       const acres = g.m.beetAcres ?? 0;
       if (acres <= 0) continue;
-      const tons = acres * beetYield(year) * townYieldFactor(state, year, g.m.townId) * share * g.m.weight;
+      const tons = acres * beetYield(year) * townYieldFactor(state, year, g.m.townId) * share * g.m.weight * (1 + SUGAR_STAFF.maxYieldGain.value * agEffect(state));
       // Nearest site first, then any other with room.
       const order = [g.site, ...receiving.filter((f) => f.id !== g.site.id && state.world.distances[g.m.townId][f.townId] <= SUGAR.reachMiles.value * 1.5)];
       let need = tons;
@@ -293,7 +327,10 @@ export function stepSugar(ctx: TickContext): void {
       const before = book.piles.reduce((a, p) => a + p.tons, 0) - delivered;
       book.pileSugarPct = before + delivered > 0 ? (book.pileSugarPct * before + sugarPct * delivered) / (before + delivered) : sugarPct;
       book.pileCost += payCents;
-      post(state, { source: 'sugar-beets', memo: 'Beet payments to growers at delivery', lines: [{ account: '1260', division: DIV, amount: payCents }, { account: '1000', division: DIV, amount: -payCents }] });
+      // Growers get the initial payment now; the rest is owed and paid as the sugar sells (D-135).
+      const initial = roundCents(payCents * SUGAR_FINANCE.initialPaymentShare.value);
+      book.growerPayable = (book.growerPayable ?? 0) + payCents - initial;
+      post(state, { source: 'sugar-beets', memo: 'Beet deliveries: initial payment to growers', lines: [{ account: '1260', division: DIV, amount: payCents }, { account: '1000', division: DIV, amount: -initial }, { account: '2115', division: DIV, amount: -(payCents - initial) }] });
     }
     const fy = state.coop.equityProgram.fyLines;
     fy.SUGAR_BEETS = { units: (fy.SUGAR_BEETS?.units ?? 0) + delivered, revenue: (fy.SUGAR_BEETS?.revenue ?? 0) + payCents, cogs: 0 };
@@ -317,7 +354,7 @@ export function stepSugar(ctx: TickContext): void {
       vent += (f ? pileSpace(f).ventilated : 0) * p.tons;
     }
     const ventShare = vent / piled;
-    const lossFactor = 1 - ventShare * (1 - SUGAR.ventilatedLossShare.value);
+    const lossFactor = (1 - ventShare * (1 - SUGAR.ventilatedLossShare.value)) * (1 + effect(state, 'sugar.pileLoss')) * (1 - SUGAR_STAFF.maxPileLossCut.value * agEffect(state));
     const sugarLoss = SUGAR.pileSugarLossPerMonth.value[month - 1] * lossFactor;
     book.pileSugarPct *= 1 - sugarLoss;
     const shrink = SUGAR.pileShrinkPerMonth.value * lossFactor;
@@ -327,7 +364,7 @@ export function stepSugar(ctx: TickContext): void {
 
   // ---- slicing ----
   const campaignOn = SUGAR.campaignMonths.includes(month) && factories.length > 0;
-  const capacity = campaignOn ? cap.tpd * 30 * SUGAR.uptime.value : 0;
+  const capacity = campaignOn ? cap.tpd * 30 * sugarUptime(state) : 0;
   report.sliceCapacity = capacity;
   let slice = Math.min(capacity, book.piles.reduce((a, p) => a + p.tons, 0));
   if (slice > 0) {
@@ -353,7 +390,7 @@ export function stepSugar(ctx: TickContext): void {
     book.sugarCwt += cwt;
     book.sugarCost += costOut;
     // Co-products: pulp dried as far as the dryers allow; molasses less what desugarization takes.
-    const dried = Math.min(slice, cap.pulpTpd * 30 * SUGAR.uptime.value);
+    const dried = Math.min(slice, cap.pulpTpd * 30 * sugarUptime(state));
     const pulpValue = (dried * SUGAR.pulpTonsPerTon.value + (slice - dried) * SUGAR.pulpTonsPerTon.value * SUGAR.wetPulpValueShare.value) * pulpPrice(state, mi);
     const molTons = slice * SUGAR.molassesTonsPerTon.value * (cap.desugarization ? 1 - SUGAR.desugarizedMolassesShare.value : 1);
     const coRevenue = roundCents((pulpValue + molTons * molassesPrice(state, mi)) * 100);
@@ -361,7 +398,7 @@ export function stepSugar(ctx: TickContext): void {
     const pl = priceLevel(path, mi);
     const energy = slice * valueAt(SUGAR.energyMmbtuPerTon, year) * marketValue(path, 'natgas', mi);
     const supplies = slice * SUGAR.suppliesPerTon2024.value * pl;
-    const crew = (cap.tpd / 1000) * SUGAR.campaignFtePer1000Tpd.value * (SUGAR.campaignWage2024.value / 12) * pl * Math.min(1, slice / Math.max(1, capacity));
+    const crew = (cap.tpd / 1000) * SUGAR.campaignFtePer1000Tpd.value * (SUGAR.campaignWage2024.value / 12) * pl * Math.min(1, slice / Math.max(1, capacity)) * SUGAR_STAFF.crew.value[state.coop.sugarPolicy.campaignCrew ?? 'standard'].cost;
     const procCents = roundCents((energy + supplies) * 100);
     const crewCents = roundCents(crew * 100);
     const haulCents = roundCents(haulCost * pl * 100);
@@ -402,18 +439,58 @@ export function stepSugar(ctx: TickContext): void {
     // What the silos cannot hold goes now, at a discount.
     const over = Math.max(0, book.sugarCwt - sell - cap.siloCwt);
     const price = marketValue(path, 'sugar', mi) * (1 - SUGAR.marketingCostPct.value);
-    const revenue = roundCents((sell * price + over * price * (1 - SUGAR.overflowDiscount.value)) * 100);
-    sell += over;
+    const loanRate = valueAt(SUGAR_FINANCE.loanRate, cropYear);
+    if (loanRate > price) {
+      // Below the loan rate the co-op pledges all its sugar to the CCC and forfeits what it would
+      // sell: the loans are nonrecourse, so the loan rate is the price.
+      const loan = book.cccLoan ?? 0;
+      const full = roundCents(book.sugarCwt * loanRate * 100);
+      if (full > loan) {
+        lines.push({ account: '2050', amount: -(full - loan) });
+        cash -= full - loan;
+      }
+      const value = Math.min(full, roundCents((sell + over) * loanRate * 100));
+      book.cccLoan = full - value;
+      post(state, { source: 'ccc-forfeit', memo: 'Sugar forfeited to the CCC at the loan rate', lines: [{ account: '2050', division: DIV, amount: value }, { account: '4000', division: DIV, amount: -value }] });
+      if (!(book.reports[book.reports.length - 1]?.forfeitedCwt)) ctx.inbox({ kind: 'memo', title: 'Sugar forfeited to the CCC', body: `Refined sugar is selling below the CCC loan rate of $${loanRate.toFixed(2)}/cwt, so we are handing pledged sugar to the government instead of selling it. The loans are nonrecourse: the loan rate is our price.` });
+      report.forfeitedCwt = sell + over;
+      report.revenue += value;
+      sell += over;
+    } else {
+      const revenue = roundCents((sell * price + over * price * (1 - SUGAR.overflowDiscount.value)) * 100);
+      sell += over;
+      lines.push({ account: '4000', amount: -revenue });
+      cash -= revenue;
+      report.revenue += revenue;
+    }
     const costOut = roundCents(book.sugarCost * Math.min(1, sell / book.sugarCwt));
     book.sugarCwt -= sell;
     book.sugarCost -= costOut;
     if (book.sugarCwt < 1e-6) { book.sugarCwt = 0; }
-    lines.push({ account: '4000', amount: -revenue });
-    cash -= revenue;
     report.sugarSold = sell;
-    report.revenue += revenue;
     if (costOut !== 0) post(state, { source: 'sugar-cost', memo: 'Cost of sugar sold', lines: [{ account: '5000', division: DIV, amount: costOut }, { account: '1260', division: DIV, amount: -costOut }] });
   }
+  // ---- field staff ----
+  const agCost = roundCents(agriculturistCost(state, mi) / 12);
+  if (agCost > 0) {
+    lines.push({ account: '7000', amount: agCost });
+    cash += agCost;
+  }
+
+  // ---- grower installments: what is owed is paid down evenly through August (D-135) ----
+  const owed = book.growerPayable ?? 0;
+  if (owed > 0 && month !== SUGAR.harvest.prepileMonth && month !== SUGAR.harvest.mainMonth) {
+    const last = SUGAR_FINANCE.finalPaymentMonth;
+    const left = month <= last ? last - month + 1 : 12 - month + last + 1;
+    const pay = month === last ? owed : roundCents(owed / left);
+    book.growerPayable = owed - pay;
+    lines.push({ account: '2115', amount: pay });
+    cash += pay;
+    report.installments = pay;
+  }
+
+  report.cccLoan = book.cccLoan ?? 0;
+
   const real = lines.filter((l) => l.amount !== 0);
   if (real.length) {
     post(state, {
@@ -474,6 +551,8 @@ export function setSugarPolicy(state: GameState, policy: Partial<SugarPolicy>): 
   if (!(next.growerShare >= lo && next.growerShare <= hi)) return [{ level: 'error', text: `The payment share must be between ${Math.round(lo * 100)}% and ${Math.round(hi * 100)}% of a ton's value.` }];
   if (next.targetAcres !== null && !(next.targetAcres >= 0 && next.targetAcres <= 500_000)) return [{ level: 'error', text: 'Contract acres must be between 0 and 500,000.' }];
   if (next.targetAcres !== null) next.targetAcres = Math.round(next.targetAcres);
+  if (next.agriculturists !== undefined && !(Number.isInteger(next.agriculturists) && next.agriculturists >= 0 && next.agriculturists <= SUGAR_STAFF.maxAgriculturists)) return [{ level: 'error', text: `Agriculturists must be a whole number from 0 to ${SUGAR_STAFF.maxAgriculturists}.` }];
+  if (next.campaignCrew !== undefined && !['lean', 'standard', 'full'].includes(next.campaignCrew)) return [{ level: 'error', text: 'Unknown crew level.' }];
   state.coop.sugarPolicy = next;
   return [{ level: 'info', text: `Beet contracts: ${next.targetAcres === null ? 'what our plants can handle' : `${next.targetAcres.toLocaleString('en-US')} acres`} at ${Math.round(next.growerShare * 100)}% of a ton's value at delivery.` }];
 }
@@ -563,7 +642,7 @@ export function sugarLineNeed(state: GameState): Cents {
   const mi = state.clock.monthIndex;
   const year = yearOf(mi);
   const tons = suggestedAcres(state, year) * beetYield(year);
-  return roundCents(tons * productValuePerTon(state, mi, beetSugarTrend(year)) * state.coop.sugarPolicy.growerShare * 100);
+  return roundCents(tons * productValuePerTon(state, mi, beetSugarTrend(year)) * state.coop.sugarPolicy.growerShare * SUGAR_FINANCE.initialPaymentShare.value * 100);
 }
 
 /**
@@ -579,7 +658,7 @@ export function takeOverCampaign(state: GameState, factory: Facility): Cents {
   const tons = suggestedAcres(state, crop) * beetYield(crop);
   if (tons <= 0) return 0;
   const path = pathFor(state);
-  const perMonth = sugarCapacity(state).tpd * 30 * SUGAR.uptime.value;
+  const perMonth = sugarCapacity(state).tpd * 30 * sugarUptime(state);
   // Slicing has run since September; sugar has been sold evenly since then.
   const months = month + 12 - SUGAR.harvest.prepileMonth;
   const sliced = Math.min(tons, perMonth * months);

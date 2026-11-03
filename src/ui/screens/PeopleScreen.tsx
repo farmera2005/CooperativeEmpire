@@ -1,11 +1,13 @@
 import { EFFECTS, ROLE_DEFS, ROLES, SALES_FORCE, SKILL_LABEL, SKILLS, TEAM, TRAITS, type Role, type Skill } from '../../data/people';
 import {
+  agCoverage, agEffect, agriculturistCost, beetGrowers, recommendedAgriculturists, sugarUptime,
   effect, effectiveSkill, flightRisk, formatMonthShort, holder, marketSalary, moraleDrivers, pathFor, payGapPct, salesBoost, salesCost, salesCoverage, salesStaff, siteFte, tightness, yearOf,
   type Candidate, type Leader, type OpDivision, type TrainingLevel,
 } from '../../engine/index';
 import { CommitNumber } from '../components/CommitNumber';
 import { Panel, Stat } from '../components/Panel';
-import { money, pct } from '../format';
+import { money, num, pct } from '../format';
+import { SUGAR_STAFF } from '../../data/sugar';
 import { useStore } from '../store';
 
 const tightLabel = (t: number) => (t >= 1.2 ? 'Very tight' : t >= 1.05 ? 'Tight' : t > 0.92 ? 'Normal' : 'Slack');
@@ -67,6 +69,7 @@ export function PeopleScreen() {
       <LeadershipPanel />
       <CandidatesPanel />
       <SalesForcePanel />
+      <SugarStaffPanel />
       <div className="grid grid-cols-2 gap-4">
         <NotesPanel />
         <WorkforcePanel />
@@ -226,14 +229,15 @@ function WorkforcePanel() {
 
 function EffectsPanel() {
   const game = useStore((s) => s.game)!;
+  const hasSugar = game.coop.facilities.some((f) => f.division === 'SUGAR' && f.status !== 'closed');
   const fmt = (v: number, unit: string) => (unit.startsWith('×') ? `${v >= 0 ? '+' : ''}${Math.round(v * 100)}%` : `${v >= 0 ? '+' : ''}${Math.abs(v) < 1 ? v.toFixed(3) : v.toFixed(1)}`);
   return (
     <Panel title="What your team's skills are doing">
       <table className="data">
         <thead><tr><th>Role</th><th>Skill</th><th>Effect</th><th className="r">Now</th></tr></thead>
         <tbody>
-          {EFFECTS.map((e) => {
-            const divisions = e.role === 'division' ? (['GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'RETAIL'] as const).filter((d) => game.coop.facilities.some((f) => f.division === d)) : [undefined];
+          {EFFECTS.filter((e) => !((e.role === 'SUGAR' || e.role === 'AGRI') && !hasSugar)).map((e) => {
+            const divisions = e.role === 'division' ? (['GRAIN', 'AGRONOMY', 'FEED', 'ENERGY', 'RETAIL', 'SUGAR'] as const).filter((d) => game.coop.facilities.some((f) => f.division === d) && !(d === 'SUGAR' && e.key === 'supply.share')) : [undefined];
             return divisions.map((d) => (
               <tr key={`${e.key}-${d ?? ''}`}>
                 <td>{e.role === 'division' ? `${d?.toLowerCase()} manager` : ROLE_DEFS[e.role].label}</td>
@@ -245,6 +249,44 @@ function EffectsPanel() {
           })}
         </tbody>
       </table>
+    </Panel>
+  );
+}
+
+/** Sugar field staff and the campaign crew (D-135). */
+function SugarStaffPanel() {
+  const game = useStore((s) => s.game)!;
+  const command = useStore((s) => s.command);
+  if (!game.coop.facilities.some((f) => f.kind === 'sugarfactory' && f.status !== 'closed')) return null;
+  const p = game.coop.sugarPolicy;
+  const n = p.agriculturists ?? recommendedAgriculturists(game);
+  const crew = p.campaignCrew ?? 'standard';
+  const cov = agCoverage(game);
+  const fx = agEffect(game);
+  return (
+    <Panel title="Sugar staff">
+      <table className="data">
+        <thead><tr><th>Staff</th><th>Setting</th><th>Effect now</th><th className="r">Cost a year</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Agriculturists<div className="text-xs text-stone-500">field staff for {num(beetGrowers(game))} beet growers</div></td>
+            <td><CommitNumber value={n} min={0} max={SUGAR_STAFF.maxAgriculturists} step={1} onCommit={(v) => command({ type: 'setSugarPolicy', policy: { agriculturists: v } })} ariaLabel="Agriculturists" /> <span className="text-xs text-stone-500">full coverage: {recommendedAgriculturists(game)}</span></td>
+            <td className="text-xs">coverage {pct(cov, 0)}: yields +{pct(SUGAR_STAFF.maxYieldGain.value * fx, 1)}, sugar +{(SUGAR_STAFF.maxSugarGain.value * fx).toFixed(2)} pts, pile losses −{pct(SUGAR_STAFF.maxPileLossCut.value * fx, 0)}, sign-ups +{pct(SUGAR_STAFF.maxSignupGain.value * fx, 0)}</td>
+            <td className="r">{money(agriculturistCost(game, game.clock.monthIndex), { compact: true })}</td>
+          </tr>
+          <tr>
+            <td>Campaign crew<div className="text-xs text-stone-500">seasonal factory crew, September to spring</div></td>
+            <td>
+              <select className="input" aria-label="Campaign crew" value={crew} onChange={(e) => command({ type: 'setSugarPolicy', policy: { campaignCrew: e.target.value as 'lean' | 'standard' | 'full' } })}>
+                <option value="lean">Lean</option><option value="standard">Standard</option><option value="full">Full</option>
+              </select>
+            </td>
+            <td className="text-xs">factory runs {pct(sugarUptime(game), 0)} of the campaign; crew cost ×{SUGAR_STAFF.crew.value[crew].cost.toFixed(2)}</td>
+            <td className="r text-xs text-stone-500">in processing cost</td>
+          </tr>
+        </tbody>
+      </table>
+      <p className="mt-1 text-xs text-stone-500">Agriculturists sign growers, advise on seed, disease control and harvest timing, and run the piling grounds; one works with about {SUGAR_STAFF.growersPerAgriculturist.value} growers, with diminishing returns. The factory's year-round crew is staffed site by site (Sugar beets &gt; Facilities). The sugar factory manager and agricultural manager are hired above when the sugar business is big enough to need them.</p>
     </Panel>
   );
 }

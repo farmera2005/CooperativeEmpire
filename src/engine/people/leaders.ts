@@ -13,8 +13,8 @@ import { personName } from '../members/generate';
 import type { DivisionId, GameState, Leader, PeopleState } from '../types';
 import { nominalCents, pathFor, priceLevel } from '../world/macro';
 
-export const ROLE_DIVISION: Partial<Record<Role, DivisionId>> = { GRAIN: 'GRAIN', AGRONOMY: 'AGRONOMY', FEED: 'FEED', ENERGY: 'ENERGY', RETAIL: 'RETAIL' };
-export const DIVISION_ROLE: Partial<Record<DivisionId, Role>> = { GRAIN: 'GRAIN', AGRONOMY: 'AGRONOMY', FEED: 'FEED', ENERGY: 'ENERGY', RETAIL: 'RETAIL' };
+export const ROLE_DIVISION: Partial<Record<Role, DivisionId>> = { GRAIN: 'GRAIN', AGRONOMY: 'AGRONOMY', FEED: 'FEED', ENERGY: 'ENERGY', RETAIL: 'RETAIL', SUGAR: 'SUGAR', AGRI: 'SUGAR' };
+export const DIVISION_ROLE: Partial<Record<DivisionId, Role>> = { GRAIN: 'GRAIN', AGRONOMY: 'AGRONOMY', FEED: 'FEED', ENERGY: 'ENERGY', RETAIL: 'RETAIL', SUGAR: 'SUGAR' };
 export const roleDivision = (r: Role): DivisionId => ROLE_DIVISION[r] ?? 'CORP';
 
 export function emptyPeople(): PeopleState {

@@ -98,6 +98,47 @@ export const SUGAR = {
 };
 
 /**
+ * Paying growers and financing the crop (D-135). Beet co-ops pay growers in installments: an
+ * initial payment at delivery, more as the sugar is sold, the rest after the books close; the
+ * unpaid part is owed to growers. Sugar in store is pledged for USDA CCC nonrecourse loans at the
+ * loan rate, and forfeited to the CCC when the market falls below it. Lenders advance more on
+ * refined sugar than on other inventory.
+ */
+export const SUGAR_FINANCE = {
+  /** Share of a delivery's payment made at delivery; the rest is paid monthly through August. */
+  initialPaymentShare: s(0.6, 'medium', 'American Crystal: initial payment at delivery, then monthly payments (60% → 85% of the estimate) and a final payment after year end'),
+  /** Last month of the year's grower payments. */
+  finalPaymentMonth: 8,
+  /** CCC loan rate for refined beet sugar, $/cwt (¢/lb); 0 when there was no loan program. */
+  loanRate: ap([
+    [1976, 0], [1977, 16], [1978, 16], [1979, 0], [1981, 0], [1982, 20.2], [1985, 21.6], [1996, 22.9], [2008, 22.9], [2009, 23.77],
+    [2012, 24.09], [2017, 24.09], [2018, 25.38], [2024, 25.38], [2025, 32.77],
+  ], 'medium', 'Refined beet loan rate: 22.9¢ (2002 Farm Bill), 25.38¢ (2018), 32.77¢ (2025); loan programs 1977–78 and from 1982'),
+  /** CCC loans are charged the Treasury rate plus this many points. */
+  cccSpread: s(1, 'low', 'CCC commodity loans: Treasury cost of funds plus 1 point'),
+  /** Borrowing base advance on refined sugar (net of CCC loans on it) and on beets in the piles. */
+  sugarAdvance: s(0.85, 'low', 'Refined sugar is a graded, readily sold commodity'),
+  beetAdvance: s(0.6, 'low'),
+};
+
+/** Sugar field staff and the campaign crew (D-135). */
+export const SUGAR_STAFF = {
+  /** Agriculturists: field staff who contract growers, advise on seed, disease and harvest timing, and run the piling grounds. */
+  agriculturistWage2024: s(72_000, 'low', 'Beet co-op agriculturists, mid-2020s'),
+  agriculturistExpense2024: s(16_000, 'low', 'Pickup, phone and travel'),
+  growersPerAgriculturist: s(70, 'low', 'An agriculturist works with roughly 50–100 growers'),
+  maxAgriculturists: 60,
+  /** At full coverage: tons per acre, sugar content (points), sign-up willingness and pile losses. */
+  maxYieldGain: s(0.05, 'low', 'Variety choice, Cercospora control and harvest timing'),
+  maxSugarGain: s(0.3, 'low'),
+  maxSignupGain: s(0.1, 'low'),
+  maxPileLossCut: s(0.2, 'low', 'Pile management: piling temperatures, ventilation, early slicing of damaged beets'),
+  /** Campaign crew level: factory uptime (points) and crew cost. */
+  crew: s<Record<'lean' | 'standard' | 'full', { uptime: number; cost: number }>>({ lean: { uptime: -0.03, cost: 0.85 }, standard: { uptime: 0, cost: 1 }, full: { uptime: 0.02, cost: 1.15 } }, 'low', 'Short crews mean more downtime and slower restarts'),
+};
+
+
+/**
  * Refined beet sugar, Midwest wholesale, $ per cwt (annual). Used for the "sugar" market series
  * (markets.ts). Beet sugar sells a little under cane in the Midwest.
  */
