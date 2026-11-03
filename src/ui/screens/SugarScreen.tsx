@@ -7,7 +7,7 @@ import { SUGAR, SUGAR_FINANCE } from '../../data/sugar';
 import {
   beetSugarTrend, beetYield, fiscalYearOf, fiscalYearStart, formatMonth, formatMonthShort, growerReturns, incomeStatement, productValuePerTon,
   recovery, shareDemand, shareDriveTowns, sugarCapacity, suggestedAcres, yearOf,
-  cccCapacity, cccLoanRate, lineDrawn,
+  cccCapacity, cccLoanRate, lineDrawn, sharePrice, shareholderStats,
 } from '../../engine/index';
 import { CommitNumber } from '../components/CommitNumber';
 import { FacilitiesPanel, OffersPanel } from '../components/FacilityPanels';
@@ -154,7 +154,8 @@ function Contracts() {
   const value = productValuePerTon(game, mi, beetSugarTrend(year));
   const suggested = suggestedAcres(game, year);
   const drives = game.coop.sugar.shareDrives ?? [];
-  const shares = game.members.list.reduce((a, m) => a + (m.status === 'active' ? (m.beetShares ?? 0) * m.weight : 0), 0);
+  const holders = shareholderStats(game);
+  const price0 = sharePrice(game);
   const [price, setPrice] = useState(() => Math.max(25, Math.round((r.beets - r.corn) * 2.5 / 25) * 25));
   const [max, setMax] = useState(() => Math.max(1000, suggested || 20_000));
   const demand = shareDemand(game, price);
@@ -181,7 +182,8 @@ function Contracts() {
       </Panel>
       <Panel title="Beet shares">
         <div className="space-y-3 text-sm">
-          <p>Grower co-ops financed their factories by selling growers <b>beet shares</b>: preferred stock, one share per acre, that carries the right and the duty to grow beets. Members hold {num(shares)} shares.</p>
+          <p>Grower co-ops financed their factories by selling growers <b>beet shares</b>: preferred stock, one share per acre, that carries the right and the duty to grow beets. <b>{num(holders.farms)}</b> farms hold <b>{num(holders.shares)}</b> shares{price0 > 0 ? `; a share is worth about $${num(price0)} now` : ''}.</p>
+          <p className="text-xs text-stone-500">Every acre grown needs a share: a grower who contracts more acres than their shares cover buys the rest at the share price, and a farm that is not a member joins to grow beets. Shares of growers who quit farming are sold to growers short of shares and to farms buying in for the first time.</p>
           {!canDrive ? <p className="text-stone-500">A share drive needs a factory or station we own, are building, or could buy.</p> : (
             <>
               <label className="block">Price <CommitNumber min={5} max={20_000} value={price} onCommit={setPrice} /> $ a share</label>
@@ -192,8 +194,8 @@ function Contracts() {
           )}
           {drives.length > 0 && (
             <table className="data text-xs">
-              <thead><tr><th>Month</th><th className="r">Price</th><th className="r">Sold</th><th className="r">Growers</th><th className="r">Raised</th></tr></thead>
-              <tbody>{[...drives].reverse().map((d) => <tr key={d.monthIndex}><td>{formatMonthShort(d.monthIndex)}</td><td className="r">{money(d.pricePerShare)}</td><td className="r">{num(d.sold)}</td><td className="r">{num(d.growers)}</td><td className="r">{money(d.raised, { compact: true })}</td></tr>)}</tbody>
+              <thead><tr><th>Month</th><th>How</th><th className="r">Price</th><th className="r">Sold</th><th className="r">Growers</th><th className="r">Raised</th></tr></thead>
+              <tbody>{[...drives].reverse().map((d) => <tr key={`${d.monthIndex}-${d.contracts ? 'c' : 'd'}`}><td>{formatMonthShort(d.monthIndex)}</td><td>{d.contracts ? 'with contracts' : 'share drive'}</td><td className="r">{money(d.pricePerShare)}</td><td className="r">{num(d.sold)}</td><td className="r">{num(d.growers)}</td><td className="r">{money(d.raised, { compact: true })}</td></tr>)}</tbody>
             </table>
           )}
         </div>

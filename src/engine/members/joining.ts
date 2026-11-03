@@ -22,6 +22,7 @@ export function offeredLines(s: GameState): Set<string> {
     if (f.status !== 'operating') continue;
     if (f.division === 'GRAIN') ['GRAIN_CORN', 'GRAIN_SOY', 'GRAIN_WHEAT'].forEach((k) => out.add(k));
     else if (f.division !== 'RETAIL' && f.division !== 'CORP') out.add(f.division);
+    // Beets: a grower with a contract or shares does all of that business with us (D-136).
   }
   return out;
 }
@@ -37,12 +38,13 @@ export function businessShare(m: Member, offered?: Set<string>): number {
   const uses: Record<string, boolean> = {
     GRAIN_CORN: m.acres.corn > 0, GRAIN_SOY: m.acres.soybeans > 0, GRAIN_WHEAT: m.acres.wheat > 0,
     AGRONOMY: crop > 0, FEED: head > 0, ENERGY: true,
+    SUGAR: (m.beetAcres ?? 0) > 0 || (m.beetShares ?? 0) > 0,
   };
   let sum = 0;
   let n = 0;
   for (const k of Object.keys(uses).sort()) {
     if (!uses[k] || (offered && !offered.has(k))) continue;
-    sum += m.share[k] ?? 0;
+    sum += k === 'SUGAR' ? 1 : m.share[k] ?? 0;
     n++;
   }
   return n ? sum / n : 0;

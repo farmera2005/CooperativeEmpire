@@ -1468,7 +1468,7 @@ export interface SugarBook {
   /** USDA CCC sugar loans outstanding against sugar in store (GL 2050). */
   cccLoan?: Cents;
   /** Share drives: growers buying delivery-right stock to finance a factory. */
-  shareDrives?: { monthIndex: number; pricePerShare: Cents; offered: number; sold: number; growers: number; raised: Cents }[];
+  shareDrives?: { monthIndex: number; pricePerShare: Cents; offered: number; sold: number; growers: number; raised: Cents; /** Shares bought with contracts for unshared acres (D-136). */ contracts?: boolean }[];
 }
 
 /** A fictional investor-owned beet sugar company with a factory and piling stations in the territory. */

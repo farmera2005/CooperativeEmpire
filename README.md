@@ -59,7 +59,8 @@ and a term loan, take over the campaign under way, and pay growers from proceeds
 Growers are paid in installments (60% at delivery, the rest by August), and sugar in store can be
 pledged for USDA CCC loans, forfeited at the loan rate when the market is lower. On the People
 screen, hire a sugar factory manager and an agricultural manager, and set the agriculturists
-(field staff) and the campaign crew. Sources are
+(field staff) and the campaign crew. Every acre grown needs a beet share: growers buy shares for new acres,
+non-member farms join to grow beets, and retiring growers' shares are sold to new growers. Sources are
 in `docs/research/sugar.md`.
 
 ## Accounts

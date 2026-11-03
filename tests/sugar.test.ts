@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  advanceMonth, applyCommand, checkInvariants, DEFAULT_SETUP, makersFor, modelsFor, newGame, SCHEMA_VERSION, shareDemand, sugarCapacity, suggestedAcres,
+  advanceMonth, applyCommand, checkInvariants, DEFAULT_SETUP, makersFor, modelsFor, newGame, SCHEMA_VERSION, shareDemand, shareholderStats, sugarCapacity, suggestedAcres,
   type GameState,
 } from '../src/engine/index';
 import { migrate } from '../src/engine/save/migrations';
@@ -158,8 +158,10 @@ describe('starting as a sugar cooperative (D-134)', () => {
     const t = run(s, 2);
     expect(t.members.list.find((m) => m.id === holder.id)!.beetShares ?? 0).toBe(0);
     expect(t.equity.preferredStock[holder.id] ?? 0).toBe(0);
-    expect(Object.values(t.equity.preferredStock).reduce((a, b) => a + b, 0)).toBe(stock);
-    expect(t.members.list.reduce((a, m) => a + (m.beetShares ?? 0) * m.weight, 0)).toBeCloseTo(shares, 3);
+    // Transfers move stock between farmers; only shares bought with contracts add to it (D-136).
+    const bought = (t.coop.sugar.shareDrives ?? []).filter((d) => d.contracts);
+    expect(Object.values(t.equity.preferredStock).reduce((a, b) => a + b, 0)).toBe(stock + bought.reduce((a, d) => a + d.raised, 0));
+    expect(t.members.list.reduce((a, m) => a + (m.beetShares ?? 0) * m.weight, 0)).toBeCloseTo(shares + bought.reduce((a, d) => a + d.sold, 0), -1);
     expect(checkInvariants(t)).toEqual([]);
   }, 60_000);
 });
@@ -215,4 +217,21 @@ describe('sugar finance and staff (D-135)', () => {
     expect(m.coop.sugar.cccLoan).toBe(0);
     expect(checkInvariants(run(m, 3))).toEqual([]);
   });
+});
+
+describe('beet shareholders (D-136)', () => {
+  it('growers buy shares for the acres they grow and non-members join to grow beets', () => {
+    const s0 = newGame({ ...setup(1980, 3), capitalPreset: 'typical', coopType: 'sugar' });
+    const before = shareholderStats(s0);
+    const members0 = s0.members.list.filter((m) => m.status === 'active' && m.kind === 'member').length;
+    const s = run(s0, 14);
+    const after = shareholderStats(s);
+    expect(after.farms).toBeGreaterThan(before.farms);
+    expect(s.members.list.filter((m) => m.status === 'active' && m.kind === 'member').length).toBeGreaterThan(members0);
+    for (const m of s.members.list) if (m.status === 'active' && (m.beetAcres ?? 0) > 0) {
+      expect(m.kind).toBe('member');
+      expect(m.beetShares ?? 0).toBeGreaterThanOrEqual((m.beetAcres ?? 0) - 1);
+    }
+    expect(checkInvariants(s)).toEqual([]);
+  }, 60_000);
 });

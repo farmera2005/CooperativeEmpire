@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { MEMBERSHIP } from '../../data/tuning';
 import { DIVISION_CONFIG } from '../../data/supply';
-import { businessShare, offeredLines, totalAcres, yearOf, type Member } from '../../engine/index';
+import { businessShare, offeredLines, shareholderStats, totalAcres, yearOf, type Member } from '../../engine/index';
 import { Panel, Stat } from '../components/Panel';
 import { Term } from '../components/Term';
 import { money, num, pct } from '../format';
@@ -83,6 +83,7 @@ export function MembersScreen() {
         <Stat label="Farm customers" value={num(activeAll.length)} sub="members and non-members in the trade area" />
         <Stat label="Members" value={num(memberCount)} sub={`${pct(memberCount / Math.max(1, activeAll.length), 0)} of customers`} />
         <Stat label="Joined / resigned, 12 months" value={`${joined} / ${left}`} tone={joined > left ? 'good' : left > joined ? 'bad' : 'neutral'} sub="satisfied customers join when patronage is worth having" />
+        {game.coop.facilities.some((f) => f.division === 'SUGAR' && f.status !== 'closed') && <Stat label="Beet shareholders" value={num(shareholderStats(game).farms)} sub={`${num(shareholderStats(game).shares)} shares, one per acre grown`} />}
         <Stat label="Prospective members" value={num(prospects)} sub="non-members doing real business with us" />
         <Stat label="Farms within reach" value={num(inReach.length)} sub={`${pct(reachMembers / Math.max(1, inReach.length), 0)} are members; farms farther than ${REACH_MILES} miles from our sites rarely do business with us`} />
         <Stat label="Members who quit farming, 12 months" value={num(quit)} sub="retirements and farms sold to neighbors; consolidation shrinks every co-op's rolls" />

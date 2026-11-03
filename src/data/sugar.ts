@@ -114,6 +114,8 @@ export const SUGAR_FINANCE = {
     [1976, 0], [1977, 16], [1978, 16], [1979, 0], [1981, 0], [1982, 20.2], [1985, 21.6], [1996, 22.9], [2008, 22.9], [2009, 23.77],
     [2012, 24.09], [2017, 24.09], [2018, 25.38], [2024, 25.38], [2025, 32.77],
   ], 'medium', 'Refined beet loan rate: 22.9¢ (2002 Farm Bill), 25.38¢ (2018), 32.77¢ (2025); loan programs 1977–78 and from 1982'),
+  /** A non-member farm is this much less ready than a member to sign a beet contract, which means joining the co-op (D-136). */
+  nonmemberJoinShare: s(0.5, 'low'),
   /** CCC loans are charged the Treasury rate plus this many points. */
   cccSpread: s(1, 'low', 'CCC commodity loans: Treasury cost of funds plus 1 point'),
   /** Borrowing base advance on refined sugar (net of CCC loans on it) and on beets in the piles. */
