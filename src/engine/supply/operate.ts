@@ -6,6 +6,7 @@
 // Order per division: share of wallet → demand and sales by line → capacity limits →
 // purchases, inventory relief, LCM → prepay/prebuy → credit → report.
 
+import { regionalYield } from '../world/regional';
 import { serviceOf } from '../competitors/plants';
 import { inputDemand, townYieldFactor, type InputDemand } from '../world/farmEconomy';
 import { salesBoost } from '../people/sales';
@@ -173,7 +174,7 @@ export function stepSupply(ctx: TickContext): void {
   const hddNormalYear = region.hddNormals.value.reduce((a, b) => a + b, 0);
   const weather = state.world.weather;
   const onFarm = SUPPLY_SHARE.onFarmDryingShare.value;
-  const cornYield = marketValue(path, 'yieldCorn', mi);
+  const cornYield = regionalYield(state, 'corn', mi);
   const inp = inputDemand(state, mi);
 
   // Which divisions each member already buys from us (for bundling).

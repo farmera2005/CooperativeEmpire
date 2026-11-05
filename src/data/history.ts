@@ -31,6 +31,8 @@ export interface HistoricalEvent {
   confidence: Confidence;
   source?: string;
   effects: HistoryEffect[];
+  /** Only reported in these regions (D-140); everywhere when omitted. */
+  regions?: string[];
 }
 
 const win = (series: SeriesId[], from: YM, to: YM): HistoryEffect => ({ kind: 'marketWindow', series, from, to });
@@ -463,5 +465,48 @@ export const HISTORY: HistoricalEvent[] = [
     headline: 'U.S. and Mexico Sign Sugar Suspension Agreements',
     body: 'Minimum prices and export limits on Mexican sugar end a trade case brought by U.S. producers and steady domestic sugar prices.',
     confidence: 'high', source: 'docs/research/sugar.md', effects: [],
+  },
+  // Regional news (D-140): reported only to co-ops in that region. Appended so earlier events keep their order.
+  {
+    id: 'pivots-1975', date: [1975, 6], category: 'industry', driftable: false, regions: ['wcb'],
+    headline: 'Center Pivots Spread Across Nebraska',
+    body: 'Center-pivot irrigation is going up fast: about 2,700 pivots in 1972 will be nearly 19,000 by 1980. Irrigated corn yields are steadier and bigger, and dryland ground is being converted.',
+    confidence: 'medium', source: 'docs/research/regions.md', effects: [],
+  },
+  {
+    id: 'huron-eastern-1986', date: [1986, 6], category: 'industry', driftable: false, regions: ['glk'],
+    headline: 'Short Line Takes Over Thumb Branch Lines',
+    body: 'A new short-line railroad takes over branch lines in Michigan\'s Thumb that the big railroads wanted to abandon, keeping rail service at country elevators.',
+    confidence: 'low', source: 'docs/research/regions.md', effects: [],
+  },
+  {
+    id: 'scab-1993', date: [1993, 8], category: 'weather', driftable: false, regions: ['rrv'],
+    headline: 'Scab Ravages Red River Valley Wheat',
+    body: 'A wet summer brings head blight (scab) across the valley: North Dakota loses some 90 million bushels of wheat, and much of what is harvested is discounted for vomitoxin.',
+    confidence: 'medium', source: 'docs/research/regions.md', effects: [],
+  },
+  {
+    id: 'red-river-flood-1997', date: [1997, 4], category: 'weather', driftable: false, regions: ['rrv'],
+    headline: 'Red River Crests at Record 54 Feet; Grand Forks Flooded',
+    body: 'After a winter of record snow the Red River crests at 54.35 feet on April 22, flooding Grand Forks and East Grand Forks. Damage runs to $3.5–4 billion; spring planting will be late.',
+    confidence: 'high', source: 'docs/research/regions.md', effects: [],
+  },
+  {
+    id: 'michigan-monitor-2004', date: [2004, 10], category: 'industry', driftable: false, regions: ['glk'],
+    headline: 'Michigan Sugar and Monitor Sugar Combine',
+    body: 'Growers who bought Michigan Sugar in 2002 combine it with Monitor Sugar of Bay City, putting all of the state\'s beet factories in one growers\' cooperative.',
+    confidence: 'medium', source: 'docs/research/regions.md', effects: [],
+  },
+  {
+    id: 'kansas-lema-2013', date: [2013, 4], category: 'policy', driftable: false, regions: ['wcb'],
+    headline: 'Kansas Farmers Agree to Cut Groundwater Pumping',
+    body: 'Irrigators in a northwest Kansas district agree to cut pumping from the Ogallala aquifer by about a third for five years; water tables in southwest Kansas have fallen some 40 feet since 1996.',
+    confidence: 'medium', source: 'docs/research/regions.md', effects: [],
+  },
+  {
+    id: 'nd-unharvested-2019', date: [2019, 12], category: 'weather', driftable: false, regions: ['rrv'],
+    headline: 'Two Million Acres of North Dakota Corn Left Under Snow',
+    body: 'A wet fall and early snow leave about two million acres of North Dakota corn unharvested over winter; much of it will be combined in the spring at a loss.',
+    confidence: 'medium', source: 'docs/research/regions.md', effects: [],
   },
 ];

@@ -1,5 +1,6 @@
 // Competitors (M2: static grain elevators) and the marketplace of facilities for sale.
 
+import { elevatorScale } from '../world/regional';
 import { brandName, brandsAvailable, getBrand } from '../../data/brands';
 import { COMPETITORS, ELEVATOR_SIZES, MARKETPLACE } from '../../data/grain';
 import { SURNAMES } from '../../data/names';
@@ -67,7 +68,7 @@ export function generateCompetitors(state: GameState, rng: Rng, year: number): C
       : rng.chance(0.5) ? `${rng.pick(SURNAMES)} Grain Co.` : `${town.name} Grain & Feed`;
     const builtYear = year - rng.int(5, kind === 'independent' ? 55 : 35);
     const site: CompetitorSite = {
-      id: 1, townId: town.id, ...eraElevator(rng, year, kind === 'national' ? COMPETITORS.sizeScale.value.national : kind === 'coop' ? COMPETITORS.sizeScale.value.coop : COMPETITORS.sizeScale.value.independent),
+      id: 1, townId: town.id, ...eraElevator(rng, year, (kind === 'national' ? COMPETITORS.sizeScale.value.national : kind === 'coop' ? COMPETITORS.sizeScale.value.coop : COMPETITORS.sizeScale.value.independent) * elevatorScale(state, year)),
       loadout: loadoutFor(rng, kind, town, state, year), builtYear, condition: Math.round(rng.range(40, 92)),
     };
     out.push({
@@ -169,7 +170,7 @@ export function ensureHomeIndependent(state: GameState, rng: Rng, year: number):
   const id = Math.max(0, ...state.competitors.map((c) => c.id)) + 1;
   state.competitors.push({
     id, name: `${rng.pick(SURNAMES)} Grain Co.`, kind: 'independent',
-    sites: [{ id: 1, townId: home, ...eraElevator(rng, year, COMPETITORS.sizeScale.value.independent * 0.8), loadout: loadoutFor(rng, 'independent', town, state, year), builtYear: year - rng.int(20, 50), condition: Math.round(rng.range(45, 80)) }],
+    sites: [{ id: 1, townId: home, ...eraElevator(rng, year, COMPETITORS.sizeScale.value.independent * 0.8 * elevatorScale(state, year)), loadout: loadoutFor(rng, 'independent', town, state, year), builtYear: year - rng.int(20, 50), condition: Math.round(rng.range(45, 80)) }],
     posture: 0, service: 0, status: 'active', ownerAge: rng.int(66, 76), volumeYtd: 0,
   });
 }

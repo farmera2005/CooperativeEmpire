@@ -1,7 +1,7 @@
 // Procedural trade territory (DESIGN §6.2). Deterministic from the map seed.
 
 import { brandsAvailable } from '../../data/brands';
-import { COUNTY_NAMES, TOWN_FOUNDERS, TOWN_PREFIXES, TOWN_SUFFIXES } from '../../data/names';
+import { COUNTY_NAMES, EXTRA_COUNTY_NAMES, TOWN_FOUNDERS, TOWN_PREFIXES, TOWN_SUFFIXES } from '../../data/names';
 import type { RegionDef } from '../../data/regions/eccb';
 import { TERRITORY } from '../../data/tuning';
 import { clamp } from '../core/math';
@@ -48,6 +48,9 @@ export function generateTerritory(mapSeed: number, region: RegionDef, startYear:
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) cells.push([c, r]);
   if (cells.length > nCounties) cells.splice(rng.pick([0, cols - 1, cells.length - cols, cells.length - 1]), cells.length - nCounties);
   const countyNames = rng.shuffle([...COUNTY_NAMES]);
+  // Larger maps (D-138) draw extra names from a second list on their own stream.
+  if (nCounties > countyNames.length) countyNames.push(...stream(mapSeed, -1, 'territory.counties').shuffle([...EXTRA_COUNTY_NAMES]));
+  for (let i = countyNames.length; i < nCounties; i++) countyNames.push(`${countyNames[i % countyNames.length]} ${['North', 'South', 'East', 'West'][Math.floor(i / countyNames.length) % 4]}`);
   const counties: County[] = cells.map(([c, r], i) => ({
     id: i, name: countyNames[i], x0: c * cm, y0: r * cm, x1: (c + 1) * cm, y1: (r + 1) * cm, seatTownId: -1,
   }));

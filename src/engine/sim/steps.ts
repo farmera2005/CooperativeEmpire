@@ -31,6 +31,7 @@ export function stepHistory(ctx: TickContext): string[] {
   const fired: string[] = [];
   for (const ev of HISTORY) {
     if (eventMonth(ev.id, ctx.state.drift) !== ctx.mi) continue;
+    if (ev.regions && !ev.regions.includes(ctx.state.world.regionId)) continue;
     if (ctx.state.firedEvents.some((f) => f.id === ev.id)) continue;
     ctx.state.firedEvents.push({ id: ev.id, monthIndex: ctx.mi });
     ctx.inbox({ kind: 'history', title: ev.headline, body: ev.body, eventId: ev.id });

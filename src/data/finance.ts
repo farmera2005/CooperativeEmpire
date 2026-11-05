@@ -220,6 +220,26 @@ export const DEFAULT_AFFILIATION_ORDER: Record<RegionalCategory, string[]> = {
   retail: ['southern-states', 'agway'],
 };
 
+/**
+ * The usual regionals by region (D-140), tried before the general order: the Farmers Union and
+ * Cenex system in the Red River Valley, Farmland in the Plains, Farm Bureau Services and then
+ * Countrymark in Michigan. No regional retail program outside the central Corn Belt.
+ */
+export const REGION_AFFILIATION_ORDER: Record<string, Partial<Record<RegionalCategory, string[]>>> = {
+  rrv: {
+    agronomy: ['cenex', 'cenex-harvest-states', 'chs', 'land-o-lakes'], energy: ['cenex', 'cenex-harvest-states', 'chs'],
+    feed: ['land-o-lakes', 'harvest-states', 'cenex-harvest-states', 'chs'], grain: ['farmers-union-gta', 'harvest-states', 'cenex-harvest-states', 'chs'], retail: [],
+  },
+  wcb: {
+    agronomy: ['farmland', 'chs', 'land-o-lakes'], energy: ['farmland', 'cenex-harvest-states', 'chs'],
+    feed: ['farmland', 'land-o-lakes'], grain: ['farmland', 'cenex-harvest-states', 'chs'], retail: [],
+  },
+  glk: {
+    agronomy: ['farm-bureau-services', 'countrymark', 'land-o-lakes', 'chs'], energy: ['farm-bureau-services', 'countrymark', 'chs'],
+    feed: ['farm-bureau-services', 'land-o-lakes', 'countrymark'], grain: ['farm-bureau-services', 'countrymark', 'chs'], retail: [],
+  },
+};
+
 export const BUDGET = {
   /** Month before fiscal year end when the budget is drafted and when it is approved. */
   draftMonthsBeforeFye: 3,

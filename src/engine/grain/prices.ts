@@ -1,6 +1,7 @@
 // Grain prices for a month: futures, destination basis, the local market bid, our bid,
 // carry, and freight. Everything the farmer and the merchandiser compare.
 
+import { basisOffset } from '../world/regional';
 import { basisSeasonFactor, carryFactor, marginFactor } from '../world/farmEconomy';
 import { ETHANOL } from '../../data/competition';
 import {
@@ -50,7 +51,8 @@ export const railFreight = (loadout: Exclude<LoadoutType, 'truck'>, idx: number)
 /** Destination basis (nominal $/bu vs futures) for a kind and commodity this month. */
 export function destinationBasis(state: GameState, kind: DestinationKind, c: Commodity, mi: number, idx: number): number {
   // A big local crop swings the season wider (deep harvest discount, strong recovery); a short one flattens it (D-132).
-  return (DEST_BASIS[kind][c] + BASIS_SEASON[c][monthOf(mi) - 1] * basisSeasonFactor(state, c, mi) + (state.coop.grain.basisNoise[c] ?? 0)) * idx;
+  // Regions farther from the markets carry a wider basis (D-140).
+  return (DEST_BASIS[kind][c] + basisOffset(state, c) + BASIS_SEASON[c][monthOf(mi) - 1] * basisSeasonFactor(state, c, mi) + (state.coop.grain.basisNoise[c] ?? 0)) * idx;
 }
 
 export interface SaleOption {

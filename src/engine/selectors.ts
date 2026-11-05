@@ -6,7 +6,8 @@ import { DIVISION_CONFIG } from '../data/supply';
 import { valueAt } from '../data/types';
 import { yearOf } from './core/calendar';
 import type { GameState } from './types';
-import { GRAIN_LINE, YIELD_SERIES } from './grain/operate';
+import { GRAIN_LINE } from './grain/operate';
+import { regionalYield } from './world/regional';
 import { pathFor } from './world/macro';
 import { marketValue } from './world/marketPath';
 
@@ -116,7 +117,7 @@ export function facilityCatchment(state: GameState, facilityId: number): Facilit
     }
   } else {
     const path = pathFor(state);
-    const yields = Object.fromEntries(COMMODITIES.map((c) => [c, marketValue(path, YIELD_SERIES[c], state.clock.monthIndex)])) as Record<Commodity, number>;
+    const yields = Object.fromEntries(COMMODITIES.map((c) => [c, regionalYield(state, c, state.clock.monthIndex)])) as Record<Commodity, number>;
     unit = d === 'GRAIN' ? 'bushels a year' : d === 'FEED' ? 'head of livestock' : d === 'SUGAR' ? 'beet acres' : 'crop acres';
     const base: Record<number, number> = {};
     for (const m of state.members.list) {

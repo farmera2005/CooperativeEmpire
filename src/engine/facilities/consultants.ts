@@ -20,7 +20,7 @@ import type { CommandMessage } from '../sim/commands';
 import type { DesignProposal, Facility, GameState } from '../types';
 import { constructionLevel, nominalCents, pathFor } from '../world/macro';
 import { marketValue } from '../world/marketPath';
-import { YIELD_SERIES } from '../grain/operate';
+import { harvestCalendar, regionalYield } from '../world/regional';
 import { SUGAR } from '../../data/sugar';
 import { grainCapacity } from './facilities';
 import { footprintAcres, makersFor, modelsFor, needsMaker, siteAcres, unitPrice } from './units';
@@ -153,7 +153,7 @@ export function siteMarket(state: GameState, townId: number, kind: FacilityKind,
     return { annual: pop, unit: 'residents', peakWeekShare: 0, cornShare: 0 };
   }
   const path = pathFor(state);
-  const yields = Object.fromEntries(COMMODITIES.map((c) => [c, marketValue(path, YIELD_SERIES[c], state.clock.monthIndex)])) as Record<string, number>;
+  const yields = Object.fromEntries(COMMODITIES.map((c) => [c, regionalYield(state, c, state.clock.monthIndex)])) as Record<string, number>;
   let annual = 0;
   let corn = 0;
   let peak = 0;
@@ -167,7 +167,7 @@ export function siteMarket(state: GameState, townId: number, kind: FacilityKind,
         const bu = m.acres[c] * yields[c] * m.weight * CONSULTING.grainShareNew * near;
         annual += bu;
         if (c === 'corn') corn += bu;
-        peak += bu * Math.max(...HARVEST_CALENDAR[c]);
+        peak += bu * Math.max(...harvestCalendar(state, c));
       }
     } else if (division === 'SUGAR') {
       // Beet acres growers here could put in: a rotation's share of row crops, about half signing.

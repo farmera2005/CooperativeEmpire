@@ -24,6 +24,7 @@ import { incomeStatement } from '../ledger/statements';
 import { marketValue } from '../world/marketPath';
 import { townYieldFactor } from '../world/farmEconomy';
 import { stepSugarCompany } from './company';
+import { basisOffset, beetYieldFactor, regionalYield } from '../world/regional';
 import { marketPrice, stepShareMarket } from './shares';
 
 export const emptySugarBook = (): SugarBook => ({ piles: [], pileSugarPct: 0, pileCost: 0, sugarCwt: 0, sugarCost: 0, campaign: null, campaigns: [], report: null, reports: [] });
@@ -83,7 +84,7 @@ export function suggestedAcres(state: GameState, year: number): number {
   const cap = sugarCapacity(state);
   const { receiving } = sugarSites(state);
   const perMonth = cap.tpd * 30 * sugarUptime(state);
-  const yieldT = beetYield(year);
+  const yieldT = beetYield(year, state);
   if (perMonth <= 0 || yieldT <= 0) return 0;
   // Slicing from September through February leaves the warm-weather months as a cushion.
   const slice = perMonth * 6;
@@ -94,7 +95,7 @@ export function suggestedAcres(state: GameState, year: number): number {
 }
 
 /** Trend yield (tons/acre) and sugar content (%) for a crop year. */
-export const beetYield = (year: number): number => valueAt(SUGAR.yieldTonsPerAcre, year);
+export const beetYield = (year: number, state?: GameState): number => valueAt(SUGAR.yieldTonsPerAcre, year) * (state ? beetYieldFactor(state) : 1);
 export const beetSugarTrend = (year: number): number => valueAt(SUGAR.sugarPct, year);
 
 /** Share of the sugar in beets recovered as sugar. */
@@ -155,8 +156,8 @@ export function growerReturns(state: GameState, mi: number): { beets: number; co
   // grower co-ops usually pay out in all.
   const last = [...state.coop.sugar.campaigns].reverse().find((c) => c.closed && c.deliveredTons > 0);
   const lastPatronage = last ? Math.max(0, lastSugarSavings(state) / 100 / last.deliveredTons) : value * Math.max(0, SUGAR.growerNetShare.value - state.coop.sugarPolicy.growerShare);
-  const beets = beetYield(year) * (pay + lastPatronage) - SUGAR.growerCostPerAcre2024.value * priceLevel(path, mi);
-  const corn = marketValue(path, 'yieldCorn', mi) * marketValue(path, 'corn', mi) * SUGAR.cornNetShare.value;
+  const beets = beetYield(year, state) * (pay + lastPatronage) - SUGAR.growerCostPerAcre2024.value * priceLevel(path, mi);
+  const corn = regionalYield(state, 'corn', mi) * (marketValue(path, 'corn', mi) + basisOffset(state, 'corn') * priceLevel(path, mi)) * SUGAR.cornNetShare.value;
   return { beets, corn };
 }
 
@@ -310,7 +311,7 @@ export function stepSugar(ctx: TickContext): void {
     for (const g of eligibleGrowers(state, receiving)) {
       const acres = g.m.beetAcres ?? 0;
       if (acres <= 0) continue;
-      const tons = acres * beetYield(year) * townYieldFactor(state, year, g.m.townId) * share * g.m.weight * (1 + SUGAR_STAFF.maxYieldGain.value * agEffect(state));
+      const tons = acres * beetYield(year, state) * townYieldFactor(state, year, g.m.townId) * share * g.m.weight * (1 + SUGAR_STAFF.maxYieldGain.value * agEffect(state));
       // Nearest site first, then any other with room.
       const order = [g.site, ...receiving.filter((f) => f.id !== g.site.id && state.world.distances[g.m.townId][f.townId] <= SUGAR.reachMiles.value * 1.5)];
       let need = tons;
@@ -657,7 +658,7 @@ export function sugarLineNeed(state: GameState): Cents {
   if (!sugarSites(state).factories.length) return 0;
   const mi = state.clock.monthIndex;
   const year = yearOf(mi);
-  const tons = suggestedAcres(state, year) * beetYield(year);
+  const tons = suggestedAcres(state, year) * beetYield(year, state);
   return roundCents(tons * productValuePerTon(state, mi, beetSugarTrend(year)) * state.coop.sugarPolicy.growerShare * SUGAR_FINANCE.initialPaymentShare.value * 100);
 }
 
@@ -671,7 +672,7 @@ export function takeOverCampaign(state: GameState, factory: Facility): Cents {
   const month = monthOf(mi);
   if (month > SUGAR.campaignEndMonth) return 0;
   const crop = yearOf(mi) - 1;
-  const tons = suggestedAcres(state, crop) * beetYield(crop);
+  const tons = suggestedAcres(state, crop) * beetYield(crop, state);
   if (tons <= 0) return 0;
   const path = pathFor(state);
   const perMonth = sugarCapacity(state).tpd * 30 * sugarUptime(state);
@@ -691,7 +692,7 @@ export function takeOverCampaign(state: GameState, factory: Facility): Cents {
   book.pileCost = pileCost;
   book.sugarCwt = cwt;
   book.sugarCost = sugarCost;
-  const acres = Math.round(tons / beetYield(crop));
+  const acres = Math.round(tons / beetYield(crop, state));
   book.campaigns = [...book.campaigns, {
     year: crop, contractedAcres: acres, growers: 0, deliveredTons: tons, leftInFieldTons: 0, avgSugarPct: sugarPct,
     slicedTons: sliced, sugarCwt: made, pulpTons: sliced * SUGAR.pulpTonsPerTon.value, molassesTons: sliced * SUGAR.molassesTonsPerTon.value,

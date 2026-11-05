@@ -16,6 +16,7 @@ import * as history from './history';
 import * as law from './law';
 import * as markets from './markets';
 import * as eccb from './regions/eccb';
+import * as otherRegions from './regions/others';
 import * as tuning from './tuning';
 
 export const DATA_REGISTRY: Record<string, Record<string, unknown>> = {
@@ -36,4 +37,5 @@ export const DATA_REGISTRY: Record<string, Record<string, unknown>> = {
   'competition.ts': competition as unknown as Record<string, unknown>,
   'events.ts': events as unknown as Record<string, unknown>,
   'regions/eccb.ts': eccb as unknown as Record<string, unknown>,
+  'regions/others.ts': otherRegions as unknown as Record<string, unknown>,
 };

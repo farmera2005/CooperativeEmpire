@@ -5,7 +5,7 @@
 // their locals write off the equity.
 
 import { brandsAvailable, getBrand } from '../../data/brands';
-import { AFFILIATION, DEFAULT_AFFILIATION_ORDER, REGIONAL_DEFAULT, REGIONALS, type RegionalCategory } from '../../data/finance';
+import { AFFILIATION, DEFAULT_AFFILIATION_ORDER, REGION_AFFILIATION_ORDER, REGIONAL_DEFAULT, REGIONALS, type RegionalCategory } from '../../data/finance';
 import { COMMODITIES } from '../../data/grain';
 import type { SupplyDivision } from '../../data/supply';
 import { valueAt } from '../../data/types';
@@ -31,7 +31,7 @@ export function defaultAffiliations(year: number, regionId: string): GameSetup['
   const avail = new Set(brandsAvailable('regional', year, regionId).map((b) => b.id));
   const out: GameSetup['regionalAffiliations'] = [];
   for (const cat of CATEGORIES) {
-    const id = DEFAULT_AFFILIATION_ORDER[cat].find((r) => avail.has(r) && getBrand(r)?.supplies?.includes(cat));
+    const id = (REGION_AFFILIATION_ORDER[regionId]?.[cat] ?? DEFAULT_AFFILIATION_ORDER[cat]).find((r) => avail.has(r) && getBrand(r)?.supplies?.includes(cat));
     if (!id) continue;
     const ex = out.find((a) => a.regionalId === id);
     if (ex) ex.lines.push(cat);

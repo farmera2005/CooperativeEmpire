@@ -31,6 +31,7 @@ export function DealsScreen() {
   const from = ours.length ? ours : [game.coop.homeTownId];
   const milesTo = (c: Competitor) => Math.min(...c.sites.map((x) => Math.min(...from.map((t) => game.world.distances[t][x.townId]))));
   const active = game.competitors.filter((c) => c.status === 'active' && c.sites.length).sort((a, b) => milesTo(a) - milesTo(b) || a.id - b.id);
+  const [showAll, setShowAll] = useState(false);
   const open = game.deals.filter((d) => d.stage !== 'closed' && d.stage !== 'dead');
   const past = game.deals.filter((d) => d.stage === 'closed' || d.stage === 'dead').slice(-8).reverse();
   const ourDivisions = (Object.keys(DIVISION_LABEL) as OpDivision[]).filter((d) => d !== 'GRAIN' && game.coop.facilities.some((f) => f.status !== 'closed' && f.division === d));
@@ -53,12 +54,13 @@ export function DealsScreen() {
       <Panel title="Competitors and potential partners">
         <table className="w-full text-sm">
           <thead className="text-left text-xs uppercase text-stone-500">
-            <tr><th className="py-1">Company</th><th>Kind</th><th className="text-right">Miles</th><th>Businesses</th><th>Health</th><th>Latest</th><th className="text-right">Talks</th></tr>
+            <tr><th className="py-1">Company</th><th>Kind</th><th className="pr-4 text-right">Miles</th><th>Businesses</th><th>Health</th><th>Latest</th><th className="text-right">Talks</th></tr>
           </thead>
           <tbody>
-            {active.map((c) => <CompetitorRow key={c.id} c={c} miles={milesTo(c)} ourDivisions={ourDivisions} busy={open.some((d) => d.partnerId === c.id)} />)}
+            {(showAll ? active : active.slice(0, 40)).map((c) => <CompetitorRow key={c.id} c={c} miles={milesTo(c)} ourDivisions={ourDivisions} busy={open.some((d) => d.partnerId === c.id)} />)}
           </tbody>
         </table>
+        {active.length > 40 && <button className="btn mt-2 text-xs" onClick={() => setShowAll(!showAll)}>{showAll ? 'Show the nearest 40' : `Show all ${active.length}`}</button>}
         <p className="mt-2 text-xs text-stone-500">A merger or joint-venture study costs {money(nominalCents(pathFor(game), game.clock.monthIndex, DEALS.studyCost.value))} and takes {DEALS.studyMonths} months; due diligence costs {money(nominalCents(pathFor(game), game.clock.monthIndex, DEALS.diligenceCost.value))}. Only cooperatives can merge with us. A locally owned private company can be bought outright: a valuation brings the owner's asking price. National companies are not for sale.</p>
       </Panel>
 
@@ -124,7 +126,7 @@ function CompetitorRow({ c, miles, ourDivisions, busy }: { c: Competitor; miles:
     <tr className="border-t border-stone-100 align-top">
       <td className="py-1.5 font-medium">{competitorName(game, c)}{c.war && <span className="ml-1 rounded bg-rust px-1 text-xs text-white">price war</span>}</td>
       <td className="capitalize">{c.kind === 'coop' ? 'Co-op' : c.kind}</td>
-      <td className="text-right tabular-nums">{Math.round(miles)}</td>
+      <td className="pr-4 text-right tabular-nums">{Math.round(miles)}</td>
       <td className="text-xs">{divisions.map((d) => DIVISION_LABEL[d as OpDivision]).join(', ')} · {c.sites.length} site{c.sites.length > 1 ? 's' : ''}
         <details><summary className="cursor-pointer text-sky">Plants</summary>
           {c.sites.map((x) => <div key={x.id} className="mt-1"><b>{game.world.towns[x.townId].name}</b><CompetitorSiteUnits site={x} /></div>)}

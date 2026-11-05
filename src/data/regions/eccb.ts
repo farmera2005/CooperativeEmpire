@@ -1,6 +1,7 @@
 // Eastern/Central Corn Belt region (Indiana/Illinois/western Ohio-like).
 
 import { annual, s, type AnnualPoint, type Sourced } from '../types';
+import { GLK, RRV, WCB } from './others';
 
 export type CropId = 'corn' | 'soybeans' | 'wheat' | 'other';
 export type SpeciesId = 'hogs' | 'dairy' | 'beefCows' | 'cattleOnFeed' | 'poultry';
@@ -49,6 +50,14 @@ export interface RegionDef {
   riverTerminalProb: Sourced<number>;
   /** Annual urban creep: share of farmland lost per year. */
   farmlandLossPerYear: Sourced<number>;
+  /** Yields against the central Illinois series the market data carries (D-140); 1 when omitted. */
+  yieldFactor?: Record<'corn' | 'soybeans' | 'wheat', AnnualPoint[]>;
+  /** Grain basis against central Illinois, 2024 $/bu (D-140). */
+  basisOffset?: Sourced<Record<'corn' | 'soybeans' | 'wheat', number>>;
+  /** Harvest calendar by crop, share of the crop by month Jan..Dec (D-140); central Illinois when omitted. */
+  harvestCalendar?: Partial<Record<'corn' | 'soybeans' | 'wheat', number[]>>;
+  /** Sugar beet yields against the data's curve (D-140). */
+  beetYieldFactor?: Sourced<number>;
 }
 
 export const ECCB: RegionDef = {
@@ -116,4 +125,6 @@ export const ECCB: RegionDef = {
   farmlandLossPerYear: s(0.001, 'low'),
 };
 
-export const REGIONS: Record<string, RegionDef> = { eccb: ECCB };
+export const REGIONS: Record<string, RegionDef> = { eccb: ECCB, rrv: RRV, wcb: WCB, glk: GLK };
+/** Region ids in the order the setup screen lists them. */
+export const REGION_IDS = ['eccb', 'wcb', 'rrv', 'glk'] as const;

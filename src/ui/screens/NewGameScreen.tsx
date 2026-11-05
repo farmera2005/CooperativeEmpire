@@ -2,9 +2,17 @@ import { useMemo, useState } from 'react';
 import { brandName, type SupplyLine } from '../../data/brands';
 import { DATA_END_YEAR } from '../../data/markets';
 import { SETUP, TERRITORY } from '../../data/tuning';
+import { REGION_IDS, REGIONS } from '../../data/regions/eccb';
+
+const REGION_NOTES = {
+  eccb: 'Central Illinois, Indiana and Ohio: corn and soybeans on deep prairie soils, close to river and processor markets.',
+  wcb: 'Nebraska, Kansas and western Iowa: irrigated corn, hard red winter wheat and sorghum; feedlots and shuttle trains; drought years.',
+  rrv: 'Eastern North Dakota and northwest Minnesota: spring wheat and barley, then soybeans and corn; sugar beet heartland; big farms, long winters, wide basis. The hardest region to make money in.',
+  glk: 'Michigan Thumb, Saginaw Valley and northwest Ohio: corn, soybeans, soft wheat, dry beans, sugar beets and dairy; wet springs.',
+} as const;
 import {
   availableLenders, availableRegionals, DEFAULT_SETUP, defaultHomeTown, MONTH_NAMES, previewTerritory, startingCapital, territoryCustomers,
-  suggestCoopNames, type CapitalPreset, type GameSetup,
+  suggestCoopNames, suggestedMembers, type CapitalPreset, type GameSetup,
 } from '../../engine/index';
 import { TerritoryMap } from '../components/TerritoryMap';
 import { Term } from '../components/Term';
@@ -103,6 +111,13 @@ export function NewGameScreen() {
               <span className="text-xs text-stone-500">Members and non-members; sets the size of the territory. {Math.round((100 * setup.startingMembers) / Math.max(1, customers))}% start as members. Membership grows when the co-op serves people well and pays patronage, and shrinks when it does not.</span>
             </label>
           </div>
+          <label className="block">
+            <span className="text-sm font-semibold">Region</span>
+            <select className="input mt-1 w-full" value={setup.regionId} onChange={(e) => up({ regionId: e.target.value, regionalAffiliations: [], homeTownId: undefined, territoryCustomers: undefined, startingMembers: suggestedMembers(e.target.value, setup.startYear) })}>
+              {REGION_IDS.map((id) => <option key={id} value={id}>{REGIONS[id].name}</option>)}
+            </select>
+            <span className="text-xs text-stone-500">{REGION_NOTES[setup.regionId as keyof typeof REGION_NOTES]} Suggested founding members for a co-op of typical size here: {suggestedMembers(setup.regionId, setup.startYear)}.</span>
+          </label>
           <label className="block">
             <span className="text-sm font-semibold">Size of the world</span>
             <select className="input mt-1 w-full" value={setup.territorySize ?? 'standard'} onChange={(e) => up({ territorySize: e.target.value as GameSetup['territorySize'], territoryCustomers: undefined, homeTownId: undefined })}>

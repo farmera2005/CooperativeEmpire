@@ -10,6 +10,7 @@
 //   6. hedges rebalanced, inventory and DP liability marked to market, margin deposits
 //   7. fees, bond, report and margin breakdown
 
+import { harvestCalendar, regionalYield } from '../world/regional';
 import { makerOf, modelOf } from '../facilities/units';
 import { townYieldFactor } from '../world/farmEconomy';
 import { serviceOf } from '../competitors/plants';
@@ -87,8 +88,8 @@ function farmYieldFactor(id: number): number {
 }
 
 /** Share of a crop harvested this month, with wet-fall delays. */
-function harvestShare(c: Commodity, month: number, wetFall: boolean): number {
-  const cal = HARVEST_CALENDAR[c].slice();
+function harvestShare(state: GameState, c: Commodity, month: number, wetFall: boolean): number {
+  const cal = harvestCalendar(state, c).slice();
   if (wetFall && c !== 'wheat') {
     const s = WET_FALL_SHIFT.value;
     const oct = cal[9] * s.octToNov;
@@ -101,8 +102,8 @@ function harvestShare(c: Commodity, month: number, wetFall: boolean): number {
   return cal[month - 1];
 }
 
-function isCropHarvestMonth(c: Commodity, month: number): boolean {
-  return HARVEST_CALENDAR[c][month - 1] > 0 || (c !== 'wheat' && month === 12);
+function isCropHarvestMonth(state: GameState, c: Commodity, month: number): boolean {
+  return harvestCalendar(state, c)[month - 1] > 0 || (c !== 'wheat' && month === 12);
 }
 
 interface Supplier {
@@ -199,8 +200,9 @@ export function stepGrain(ctx: TickContext): void {
   const yields = {} as Record<Commodity, number>;
   const yieldsPrev = {} as Record<Commodity, number>;
   for (const c of COMMODITIES) {
-    yields[c] = marketValue(path, YIELD_SERIES[c], mi);
-    yieldsPrev[c] = marketValue(path, YIELD_SERIES[c], mi - 12);
+    // Regional yields (D-140).
+    yields[c] = regionalYield(state, c, mi);
+    yieldsPrev[c] = regionalYield(state, c, mi - 12);
   }
   const onFarmBase = valueAt(ON_FARM_STORAGE, year);
   const sm = SHARE_MODEL;
@@ -269,7 +271,7 @@ export function stepGrain(ctx: TickContext): void {
       const prodNow = acres * yields[c] * yf - (c === 'corn' ? feedCorn : 0);
       let harvestBu = 0;
       let steadyBu = 0;
-      const hs = harvestShare(c, month, weather.wetFall);
+      const hs = harvestShare(state, c, month, weather.wetFall);
       if (hs > 0) harvestBu = Math.max(0, prodNow) * hs * (1 - of);
       if (c === 'wheat') steadyBu = Math.max(0, prodNow) * of * ON_FARM_WHEAT_SCHEDULE[month - 1];
       else {
@@ -452,7 +454,7 @@ export function stepGrain(ctx: TickContext): void {
   // ---- 4–7. accounting by commodity ----
   const report = {} as Record<Commodity, GrainCommodityMonth>;
   const comp = { sales: 0, purchases: 0, cogs: 0, freight: 0, hedge: 0, revalue: 0, shrink: 0, drying: 0, storage: 0, dryingCost: 0 };
-  const harvestNow = (c: Commodity) => isCropHarvestMonth(c, month);
+  const harvestNow = (c: Commodity) => isCropHarvestMonth(state, c, month);
   const osShare = pol.offerOpenStorage ? clamp(FARMER_MARKETING.openStorageBase.value + FARMER_MARKETING.openStorageCarryBoost.value * Math.max(0, carry.corn / idx), 0, 0.6) : 0;
   let marginCall = 0;
   const hrng = ctx.rng('grain.hedge');

@@ -44,7 +44,9 @@ building real units (see a competitor's plants on Deals & Competitors). Sizes, y
 
 ## A bigger world
 
-At setup choose the size of the world, from a county or two up to a vast map of 30-plus counties
+Choose a region — the central Corn Belt, the Western Corn Belt & Plains, the Red River Valley or the
+Great Lakes, each with its own crops, yields, basis, weather, railroads, regional co-ops and news —
+and the size of the world, from a county or two up to a vast map of 30-plus counties
 and 200 towns. On larger maps the founders farm around the home town and the outer counties
 belong to county-wide co-ops that grow, open new elevators, merge with each other over the decades
 (fastest from the 1990s) and can become your merger partners (Deals & Competitors, nearest first).

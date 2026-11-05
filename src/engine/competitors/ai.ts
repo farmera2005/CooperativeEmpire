@@ -11,6 +11,7 @@ import { clamp } from '../core/math';
 import { valueAt } from '../../data/types';
 import { COMPETITORS } from '../../data/grain';
 import { eraElevator } from './competitors';
+import { elevatorScale } from '../world/regional';
 import type { Rng } from '../core/rng';
 import { farmStress } from '../supply/credit';
 import type { TickContext } from '../sim/context';
@@ -253,7 +254,7 @@ function growNeighbors(ctx: TickContext, rng: Rng): void {
         || state.coop.facilities.some((f) => f.status !== 'closed' && f.kind === 'elevator' && milesBetween(state, f.townId, t) < ai.newSiteGapMiles);
       const town = state.world.towns.filter((t) => c.sites.some((s) => milesBetween(state, s.townId, t.id) <= ai.newSiteMiles) && !taken(t.id)).sort((a, b) => b.population - a.population || a.id - b.id)[0];
       if (town) {
-        const site: CompetitorSite = { id: Math.max(0, ...c.sites.map((x) => x.id)) + 1, townId: town.id, ...eraElevator(rng, year, COMPETITORS.sizeScale.value.coop), loadout: 'truck', builtYear: year + 1, condition: 98, arrivalYear: year + 1 };
+        const site: CompetitorSite = { id: Math.max(0, ...c.sites.map((x) => x.id)) + 1, townId: town.id, ...eraElevator(rng, year, COMPETITORS.sizeScale.value.coop * elevatorScale(state, year)), loadout: 'truck', builtYear: year + 1, condition: 98, arrivalYear: year + 1 };
         c.sites = [...c.sites, site];
         c.strength = st - 10;
         c.lastMove = `building a new elevator at ${town.name}`;

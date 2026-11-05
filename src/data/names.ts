@@ -92,6 +92,15 @@ export const COUNTY_NAMES = [
   'Wakefield', 'Whitley', 'Ashland', 'Big Prairie', 'Sauk Ridge', 'Kaskaskia Bend', 'Two Rivers', 'Wabash Hill',
 ];
 
+/** More county names for larger maps (D-138), drawn only once the first list runs out so standard maps keep theirs. */
+export const EXTRA_COUNTY_NAMES = [
+  'Abernathy', 'Bancroft', 'Colfax', 'Delmont', 'Ellery', 'Fennimore', 'Garnett', 'Halvorsen', 'Ingalls', 'Jessup',
+  'Kittredge', 'Lindgren', 'Marquette', 'Nordahl', 'Osgood', 'Pruitt', 'Ransom', 'Sorensen', 'Traill', 'Ulland',
+  'Vandermeer', 'Winslow', 'Yardley', 'Ziegler', 'Bear Creek', 'Cedar Bluff', 'Elk Prairie', 'Fox River', 'Grand Marsh',
+  'Long Lake', 'Maple Ridge', 'Otter Tail', 'Pine Hollow', 'Red Willow', 'Sandhill', 'Turtle Creek', 'Willow Bend',
+  'Arbuckle', 'Brennan', 'Castleton', 'Drummond', 'Eckhart', 'Folsom', 'Gilchrist', 'Haldane', 'Kessler', 'Lockridge',
+];
+
 /** Period-style co-op name patterns. {town}, {county} are substituted. */
 export const COOP_NAME_PATTERNS = [
   { pattern: '{town} Farmers Cooperative Association', from: 1900, to: 2100 },

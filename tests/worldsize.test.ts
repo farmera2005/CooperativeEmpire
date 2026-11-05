@@ -27,6 +27,14 @@ describe('territory size (D-138)', () => {
     expect(avg('member')).toBeLessThan(avg('nonmember'));
   });
 
+  it('every county of a vast map has its own name', () => {
+    const s = newGame(setup('vast'));
+    const names = s.world.counties.map((c) => c.name);
+    expect(names.length).toBeGreaterThan(28);
+    expect(names.every((n) => typeof n === 'string' && n.length > 0)).toBe(true);
+    expect(new Set(names).size).toBe(names.length);
+  });
+
   it('a very large world runs and keeps its books', () => {
     expect(checkInvariants(run(newGame(setup('huge')), 6))).toEqual([]);
   }, 60_000);

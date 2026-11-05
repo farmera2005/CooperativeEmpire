@@ -90,3 +90,4 @@ export { cccCapacity, cccLoanRate } from './sugar/finance';
 export { sharePrice, shareholderStats } from './sugar/operate';
 export { marketPrice, shareValue } from './sugar/shares';
 export type { SugarCapacity } from './sugar/operate';
+export { elevatorScale, grainScale, regionalYield, suggestedMembers } from './world/regional';
