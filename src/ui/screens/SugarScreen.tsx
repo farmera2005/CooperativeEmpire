@@ -7,7 +7,7 @@ import { SUGAR, SUGAR_FINANCE } from '../../data/sugar';
 import {
   beetSugarTrend, beetYield, fiscalYearOf, fiscalYearStart, formatMonth, formatMonthShort, growerReturns, incomeStatement, productValuePerTon,
   recovery, shareDemand, shareDriveTowns, sugarCapacity, suggestedAcres, yearOf,
-  cccCapacity, cccLoanRate, lineDrawn, sharePrice, shareholderStats,
+  cccCapacity, cccLoanRate, lineDrawn, marketPrice, sharePrice, shareValue, shareholderStats,
 } from '../../engine/index';
 import { CommitNumber } from '../components/CommitNumber';
 import { FacilitiesPanel, OffersPanel } from '../components/FacilityPanels';
@@ -183,7 +183,7 @@ function Contracts() {
       <Panel title="Beet shares">
         <div className="space-y-3 text-sm">
           <p>Grower co-ops financed their factories by selling growers <b>beet shares</b>: preferred stock, one share per acre, that carries the right and the duty to grow beets. <b>{num(holders.farms)}</b> farms hold <b>{num(holders.shares)}</b> shares{price0 > 0 ? `; a share is worth about $${num(price0)} now` : ''}.</p>
-          <p className="text-xs text-stone-500">Every acre grown needs a share: a grower who contracts more acres than their shares cover buys the rest at the share price, and a farm that is not a member joins to grow beets. Shares of growers who quit farming are sold to growers short of shares and to farms buying in for the first time.</p>
+          <p className="text-xs text-stone-500">Every acre grown needs a share: a grower who contracts more acres than their shares cover buys the rest at the share price, and a farm that is not a member joins to grow beets. Growers trade shares among themselves each January (see the share market below).</p>
           {!canDrive ? <p className="text-stone-500">A share drive needs a factory or station we own, are building, or could buy.</p> : (
             <>
               <label className="block">Price <CommitNumber min={5} max={20_000} value={price} onCommit={setPrice} /> $ a share</label>
@@ -200,7 +200,40 @@ function Contracts() {
           )}
         </div>
       </Panel>
+      <ShareMarketPanel />
     </div>
+  );
+}
+
+/** The growers' share market (D-137). */
+function ShareMarketPanel() {
+  const game = useStore((s) => s.game)!;
+  const command = useStore((s) => s.command);
+  const log = game.coop.sugar.shareMarket ?? [];
+  const open = game.coop.sugarPolicy.shareTrading !== false;
+  const now = marketPrice(game);
+  const value = shareValue(game);
+  return (
+    <Panel title="Share market" className="xl:col-span-2">
+      <div className="space-y-2 text-sm">
+        <p>Growers buy and sell beet shares among themselves each January, before contracts are signed. Growers who quit farming sell, as do growers whose rotation shrank and a few for ordinary reasons; growers short of shares, farms buying in and growers with room buy. A farm that buys joins the co-op. The price follows what a share earns — a few years of beets' advantage over corn — and the balance of buyers and sellers. New shares the co-op issues sell at the market price.</p>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <Stat label="Market price" value={now > 0 ? `$${num(now)}` : '—'} sub="last January's, in today's dollars" />
+          <Stat label="What a share earns" value={`$${num(value)}`} sub="years of beets' advantage over corn" />
+          <Stat label="Traded last January" value={log.length ? num(log[log.length - 1].traded) : '—'} sub={log.length ? `${num(log[log.length - 1].sellers)} sellers, ${num(log[log.length - 1].buyers)} buyers` : ''} />
+          <Stat label="Shareholders" value={num(shareholderStats(game).farms)} sub={`${num(shareholderStats(game).shares)} shares`} />
+        </div>
+        <label className="block"><input type="checkbox" checked={open} onChange={(e) => command({ type: 'setSugarPolicy', policy: { shareTrading: e.target.checked } })} /> Growers may trade shares among themselves (if closed, the co-op redeems a departing grower's shares at book value, in cash)</label>
+        {log.length > 0 && (
+          <table className="data text-xs">
+            <thead><tr><th>January</th><th className="r">Price</th><th className="r">Offered</th><th className="r">Traded</th><th className="r">Sellers</th><th className="r">Buyers</th><th className="r">Redeemed by co-op</th></tr></thead>
+            <tbody>{[...log].reverse().map((r) => (
+              <tr key={r.monthIndex}><td>{formatMonthShort(r.monthIndex)}</td><td className="r">{r.price ? money(r.price) : '—'}</td><td className="r">{num(r.offered)}</td><td className="r">{num(r.traded)}</td><td className="r">{num(r.sellers)}</td><td className="r">{num(r.buyers)}</td><td className="r">{r.redeemed ? `${num(r.redeemed)} (${money(r.redeemedCost ?? 0, { compact: true })})` : '—'}</td></tr>
+            ))}</tbody>
+          </table>
+        )}
+      </div>
+    </Panel>
   );
 }
 

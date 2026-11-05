@@ -60,7 +60,8 @@ Growers are paid in installments (60% at delivery, the rest by August), and suga
 pledged for USDA CCC loans, forfeited at the loan rate when the market is lower. On the People
 screen, hire a sugar factory manager and an agricultural manager, and set the agriculturists
 (field staff) and the campaign crew. Every acre grown needs a beet share: growers buy shares for new acres,
-non-member farms join to grow beets, and retiring growers' shares are sold to new growers. Sources are
+non-member farms join to grow beets, and growers buy and sell shares among themselves each
+January on a share market whose price follows beet profitability. Sources are
 in `docs/research/sugar.md`.
 
 ## Accounts

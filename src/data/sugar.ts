@@ -123,6 +123,25 @@ export const SUGAR_FINANCE = {
   beetAdvance: s(0.6, 'low'),
 };
 
+/** The beet share market among growers (D-137). */
+export const SHARE_MARKET = {
+  /** A share is worth this many years of beets' advantage over corn per acre. */
+  paybackYears: s(3.5, 'low', 'American Crystal shares traded at $3,778–5,400 an acre (2011–24) against roughly $1,000–1,500 an acre of beet returns over direct costs'),
+  /** Each year the price moves this far toward that value, and with the balance of buyers and sellers. */
+  anchorWeight: s(0.4, 'low'),
+  imbalanceSlope: s(0.3, 'low'),
+  /** Chance an active shareholder sells part of their shares in a year for ordinary reasons, and the part. */
+  annualTurnover: s(0.06, 'low', 'Estate planning, reorganizing a farm, trimming acres'),
+  turnoverSellShare: s(0.5, 'low'),
+  /** Holders sell shares beyond this multiple of the rotation acres they could plant. */
+  excessHolding: s(1.2, 'low'),
+  /** Share of their rotation room a grower buys in a year when a share costs what it earns, and the most. */
+  buyShareAtValue: s(0.15, 'low'),
+  maxBuyShare: s(0.5, 'low'),
+  /** Floor on the price, 2024 $. */
+  minPrice: s(25, 'low'),
+};
+
 /** Sugar field staff and the campaign crew (D-135). */
 export const SUGAR_STAFF = {
   /** Agriculturists: field staff who contract growers, advise on seed, disease and harvest timing, and run the piling grounds. */

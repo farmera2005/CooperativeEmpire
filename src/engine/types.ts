@@ -1399,6 +1399,8 @@ export interface SugarPolicy {
   agriculturists?: number;
   /** Campaign crew level (D-135). */
   campaignCrew?: 'lean' | 'standard' | 'full';
+  /** Growers may trade shares among themselves (D-137); when closed the co-op redeems departing growers' shares. Default open. */
+  shareTrading?: boolean;
 }
 
 /** Beets in storage at one site (piling station or factory yard). */
@@ -1467,6 +1469,8 @@ export interface SugarBook {
   growerPayable?: Cents;
   /** USDA CCC sugar loans outstanding against sugar in store (GL 2050). */
   cccLoan?: Cents;
+  /** The growers' share market, a row a year (D-137). */
+  shareMarket?: { monthIndex: number; price: Cents; traded: number; buyers: number; sellers: number; offered: number; redeemed?: number; redeemedCost?: Cents }[];
   /** Share drives: growers buying delivery-right stock to finance a factory. */
   shareDrives?: { monthIndex: number; pricePerShare: Cents; offered: number; sold: number; growers: number; raised: Cents; /** Shares bought with contracts for unshared acres (D-136). */ contracts?: boolean }[];
 }

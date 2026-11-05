@@ -88,4 +88,5 @@ export type { FarmEconomyView, FarmEconomyYear } from './world/farmEconomy';
 export { agCoverage, agEffect, agriculturistCost, beetGrowers, beetSugarTrend, beetYield, growerReturns, productValuePerTon, recommendedAgriculturists, recovery, shareDemand, shareDriveTowns, sugarCapacity, sugarUptime, suggestedAcres } from './sugar/operate';
 export { cccCapacity, cccLoanRate } from './sugar/finance';
 export { sharePrice, shareholderStats } from './sugar/operate';
+export { marketPrice, shareValue } from './sugar/shares';
 export type { SugarCapacity } from './sugar/operate';

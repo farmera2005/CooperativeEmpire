@@ -24,6 +24,7 @@ import { incomeStatement } from '../ledger/statements';
 import { marketValue } from '../world/marketPath';
 import { townYieldFactor } from '../world/farmEconomy';
 import { stepSugarCompany } from './company';
+import { marketPrice, stepShareMarket } from './shares';
 
 export const emptySugarBook = (): SugarBook => ({ piles: [], pileSugarPct: 0, pileCost: 0, sugarCwt: 0, sugarCost: 0, campaign: null, campaigns: [], report: null, reports: [] });
 export const defaultSugarPolicy = (): SugarPolicy => ({ targetAcres: null, growerShare: SUGAR.defaultGrowerShare });
@@ -171,7 +172,7 @@ function eligibleGrowers(state: GameState, sites: Facility[]): { m: Member; site
 }
 
 /** Active members within reach of any of the places, with the nearest one. */
-function growersNear<T>(state: GameState, places: T[], townOf: (p: T) => number, nonmembers = false): { m: Member; site: T; miles: number }[] {
+export function growersNear<T>(state: GameState, places: T[], townOf: (p: T) => number, nonmembers = false): { m: Member; site: T; miles: number }[] {
   const out: { m: Member; site: T; miles: number }[] = [];
   const dist = state.world.distances;
   for (const m of state.members.list) {
@@ -215,7 +216,6 @@ export function contractBeets(ctx: TickContext): void {
   const willing = clamp(0.2 + SUGAR.signupSlope.value * (ratio - 0.8) + effect(state, 'sugar.signup') + SUGAR_STAFF.maxSignupGain.value * agEffect(state), 0.03, 0.95);
   // Any farm near the plants can grow beets; a non-member joins the co-op to do it (D-136).
   const growers = growersNear(state, sites, (f) => f.townId, true);
-  transferShares(state, growers.map((g) => g.m));
   // Shareholders grow their shares first (it is their right and their duty); others fill what is
   // left of the target as they are willing. If shares exceed the target everyone is cut back alike.
   const shareAcres = (m: Member) => Math.min(m.beetShares ?? 0, (m.acres.corn + m.acres.soybeans) * SUGAR.maxRotationShare.value * 1.6);
@@ -269,6 +269,8 @@ export function stepSugar(ctx: TickContext): void {
   const year = yearOf(mi);
   const book = state.coop.sugar;
   stepSugarCompany(ctx);
+  // Growers trade shares in January, before contracts are signed (D-137).
+  if (month === 1) stepShareMarket(ctx);
   if (month === 2) contractBeets(ctx);
   const cap = sugarCapacity(state);
   const { factories, receiving } = sugarSites(state);
@@ -705,47 +707,9 @@ export function takeOverCampaign(state: GameState, factory: Facility): Cents {
   return paid;
 }
 
-/**
- * Beet shares stay with the land (D-134): shares of members who have left are sold to growers
- * near the plants, in proportion to the rotation acres they could plant, and their stock goes
- * with them. The money changes hands between farmers; the co-op's equity is unchanged.
- */
-function transferShares(state: GameState, buyers: Member[]): void {
-  const sellers = state.members.list.filter((m) => m.status !== 'active' && (m.beetShares ?? 0) > 0).sort((a, b) => a.id - b.id);
-  if (!sellers.length || !buyers.length) return;
-  // Growers short of shares for the acres they grow buy first, then farms buying in for the first
-  // time, then neighbors with the most room (a block of shares to a farm, not a sliver to
-  // everyone); a non-member who buys joins the co-op (D-136).
-  const room = (m: Member) => Math.max(0, (m.acres.corn + m.acres.soybeans + (m.beetAcres ?? 0)) * SUGAR.maxRotationShare.value - (m.beetShares ?? 0));
-  const short = (m: Member) => Math.max(0, (m.beetAcres ?? 0) - (m.beetShares ?? 0));
-  const order = [...buyers].filter((m) => room(m) >= 10).sort((a, b) => short(b) - short(a) || Number((a.beetShares ?? 0) > 0) - Number((b.beetShares ?? 0) > 0) || room(b) - room(a) || a.id - b.id);
-  const pref = state.equity.preferredStock;
-  for (const sel of sellers) {
-    let left = (sel.beetShares ?? 0) * sel.weight;
-    const total = left;
-    const stock = pref[sel.id] ?? 0;
-    let moved = 0;
-    for (const b of order) {
-      if (left <= 1e-9) break;
-      const take = Math.min(left, room(b) * b.weight);
-      if (take <= 0) continue;
-      if (b.kind !== 'member') makeMember(state, b);
-      b.beetShares = (b.beetShares ?? 0) + take / b.weight;
-      const cents = Math.floor((stock * take) / total);
-      if (cents) pref[b.id] = (pref[b.id] ?? 0) + cents;
-      moved += cents;
-      left -= take;
-    }
-    if (left > 1e-9) continue; // no buyer for the rest yet: it waits a year
-    // Rounding pennies go to the first buyer.
-    if (stock - moved) pref[order[0].id] = (pref[order[0].id] ?? 0) + stock - moved;
-    sel.beetShares = 0;
-    if (stock) delete pref[sel.id];
-  }
-}
 
 /** A farm joins the co-op: membership stock at par and the month's join tally (D-136). */
-function makeMember(state: GameState, m: Member): void {
+export function makeMember(state: GameState, m: Member): void {
   m.kind = 'member';
   const mi = state.clock.monthIndex;
   const par = nominalCents(pathFor(state), mi, SETUP.membershipStockPar.value);
@@ -780,6 +744,9 @@ const shareholderSummary = (state: GameState): string => {
 
 /** The co-op's share price now ($ a share): the last share drive's, adjusted for inflation; 0 if none. */
 export function sharePrice(state: GameState): number {
+  // Once growers trade shares, the co-op issues new ones at the market price (D-137).
+  const market = marketPrice(state);
+  if (market > 0) return Math.round(market);
   const ref = [...(state.coop.sugar.shareDrives ?? [])].reverse().find((d) => !d.contracts && d.pricePerShare > 0);
   if (!ref) return 0;
   const path = pathFor(state);

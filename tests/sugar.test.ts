@@ -149,15 +149,17 @@ describe('starting as a sugar cooperative (D-134)', () => {
     expect(checkInvariants(s)).toEqual([]);
   }, 60_000);
 
-  it('passes a departed grower\'s shares and stock to growers near the plants', () => {
+  it('sells a departed grower\'s shares and stock to growers near the plants (share market, D-137)', () => {
     const s = sugarStart(1990, 5);
     const holder = s.members.list.find((m) => (m.beetShares ?? 0) > 0)!;
+    const held = holder.beetShares ?? 0;
     const stock = Object.values(s.equity.preferredStock).reduce((a, b) => a + b, 0);
     const shares = s.members.list.reduce((a, m) => a + (m.beetShares ?? 0) * m.weight, 0);
     holder.status = 'retired';
-    const t = run(s, 2);
-    expect(t.members.list.find((m) => m.id === holder.id)!.beetShares ?? 0).toBe(0);
-    expect(t.equity.preferredStock[holder.id] ?? 0).toBe(0);
+    const t = run(s, 13);
+    // An estate sells first; what buyers cannot take this January waits for the next.
+    expect(t.members.list.find((m) => m.id === holder.id)!.beetShares ?? 0).toBeLessThan(held);
+    expect(t.coop.sugar.shareMarket?.[0]?.traded ?? 0).toBeGreaterThan(0);
     // Transfers move stock between farmers; only shares bought with contracts add to it (D-136).
     const bought = (t.coop.sugar.shareDrives ?? []).filter((d) => d.contracts);
     expect(Object.values(t.equity.preferredStock).reduce((a, b) => a + b, 0)).toBe(stock + bought.reduce((a, d) => a + d.raised, 0));
@@ -234,4 +236,36 @@ describe('beet shareholders (D-136)', () => {
     }
     expect(checkInvariants(s)).toEqual([]);
   }, 60_000);
+});
+
+describe('the beet share market (D-137)', () => {
+  const sugarStart = (year: number, seed = 3) => newGame({ ...setup(year, seed), capitalPreset: 'typical', coopType: 'sugar' });
+
+  it('growers trade shares each January at a price that follows what a share earns', () => {
+    const s = run(sugarStart(1980, 3), 25);
+    const log = s.coop.sugar.shareMarket ?? [];
+    expect(log.length).toBeGreaterThanOrEqual(2);
+    for (const r of log) {
+      expect(r.price).toBeGreaterThan(0);
+      expect(r.traded).toBeLessThanOrEqual(r.offered);
+    }
+    expect(log.some((r) => r.traded > 0)).toBe(true);
+    expect(checkInvariants(s)).toEqual([]);
+  }, 90_000);
+
+  it('with trading closed, the co-op redeems a departing grower\'s shares for cash', () => {
+    let s = sugarStart(1985, 4);
+    s = applyCommand(s, { type: 'setSugarPolicy', policy: { shareTrading: false } }).state;
+    s = run(s, 11);
+    const holder = s.members.list.find((m) => m.status === 'active' && (m.beetShares ?? 0) > 0)!;
+    const stock = s.equity.preferredStock[holder.id] ?? 0;
+    expect(stock).toBeGreaterThan(0);
+    holder.status = 'retired';
+    s = run(s, 1);
+    const row = s.coop.sugar.shareMarket![s.coop.sugar.shareMarket!.length - 1];
+    expect(row.redeemed).toBeGreaterThan(0);
+    expect(row.redeemedCost).toBeGreaterThanOrEqual(stock);
+    expect(s.equity.preferredStock[holder.id] ?? 0).toBe(0);
+    expect(checkInvariants(s)).toEqual([]);
+  }, 90_000);
 });
