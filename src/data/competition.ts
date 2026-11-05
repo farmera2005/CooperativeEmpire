@@ -44,6 +44,24 @@ export const COMPETITOR_AI = {
   mergeBelow: s(42, 'low'),
   mergeProb: s(0.1, 'low'),
   mergeMiles: 20,
+  /**
+   * Consolidation by era (D-139): mergers between co-ops ran slow in the 1970s, fastest from the
+   * 1990s farm-economy shakeout through the 2010s (local co-op counts fell by more than half).
+   */
+  mergeEra: [
+    { year: 1970, value: 0.6, confidence: 'low' as const, source: 'USDA RBS co-op statistics: farm supply/marketing co-ops ~7,600 (1970) to ~2,100 (2015)' },
+    { year: 1985, value: 1, confidence: 'low' as const },
+    { year: 1995, value: 2, confidence: 'low' as const },
+    { year: 2015, value: 1.5, confidence: 'low' as const },
+  ],
+  /** Healthy multi-location co-ops also merge by choice to gain scale (quarterly chance at era factor 1). */
+  strategicMergeProb: s(0.006, 'low'),
+  strategicMergeMiles: 30,
+  /** Strong multi-location co-ops open new locations in towns with no grain buyer nearby (quarterly chance). */
+  newSiteAbove: s(70, 'low'),
+  newSiteProb: s(0.03, 'low'),
+  newSiteMiles: 18,
+  newSiteGapMiles: 6,
   /** A weak co-op near us may propose a merger. */
   approachBelow: s(38, 'low'),
   approachProb: s(0.08, 'low'),

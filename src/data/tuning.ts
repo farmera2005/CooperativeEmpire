@@ -178,6 +178,14 @@ export const TERRITORY = {
   branchTowns: [2, 4] as [number, number],
   branchAbandonmentRisk: s<[number, number]>([0.02, 0.08], 'low', 'Annual probability once Staggers Act applies'),
   riverTerminalMiles: s<[number, number]>([30, 80], 'low'),
+  /**
+   * Territory size (D-138): land area against the standard map. Towns, counties, rail branches and
+   * farms scale with it; founding members cluster around the home town and the farms beyond start
+   * as other businesses' customers.
+   */
+  sizes: s<Record<'small' | 'standard' | 'large' | 'huge' | 'vast', number>>({ small: 0.6, standard: 1, large: 2, huge: 4, vast: 9 }, 'low'),
+  /** On larger maps founding members live within about this many miles of the home town (Gaussian radius). */
+  foundersRadiusMiles: s(30, 'low'),
   processorMiles: s<[number, number]>([35, 90], 'low'),
 };
 

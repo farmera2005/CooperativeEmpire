@@ -80,6 +80,31 @@ export function generateCompetitors(state: GameState, rng: Rng, year: number): C
   return out;
 }
 
+/**
+ * On larger maps (D-139) the co-ops in an outer county were usually one county-wide co-op with
+ * several elevators by 1970: the farmers' co-ops of a county away from home are combined into one.
+ */
+export function formCountyCoops(state: GameState): void {
+  const home = state.world.towns[state.coop.homeTownId]?.countyId;
+  const byCounty = new Map<number, Competitor[]>();
+  for (const c of state.competitors) {
+    if (c.kind !== 'coop' || c.status !== 'active' || c.sites.length !== 1 || (c.sites[0].division ?? 'GRAIN') !== 'GRAIN') continue;
+    const county = state.world.towns[c.sites[0].townId].countyId;
+    if (county === home) continue;
+    byCounty.set(county, [...(byCounty.get(county) ?? []), c]);
+  }
+  const gone = new Set<number>();
+  for (const [county, list] of [...byCounty.entries()].sort((a, b) => a[0] - b[0])) {
+    if (list.length < 2) continue;
+    const [lead, ...rest] = list.sort((a, b) => a.id - b.id);
+    lead.name = `${state.world.counties[county].name} County Cooperative`;
+    lead.sites = [...lead.sites, ...rest.flatMap((c) => c.sites.map((site) => ({ ...site })))].map((site, i) => ({ ...site, id: i + 1 }));
+    lead.service = Math.max(lead.service, ...rest.map((c) => c.service));
+    for (const c of rest) gone.add(c.id);
+  }
+  state.competitors = state.competitors.filter((c) => !gone.has(c.id));
+}
+
 export function competitorName(state: GameState, c: Competitor): string {
   return c.brandId ? brandName(c.brandId, state.setup.fictionalizeBrands) : c.name;
 }

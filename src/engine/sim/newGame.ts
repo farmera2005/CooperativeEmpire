@@ -8,14 +8,14 @@ import { emptyRegulation } from '../world/regulation';
 import { brandsAvailable, getBrand } from '../../data/brands';
 import { COOP_NAME_PATTERNS } from '../../data/names';
 import { REGIONS } from '../../data/regions/eccb';
-import { GOVERNANCE_SETUP, LENDING, SETUP } from '../../data/tuning';
+import { GOVERNANCE_SETUP, LENDING, SETUP, TERRITORY } from '../../data/tuning';
 import { MARKETPLACE } from '../../data/grain';
 import { formatCents } from '../core/format';
 import { borrowingBase, defaultCommitment, emptyFinance, lineDrawn, renewalCommitment } from '../finance/lender';
 import { emptyEquityProgram, emptyRegional } from '../finance/defaults';
 import { defaultAffiliations } from '../finance/regionals';
 import { emptyPeople } from '../people/leaders';
-import { ensureHomeIndependent, generateCompetitors, generateOffers, generateSupplyCompetitors } from '../competitors/competitors';
+import { ensureHomeIndependent, formCountyCoops, generateCompetitors, generateOffers, generateSupplyCompetitors } from '../competitors/competitors';
 import { ensureSiteUnits } from '../competitors/plants';
 import { defaultSupplyPolicies, emptyPatronageStats, emptySupply } from '../supply/defaults';
 import { defaultGrainPolicy, emptyGrainBook } from '../grain/defaults';
@@ -51,16 +51,22 @@ export const DEFAULT_SETUP: GameSetup = {
 };
 
 /** Farm customers in the trade area: as set, or founding members plus the usual share of non-members (D-108). */
-export function territoryCustomers(setup: Pick<GameSetup, 'startingMembers' | 'territoryCustomers'>): number {
-  const [lo, hi] = SETUP.customersRange;
+export function territoryCustomers(setup: Pick<GameSetup, 'startingMembers' | 'territoryCustomers' | 'territorySize'>): number {
+  const area = territoryArea(setup);
+  const [lo, hi0] = SETUP.customersRange;
+  const hi = Math.round(hi0 * Math.max(1, area));
   const members = Math.round(setup.startingMembers);
-  const wanted = setup.territoryCustomers ?? Math.round(members * (1 + SETUP.nonMemberShare.value));
+  // A larger map holds proportionally more farms; the extra ones start as non-members (D-138).
+  const wanted = setup.territoryCustomers ?? Math.round(members * (1 + SETUP.nonMemberShare.value) * area);
   return Math.max(members, Math.max(lo, Math.min(hi, Math.round(wanted))));
 }
 
 /** Territory preview for the setup screen (town names for the name generator, home town). The map is sized to the farms it holds. */
-export function previewTerritory(setup: Pick<GameSetup, 'mapSeed' | 'regionId' | 'startYear' | 'startingMembers' | 'territoryCustomers'>): Territory {
-  const t = generateTerritory(setup.mapSeed, REGIONS[setup.regionId], setup.startYear, territoryCustomers(setup));
+/** Land area of the map against the standard one (D-138). */
+export const territoryArea = (setup: Pick<GameSetup, 'territorySize'>): number => TERRITORY.sizes.value[setup.territorySize ?? 'standard'];
+
+export function previewTerritory(setup: Pick<GameSetup, 'mapSeed' | 'regionId' | 'startYear' | 'startingMembers' | 'territoryCustomers' | 'territorySize'>): Territory {
+  const t = generateTerritory(setup.mapSeed, REGIONS[setup.regionId], setup.startYear, territoryCustomers(setup), territoryArea(setup));
   t.districts = makeDistricts(t, GOVERNANCE_SETUP.districts, townFarmWeight);
   return t;
 }
@@ -123,7 +129,9 @@ export function newGame(setupIn: GameSetup): GameState {
   const territory = previewTerritory({ ...setup, startingMembers: members });
   const homeTown = setup.homeTownId !== undefined ? territory.towns[setup.homeTownId] : defaultHomeTown(territory);
   const customers = territoryCustomers({ ...setup, startingMembers: members });
-  const list = generateMembers(setup.gameSeed, territory.towns, region, setup.startYear, startMonth, members, customers);
+  // On larger maps the founders live around the home town (D-138).
+  const area = territoryArea(setup);
+  const list = generateMembers(setup.gameSeed, territory.towns, region, setup.startYear, startMonth, members, customers, area > 1 ? { x: homeTown.x, y: homeTown.y, radius: TERRITORY.foundersRadiusMiles.value } : undefined);
   const governance = electFoundingBoard(stream(setup.gameSeed, -1, 'governance.founding'), list, territory.districts.length, setup.startYear);
   const name = setup.coopName.trim() || suggestCoopNames(territory, setup.startYear, setup.gameSeed, 1, setup.coopType)[0];
 
@@ -178,6 +186,8 @@ export function newGame(setupIn: GameSetup): GameState {
   state.coop.finance.lineCommitment = defaultCommitment(state);
   const crng = stream(setup.gameSeed, -1, 'competitors.generate');
   state.competitors = generateCompetitors(state, crng, setup.startYear);
+  // Outer counties of a larger map start with county-wide co-ops (D-139).
+  if (area > 1) formCountyCoops(state);
   ensureHomeIndependent(state, crng, setup.startYear);
   generateSupplyCompetitors(state, stream(setup.gameSeed, -1, 'competitors.supply'), setup.startYear);
   ensureSiteUnits(state);

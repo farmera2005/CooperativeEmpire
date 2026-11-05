@@ -43,6 +43,8 @@ export interface GameSetup {
   lenderId: string;
   regionalAffiliations: { regionalId: string; lines: ('grain' | 'agronomy' | 'feed' | 'energy' | 'retail')[] }[];
   homeTownId?: number;
+  /** Land area of the map (D-138); default standard. */
+  territorySize?: 'small' | 'standard' | 'large' | 'huge' | 'vast';
   /**
    * What the growers organize (D-134): a grain and farm-supply co-op (the default) or a sugar beet
    * growers' co-op that buys the territory's beet factory and stations at founding.

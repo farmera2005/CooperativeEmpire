@@ -85,7 +85,7 @@ export function newFarmRecord(a: NewFarmArgs): Member {
   };
 }
 
-export function generateMembers(seed: number, towns: Town[], region: RegionDef, year: number, monthIndex: number, count: number, customers?: number): Member[] {
+export function generateMembers(seed: number, towns: Town[], region: RegionDef, year: number, monthIndex: number, count: number, customers?: number, home?: { x: number; y: number; radius: number }): Member[] {
   const rng = stream(seed, -1, 'members.generate');
   const ageMean = valueAt(region.operatorAgeMean, year);
   const ageSd = region.operatorAgeSd.value;
@@ -93,7 +93,9 @@ export function generateMembers(seed: number, towns: Town[], region: RegionDef, 
   const nonMembers = customers !== undefined ? Math.max(0, customers - count) : Math.round(count * SETUP.nonMemberShare.value);
   for (let i = 0; i < count + nonMembers; i++) {
     const kind: Member['kind'] = i < count ? 'member' : 'nonmember';
-    const town = rng.weighted(towns, (t) => townFarmWeight(t) * (kind === 'nonmember' && t.onHighway ? 1.5 : 1));
+    // Founders cluster around the home town on larger maps (D-138).
+    const near = (t: Town) => (home && kind === 'member' ? Math.exp(-((t.x - home.x) ** 2 + (t.y - home.y) ** 2) / (home.radius * home.radius)) + 0.02 : 1);
+    const town = rng.weighted(towns, (t) => townFarmWeight(t) * (kind === 'nonmember' && t.onHighway ? 1.5 : 1) * near(t));
     const age = Math.round(clamp(rng.normal(ageMean, ageSd), 22, 85));
     out.push(newFarmRecord({ rng, id: i + 1, region, year, monthIndex, town, kind, birthYear: year - age, acresTotal: farmAcres(rng, region, year) }));
   }

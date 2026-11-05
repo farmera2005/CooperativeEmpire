@@ -30,13 +30,14 @@ function townName(rng: Rng, used: Set<string>): string {
 
 const logUniform = (rng: Rng, lo: number, hi: number) => Math.exp(rng.range(Math.log(lo), Math.log(hi)));
 
-export function generateTerritory(mapSeed: number, region: RegionDef, startYear: number, members: number): Territory {
+export function generateTerritory(mapSeed: number, region: RegionDef, startYear: number, members: number, area = 1): Territory {
   const rng = stream(mapSeed, -1, 'territory');
   const T = TERRITORY;
-  const nTowns = clamp(Math.round(T.townsBase + T.townsSpan * Math.sqrt(members / 5000)) + rng.int(-2, 2), region.towns.min, region.towns.max);
-  const nCounties = clamp(Math.round(nTowns / T.townsPerCounty.value), region.counties.min, region.counties.max);
-  // Keep the map roughly square: two rows from three counties up.
-  const rows = nCounties >= 3 ? 2 : 1;
+  // Larger maps (D-138) scale towns and counties with land area; farms are scaled by the caller.
+  const nTowns = clamp(Math.round((T.townsBase + T.townsSpan * Math.sqrt(members / area / 5000)) * area) + rng.int(-2, 2), Math.round(region.towns.min * area), Math.round(region.towns.max * area));
+  const nCounties = clamp(Math.round(nTowns / T.townsPerCounty.value), Math.max(1, Math.round(region.counties.min * area)), Math.round(region.counties.max * area));
+  // Keep the map roughly square: two rows from three counties up (more rows on larger maps).
+  const rows = area <= 1 ? (nCounties >= 3 ? 2 : 1) : Math.max(2, Math.round(Math.sqrt(nCounties)));
   const cols = Math.ceil(nCounties / rows);
   const cm = region.countyMiles.value;
   const width = cols * cm;
@@ -164,7 +165,7 @@ export function generateTerritory(mapSeed: number, region: RegionDef, startYear:
   rail.push({ id: 0, name: 'Main line', ownerBrandId: mainOwner?.id ?? 'rr-shortline', kind: 'mainline', townIds: mainTowns.map((t) => t.id), path: mainPath, abandonmentRisk: 0, status: 'active' });
   for (const t of mainTowns) t.railLineIds.push(0);
 
-  const nBranches = rng.int(T.branchLines[0], T.branchLines[1]);
+  const nBranches = Math.round(rng.int(T.branchLines[0], T.branchLines[1]) * Math.max(1, area));
   for (let bi = 0; bi < nBranches && mainTowns.length; bi++) {
     const junction = rng.pick(mainTowns);
     const ang = theta + Math.PI / 2 + (rng.chance(0.5) ? 0 : Math.PI) + rng.range(-0.5, 0.5);
@@ -191,6 +192,29 @@ export function generateTerritory(mapSeed: number, region: RegionDef, startYear:
       townIds: chain.map((t) => t.id), path: chain.map((t) => [t.x, t.y] as [number, number]), abandonmentRisk: Math.round(rng.range(rlo, rhi) * 1000) / 1000, status: 'active',
     });
     for (const t of chain) if (!t.railLineIds.includes(id)) t.railLineIds.push(id);
+  }
+
+  // Larger maps (D-138) are crossed by more than one main line, at other angles.
+  for (let k = 1; k < Math.round(Math.sqrt(area)); k++) {
+    const th = theta + (Math.PI * k) / Math.round(Math.sqrt(area)) + rng.range(-0.2, 0.2);
+    const kx = Math.cos(th);
+    const ky = Math.sin(th);
+    const o = rng.range(-height / 4, height / 4);
+    let cap = T.mainlineCaptureMiles;
+    let on: Town[] = [];
+    while (on.length < 3 && cap < 20) {
+      on = towns.filter((t) => Math.abs(-(t.x - cxm) * ky + (t.y - cym) * kx - o) < cap);
+      cap += 1;
+    }
+    if (on.length < 2) continue;
+    on.sort((p, q) => (p.x - cxm) * kx + (p.y - cym) * ky - ((q.x - cxm) * kx + (q.y - cym) * ky));
+    const id = rail.length;
+    const owner = railroads.length ? rng.pick(railroads) : undefined;
+    rail.push({
+      id, name: `${on[on.length - 1].name} Main Line`, ownerBrandId: owner?.id ?? 'rr-shortline', kind: 'mainline', townIds: on.map((t) => t.id),
+      path: [[cxm - kx * ext - ky * o, cym - ky * ext + kx * o], ...on.map((t) => [t.x, t.y] as [number, number]), [cxm + kx * ext - ky * o, cym + ky * ext + kx * o]], abandonmentRisk: 0, status: 'active',
+    });
+    for (const t of on) if (!t.railLineIds.includes(id)) t.railLineIds.push(id);
   }
 
   // Off-map destinations.

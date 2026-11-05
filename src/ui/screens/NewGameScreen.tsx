@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { brandName, type SupplyLine } from '../../data/brands';
 import { DATA_END_YEAR } from '../../data/markets';
-import { SETUP } from '../../data/tuning';
+import { SETUP, TERRITORY } from '../../data/tuning';
 import {
   availableLenders, availableRegionals, DEFAULT_SETUP, defaultHomeTown, MONTH_NAMES, previewTerritory, startingCapital, territoryCustomers,
   suggestCoopNames, type CapitalPreset, type GameSetup,
@@ -30,8 +30,8 @@ export function NewGameScreen() {
   const up = (p: Partial<GameSetup>) => setSetup((s) => ({ ...s, ...p }));
 
   const territory = useMemo(
-    () => previewTerritory({ mapSeed: setup.mapSeed, regionId: setup.regionId, startYear: setup.startYear, startingMembers: Math.max(SETUP.membersRange[0], Math.min(SETUP.membersRange[1], setup.startingMembers)), territoryCustomers: setup.territoryCustomers }),
-    [setup.mapSeed, setup.regionId, setup.startYear, setup.startingMembers, setup.territoryCustomers],
+    () => previewTerritory({ mapSeed: setup.mapSeed, regionId: setup.regionId, startYear: setup.startYear, startingMembers: Math.max(SETUP.membersRange[0], Math.min(SETUP.membersRange[1], setup.startingMembers)), territoryCustomers: setup.territoryCustomers, territorySize: setup.territorySize }),
+    [setup.mapSeed, setup.regionId, setup.startYear, setup.startingMembers, setup.territoryCustomers, setup.territorySize],
   );
   const homeTownId = setup.homeTownId !== undefined && setup.homeTownId < territory.towns.length ? setup.homeTownId : defaultHomeTown(territory).id;
   const suggestions = useMemo(() => suggestCoopNames(territory, setup.startYear, setup.mapSeed + nameSeed * 7919, 6, setup.coopType), [territory, setup.startYear, setup.mapSeed, nameSeed, setup.coopType]);
@@ -55,7 +55,7 @@ export function NewGameScreen() {
 
   const customers = territoryCustomers(setup);
   const valid = setup.startingMembers >= SETUP.membersRange[0] && setup.startingMembers <= SETUP.membersRange[1] && capital > 0
-    && (setup.territoryCustomers === undefined || (setup.territoryCustomers >= setup.startingMembers && setup.territoryCustomers <= SETUP.customersRange[1]));
+    && (setup.territoryCustomers === undefined || (setup.territoryCustomers >= setup.startingMembers && setup.territoryCustomers <= SETUP.customersRange[1] * Math.max(1, TERRITORY.sizes.value[setup.territorySize ?? 'standard'])));
   const go = () => start({
     ...setup, lenderId, homeTownId, coopName: setup.coopName.trim() || suggestions[0],
     ...(setup.capitalPreset === 'custom' ? { customCapital: capital } : {}),
@@ -103,6 +103,17 @@ export function NewGameScreen() {
               <span className="text-xs text-stone-500">Members and non-members; sets the size of the territory. {Math.round((100 * setup.startingMembers) / Math.max(1, customers))}% start as members. Membership grows when the co-op serves people well and pays patronage, and shrinks when it does not.</span>
             </label>
           </div>
+          <label className="block">
+            <span className="text-sm font-semibold">Size of the world</span>
+            <select className="input mt-1 w-full" value={setup.territorySize ?? 'standard'} onChange={(e) => up({ territorySize: e.target.value as GameSetup['territorySize'], territoryCustomers: undefined, homeTownId: undefined })}>
+              <option value="small">Small — a county or two</option>
+              <option value="standard">Standard — about four counties (as before)</option>
+              <option value="large">Large — twice the land, room to grow into neighboring counties</option>
+              <option value="huge">Very large — four times the land</option>
+              <option value="vast">Vast — nine times the land, a whole corner of the state</option>
+            </select>
+            <span className="text-xs text-stone-500">{territory.counties.length} counties, {territory.towns.length} towns, {Math.round(territory.width)} × {Math.round(territory.height)} miles. On larger maps the founders farm around the home town; the farms beyond start as other businesses' customers.</span>
+          </label>
           <fieldset>
             <legend className="text-sm font-semibold">Starting capital <span className="font-normal text-stone-500">(member stock subscriptions)</span></legend>
             <div className="mt-1 flex flex-wrap gap-3 text-sm">

@@ -8,6 +8,9 @@ import { COMPETITOR_AI, ETHANOL } from '../../data/competition';
 import { COMPONENTS } from '../../data/facilities';
 import { formatMonthShort, yearOf } from '../core/calendar';
 import { clamp } from '../core/math';
+import { valueAt } from '../../data/types';
+import { COMPETITORS } from '../../data/grain';
+import { eraElevator } from './competitors';
 import type { Rng } from '../core/rng';
 import { farmStress } from '../supply/credit';
 import type { TickContext } from '../sim/context';
@@ -99,7 +102,7 @@ export function stepCompetitors(ctx: TickContext): void {
       continue;
     }
     // Two weak neighbouring co-ops merge with each other.
-    if (c.kind === 'coop' && st < ai.mergeBelow.value && rng.chance(ai.mergeProb.value)) {
+    if (c.kind === 'coop' && st < ai.mergeBelow.value && rng.chance(ai.mergeProb.value * valueAt(ai.mergeEra, year))) {
       // Only co-ops in the same business combine: posture is $/bu for grain but percent of
       // price for farm supply, so one competitor must not span both.
       const partner = active.find((x) => x !== c && x.status === 'active' && x.kind === 'coop' && (x.strength ?? 50) < ai.mergeBelow.value + 10
@@ -107,7 +110,8 @@ export function stepCompetitors(ctx: TickContext): void {
         && x.sites.some((a) => c.sites.some((b) => milesBetween(state, a.townId, b.townId) <= ai.mergeMiles)));
       if (partner) {
         c.sites = [...c.sites, ...partner.sites.map((site, i) => copySite(site, c.sites.length + i + 1))];
-        c.name = `${c.name.replace(/ (Co-op|Elevator Co-op|Grain Co-op|Union|Farmers .*)$/, '')}–${state.world.towns[partner.sites[0].townId].name} Cooperative`;
+        // A co-op that already carries a merged or county name keeps it (D-139).
+        if (!/–| County /.test(c.name)) c.name = `${c.name.replace(/ (Co-op|Elevator Co-op|Grain Co-op|Union|Farmers .*)$/, '')}–${state.world.towns[partner.sites[0].townId].name} Cooperative`;
         c.strength = clamp((st + (partner.strength ?? 50)) / 2 + 10, 0, 100);
         c.service = Math.max(c.service, partner.service);
         partner.status = 'sold';
@@ -139,6 +143,7 @@ export function stepCompetitors(ctx: TickContext): void {
       }
     }
   }
+  growNeighbors(ctx, ctx.rng('competitors.neighbors'));
   if (ctx.month === 12) {
     shuttleBuildOut(ctx, ctx.rng('competitors.shuttle'));
     ethanolBuildOut(ctx, ctx.rng('competitors.ethanol'));
@@ -210,3 +215,51 @@ function ethanolBuildOut(ctx: TickContext, rng: Rng): void {
     ctx.inbox({ kind: 'news', title: `Ethanol plant opens at ${t.name}`, body: `A 50-million-gallon ethanol plant at ${t.name} is buying corn at a premium. Corn basis near the plant will strengthen; elevators close by can truck to it.` });
   }
 }
+
+/**
+ * The wider world (D-139): healthy multi-location co-ops merge with each other for scale, at a
+ * pace set by the era, and strong ones open new locations in towns with no grain buyer nearby.
+ */
+function growNeighbors(ctx: TickContext, rng: Rng): void {
+  const { state, mi } = ctx;
+  const year = yearOf(mi);
+  const ai = COMPETITOR_AI;
+  const era = valueAt(ai.mergeEra, year);
+  const coops = state.competitors.filter((c) => c.status === 'active' && c.kind === 'coop' && c.sites.length >= 2 && (c.sites[0].arrivalYear ?? 0) <= year).sort((a, b) => a.id - b.id);
+  for (const c of coops) {
+    if (c.status !== 'active') continue;
+    const st = c.strength ?? 50;
+    // Strategic merger with a neighboring co-op in the same business.
+    if (rng.chance(ai.strategicMergeProb.value * era)) {
+      const partner = coops.find((x) => x !== c && x.status === 'active' && (x.sites[0].division ?? 'GRAIN') === (c.sites[0].division ?? 'GRAIN')
+        && x.sites.some((a) => c.sites.some((b) => milesBetween(state, a.townId, b.townId) <= ai.strategicMergeMiles))
+        && !state.deals.some((d) => (d.partnerId === x.id || d.partnerId === c.id) && d.stage !== 'closed' && d.stage !== 'dead'));
+      if (partner) {
+        const [big, small] = c.sites.length >= partner.sites.length ? [c, partner] : [partner, c];
+        big.sites = [...big.sites, ...small.sites.map((site, i) => copySite(site, Math.max(0, ...big.sites.map((x) => x.id)) + i + 1))];
+        big.strength = clamp(((big.strength ?? 50) + (small.strength ?? 50)) / 2 + 5, 0, 100);
+        big.service = Math.max(big.service, small.service);
+        small.status = 'sold';
+        small.sites = [];
+        small.lastMove = `merged into ${competitorName(state, big)}`;
+        big.lastMove = `merged with ${competitorName(state, small)}`;
+        ctx.inbox({ kind: 'news', title: `${competitorName(state, big)} and ${competitorName(state, small)} merge`, body: `Two neighboring co-ops have combined: ${competitorName(state, big)} now runs ${big.sites.length} locations. Bigger co-ops spread overhead and can afford shuttle loaders and agronomy plants.` });
+        continue;
+      }
+    }
+    // A new location where farmers have no grain buyer close by.
+    if ((c.sites[0].division ?? 'GRAIN') === 'GRAIN' && st > ai.newSiteAbove.value && rng.chance(ai.newSiteProb.value)) {
+      const taken = (t: number) => state.competitors.some((x) => x.status === 'active' && x.sites.some((s) => (s.division ?? 'GRAIN') === 'GRAIN' && milesBetween(state, s.townId, t) < ai.newSiteGapMiles))
+        || state.coop.facilities.some((f) => f.status !== 'closed' && f.kind === 'elevator' && milesBetween(state, f.townId, t) < ai.newSiteGapMiles);
+      const town = state.world.towns.filter((t) => c.sites.some((s) => milesBetween(state, s.townId, t.id) <= ai.newSiteMiles) && !taken(t.id)).sort((a, b) => b.population - a.population || a.id - b.id)[0];
+      if (town) {
+        const site: CompetitorSite = { id: Math.max(0, ...c.sites.map((x) => x.id)) + 1, townId: town.id, ...eraElevator(rng, year, COMPETITORS.sizeScale.value.coop), loadout: 'truck', builtYear: year + 1, condition: 98, arrivalYear: year + 1 };
+        c.sites = [...c.sites, site];
+        c.strength = st - 10;
+        c.lastMove = `building a new elevator at ${town.name}`;
+        ctx.inbox({ kind: 'news', title: `${competitorName(state, c)} builds at ${town.name}`, body: `${competitorName(state, c)} is putting up a new country elevator at ${town.name}, opening next year.` });
+      }
+    }
+  }
+}
+

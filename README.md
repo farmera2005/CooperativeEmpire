@@ -42,6 +42,13 @@ site for its market and can manage construction; not every firm is as good as it
 Competitors run the same kind of plants: they wear, get rebuilt and replaced, and expand by
 building real units (see a competitor's plants on Deals & Competitors). Sizes, years and makers come from `docs/research/equipment.md`.
 
+## A bigger world
+
+At setup choose the size of the world, from a county or two up to a vast map of 30-plus counties
+and 200 towns. On larger maps the founders farm around the home town and the outer counties
+belong to county-wide co-ops that grow, open new elevators, merge with each other over the decades
+(fastest from the 1990s) and can become your merger partners (Deals & Competitors, nearest first).
+
 ## Sugar beets
 
 A co-op can go into beet sugar (**Sugar beets**, key U). A beet factory needs a processing line,
