@@ -212,6 +212,9 @@ export const MODELS: EquipmentModel[] = [
   m('sugar-silo-500k', 'sugar-silo', 'Sugar silo, 25,000 tons', 500_000, 1965, undefined, 0.8, 1.0, 'low'),
   m('sugar-silo-1m', 'sugar-silo', 'Sugar silo, 50,000 tons', 1_000_000, 1985, undefined, 1.2, 0.9, 'low'),
   m('desugar-chrom', 'desugarization', 'Molasses desugarization plant (chromatographic)', 1, 1989, undefined, 3, 1.0, 'medium', { source: 'docs/research/sugar.md (D-133)' }),
+  m('pack-250k', 'sugar-packaging', 'Consumer packaging line, 250,000 cwt a year', 250_000, 1950, undefined, 0.5, 1.1, 'low'),
+  m('pack-600k', 'sugar-packaging', 'Consumer packaging line, 600,000 cwt a year (form-fill-seal baggers)', 600_000, 1975, undefined, 0.8, 1.0, 'low'),
+  m('pack-1500k', 'sugar-packaging', 'Automated packaging line, 1.5 million cwt a year (robotic palletizing)', 1_500_000, 1995, undefined, 1.2, 0.9, 'low'),
   m('piler-2500', 'beet-piler', 'Beet piler & tare lab, 2,500 t/day', 2_500, 1940, 2000, 0.6, 1.1, 'low'),
   m('piler-4000', 'beet-piler', 'Beet piler & tare lab, 4,000 t/day', 4_000, 1975, undefined, 0.7, 1.0, 'low'),
   m('piler-6000', 'beet-piler', 'High-capacity beet piler & tare lab, 6,000 t/day', 6_000, 2000, undefined, 0.8, 0.92, 'low'),
@@ -326,6 +329,7 @@ export const MAKER_LINES: MakerLine[] = [
   line('finnsugar', ['desugarization'], 1.06, 0.94, 0.97, 6, 'Finnish pioneer of chromatographic molasses separation.', 'low'),
   line('lockwood', ['beet-piler'], 1.0, 0.98, 1.0, 1, 'Gering, Nebraska maker of beet and potato harvesters and pilers.', 'low'),
   line('amity', ['beet-piler'], 1.02, 0.96, 0.98, 1, 'Fargo, North Dakota maker of beet harvesters, defoliators and pilers.', 'low'),
+  line('hayssen', ['sugar-packaging'], 1.02, 0.96, 0.98, 2, 'Sheboygan, Wisconsin maker of form-fill-seal bagging machines.', 'low'),
   line('hogenson', ['sugar-silo'], 0.97, 1.0, 1.0, 3, 'Slipform concrete silos.', 'low'),
 ];
 

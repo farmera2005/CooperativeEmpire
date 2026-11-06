@@ -60,7 +60,7 @@ export const SUGAR = {
   /** Hauling beets from piling stations to the factory, 2024 $ per ton-mile and per ton. */
   haulPerTonMile2024: s(0.14, 'medium', 'Co-op hauling allowances of $0.058–0.079/ton-mile (2025) are set at half the commercial rate'),
   haulPerTon2024: s(2, 'low'),
-  /** Selling through a marketing agency: share of sugar revenue. */
+  /** Selling through a marketing agency (United Sugars and the like): share of sugar revenue. */
   marketingCostPct: s(0.04, 'low'),
   /** Grower payment at delivery as a share of the product value of a ton (sugar at its content, pulp, molasses). */
   defaultGrowerShare: 0.5,
@@ -121,6 +121,55 @@ export const SUGAR_FINANCE = {
   /** Borrowing base advance on refined sugar (net of CCC loans on it) and on beets in the piles. */
   sugarAdvance: s(0.85, 'low', 'Refined sugar is a graded, readily sold commodity'),
   beetAdvance: s(0.6, 'low'),
+};
+
+/**
+ * Selling the sugar (D-141, docs/research/sugar-sales.md). USDA counts refined sugar deliveries
+ * to industrial users (bakers, confectioners, cereal, dairy, beverage and other food makers) and
+ * to non-industrial buyers: wholesale grocers, jobbers and foodservice distributors, and retail
+ * grocers and chain stores. Beet co-ops sell most of their sugar in bulk to food makers, much
+ * of it forward under annual contracts, and pack the rest in 25–100 lb bags for distributors and
+ * in 1–25 lb consumer bags under their own brands or grocers' store brands. Retail sugar prices
+ * follow wholesale slowly: retail packs earn more when wholesale falls and less when it spikes.
+ */
+export const SUGAR_SALES = {
+  /** Industrial contracts for the marketing year (October–September) are priced in this month. */
+  contractMonth: 10,
+  /** Wholesale grocers and foodservice distributors pay a little over bulk for bagged sugar in small lots. */
+  wholesalePremium: s(0.05, 'low', 'Bagged sugar to distributors sells over bulk refined; trade quotes only'),
+  /** Bagging (multiwall paper bags of 25–100 lb, palletizing), 2024 $ per cwt. */
+  wholesaleBagging2024: s(1, 'low'),
+  /** Distributors in our trade area could take this much sugar a year (cwt), standard-size world. */
+  wholesaleMarketCwt: s(800_000, 'low', 'Non-industrial users took 34% of U.S. deliveries in 1980 and ~45% by the early 1990s; wholesalers and jobbers the larger part'),
+  /** Retail shelf price against the trailing year's wholesale price. */
+  retailMarkup: ap([[1970, 1.35], [1980, 1.37], [1990, 1.57], [2000, 2], [2005, 1.85], [2010, 1.45], [2015, 1.7], [2024, 1.6]], 'low', 'ERS: wholesale refined averaged 27.1¢/lb against 37.2¢ retail (1980s) and 26.7¢ against 41.9¢ (1990s); 20.8¢ against 44.3¢ in 2000'),
+  /** Months of wholesale prices the shelf price follows. */
+  retailLagMonths: 12,
+  /** Grocers' margin on the shelf price; sugar is a thin-margin traffic item. */
+  grocerMargin: s(0.15, 'low', 'Grocers price sugar as a traffic item on thin margins'),
+  /** Store-brand sugar sells to grocers at this share of a strong brand's price. */
+  privateLabelPrice: s(0.85, 'low', 'Co-op factories pack grocers\' store brands as well as their own'),
+  /** Consumer packaging (1–25 lb bags, cartons, case packing, palletizing, line labor), 2024 $ per cwt. */
+  packaging2024: s(3.5, 'low', 'Paper and poly consumer bags with packing labor, ~3–4¢ a pound'),
+  /** Freight in mixed loads to grocers' distribution centers, 2024 $ per cwt (bulk buyers haul their own or pay freight). */
+  retailFreight2024: s(1.2, 'low'),
+  /** Trade promotion: slotting, features and temporary price cuts, share of sales to grocers. */
+  tradePromotion: s(0.06, 'low'),
+  /** Grocery shelves our brand could reach at full strength (cwt a year), standard-size world. */
+  retailMarketCwt: s(900_000, 'low', 'Retail grocers and chain stores took roughly a tenth of U.S. refined deliveries; a regional brand sells in a few states'),
+  /** Shelf reach with no brand at all: store-brand packing for grocers. */
+  shelfReachFloor: s(0.3, 'low'),
+  /** Brand support: advertising and sales calls a year (2024 $) and the strength it builds toward (0–1). */
+  brand: s<Record<'none' | 'modest' | 'strong', { cost2024: number; target: number }>>({ none: { cost2024: 0, target: 0 }, modest: { cost2024: 400_000, target: 0.5 }, strong: { cost2024: 1_500_000, target: 0.9 } }, 'low', 'Sugar brands are supported mostly by trade promotion; consumer advertising budgets are small'),
+  /** Months for a brand to close most of the gap to where its support would take it. */
+  brandMonths: 36,
+  /** Strength of the brand that comes with a factory bought from a sugar company. */
+  acquiredBrand: s(0.35, 'low', 'Grower co-ops kept the retail brands of the companies they bought'),
+  /** Selling ourselves instead of through a marketing agency: a share of sales and a sales office (2024 $ a year). */
+  directFeePct: s(0.015, 'low'),
+  directOffice2024: s(1_500_000, 'low', 'Account managers for industrial buyers, brokers for grocers, customer service, logistics'),
+  /** Most of the sugar sold that may go to each packed channel. */
+  maxShare: { wholesale: 0.4, retail: 0.4 },
 };
 
 /** The beet share market among growers (D-137). */

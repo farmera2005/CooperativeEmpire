@@ -1403,7 +1403,25 @@ export interface SugarPolicy {
   campaignCrew?: 'lean' | 'standard' | 'full';
   /** Growers may trade shares among themselves (D-137); when closed the co-op redeems departing growers' shares. Default open. */
   shareTrading?: boolean;
+  /** How the sugar is sold (D-141); undefined = all in bulk on the spot market through an agency. */
+  sales?: SugarSalesPolicy;
 }
+
+/** Sugar sales channels (D-141). */
+export interface SugarSalesPolicy {
+  /** Share of industrial (bulk) sugar sold forward under annual contracts priced each October. */
+  forwardShare: number;
+  /** Share of sugar sold we aim to bag for wholesale grocers and foodservice distributors. */
+  wholesaleShare: number;
+  /** Share of sugar sold we aim to pack for grocery shelves, as far as the packaging line and shelf space allow. */
+  retailShare: number;
+  /** Support for our retail brand. */
+  brand: 'none' | 'modest' | 'strong';
+  /** Sell through a marketing agency, or ourselves with a sales office. */
+  selling: 'agency' | 'direct';
+}
+
+export type SugarChannel = 'contract' | 'spot' | 'wholesale' | 'retail';
 
 /** Beets in storage at one site (piling station or factory yard). */
 export interface BeetPile {
@@ -1449,6 +1467,10 @@ export interface SugarMonthReport {
   installments?: Cents;
   cccLoan?: Cents;
   forfeitedCwt?: number;
+  /** Sugar sold (cwt) and sales (cents) by channel, and the channels' own costs: bagging and packaging, freight, trade promotion and brand, the sales office (D-141). */
+  channels?: Record<SugarChannel, { cwt: number; revenue: Cents }>;
+  channelCost?: Cents;
+  packagingCost?: Cents;
   /** What limits slicing: slicers, lime kilns, boilers. */
   bottleneck: string | null;
 }
@@ -1473,6 +1495,9 @@ export interface SugarBook {
   cccLoan?: Cents;
   /** The growers' share market, a row a year (D-137). */
   shareMarket?: { monthIndex: number; price: Cents; traded: number; buyers: number; sellers: number; offered: number; redeemed?: number; redeemedCost?: Cents }[];
+  /** Strength of our retail brand (0–1) and the industrial contract price for the marketing year, $/cwt (D-141). */
+  brand?: number;
+  contractPrice?: { year: number; price: number };
   /** Share drives: growers buying delivery-right stock to finance a factory. */
   shareDrives?: { monthIndex: number; pricePerShare: Cents; offered: number; sold: number; growers: number; raised: Cents; /** Shares bought with contracts for unshared acres (D-136). */ contracts?: boolean }[];
 }

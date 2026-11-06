@@ -8,7 +8,7 @@
 // the year; pulp and molasses are sold as made. Growers are paid a share of a ton's product
 // value at delivery and the rest of the division's savings comes back as patronage on tons.
 
-import { SUGAR, SUGAR_COMPANY, SUGAR_FINANCE, SUGAR_STAFF } from '../../data/sugar';
+import { SUGAR, SUGAR_COMPANY, SUGAR_FINANCE, SUGAR_SALES, SUGAR_STAFF } from '../../data/sugar';
 import { PEOPLE } from '../../data/people';
 import { effect } from '../people/leaders';
 import { valueAt } from '../../data/types';
@@ -26,9 +26,10 @@ import { townYieldFactor } from '../world/farmEconomy';
 import { stepSugarCompany } from './company';
 import { basisOffset, beetYieldFactor, regionalYield } from '../world/regional';
 import { marketPrice, stepShareMarket } from './shares';
+import { channelCosts, channelQuotes, defaultSugarSales, planSales, sellingFee, stepSugarSales } from './sales';
 
 export const emptySugarBook = (): SugarBook => ({ piles: [], pileSugarPct: 0, pileCost: 0, sugarCwt: 0, sugarCost: 0, campaign: null, campaigns: [], report: null, reports: [] });
-export const defaultSugarPolicy = (): SugarPolicy => ({ targetAcres: null, growerShare: SUGAR.defaultGrowerShare });
+export const defaultSugarPolicy = (): SugarPolicy => ({ targetAcres: null, growerShare: SUGAR.defaultGrowerShare, sales: defaultSugarSales() });
 
 const DIV = 'SUGAR' as const;
 const RECEIVING = (f: Facility) => (f.kind === 'beetstation' || f.kind === 'sugarfactory') && f.status === 'operating';
@@ -138,7 +139,7 @@ export function productValuePerTon(state: GameState, mi: number, sugarPct: numbe
   const path = pathFor(state);
   const year = yearOf(mi);
   const sugarCwt = (2000 * sugarPct) / 100 / 100 * recovery(state, year);
-  const sugarPrice = marketValue(path, 'sugar', mi) * (1 - SUGAR.marketingCostPct.value);
+  const sugarPrice = marketValue(path, 'sugar', mi) * (1 - sellingFee(state));
   return sugarCwt * sugarPrice + SUGAR.pulpTonsPerTon.value * pulpPrice(state, mi) + SUGAR.molassesTonsPerTon.value * molassesPrice(state, mi);
 }
 
@@ -447,37 +448,64 @@ export function stepSugar(ctx: TickContext): void {
     ctx.inbox({ kind: 'alert', title: 'Beets spoiled in the piles', body: `${Math.round(lost).toLocaleString('en-US')} tons of beets were still piled when the weather warmed and had to be written off. More slicing capacity, or fewer contracted acres, would have run them through in time.` });
   }
 
-  // ---- sugar sales through the year ----
+  // ---- sugar sales through the year, by channel (D-141) ----
+  stepSugarSales(ctx);
   if (book.sugarCwt > 0) {
     const monthsLeft = month >= 9 ? 12 - month + 9 : 9 - month;
     let sell = book.sugarCwt / Math.max(1, monthsLeft);
-    // What the silos cannot hold goes now, at a discount.
+    // What the silos cannot hold goes now, in bulk at a discount.
     const over = Math.max(0, book.sugarCwt - sell - cap.siloCwt);
-    const price = marketValue(path, 'sugar', mi) * (1 - SUGAR.marketingCostPct.value);
+    const plan = planSales(state, sell);
+    const quotes = channelQuotes(state, mi);
+    const fee = sellingFee(state);
     const loanRate = valueAt(SUGAR_FINANCE.loanRate, cropYear);
-    if (loanRate > price) {
+    const spotNet = quotes.find((q) => q.channel === 'spot')!.price * (1 - fee);
+    const channels = { contract: { cwt: 0, revenue: 0 }, spot: { cwt: 0, revenue: 0 }, wholesale: { cwt: 0, revenue: 0 }, retail: { cwt: 0, revenue: 0 } };
+    // Contracted, bagged and packed sugar goes to its buyers at their prices; the selling fee comes off the price.
+    for (const q of quotes) {
+      if (q.channel === 'spot') continue;
+      const cwt = plan[q.channel];
+      if (cwt <= 0) continue;
+      const revenue = roundCents(cwt * q.price * (1 - fee) * 100);
+      channels[q.channel] = { cwt, revenue };
+      lines.push({ account: '4000', amount: -revenue });
+      cash -= revenue;
+      report.revenue += revenue;
+    }
+    const costs = channelCosts(state, mi, plan);
+    const channelCost = costs.packaging + costs.freight + costs.promotion;
+    if (channelCost > 0) {
+      lines.push({ account: '5000', amount: costs.packaging }, { account: '7680', amount: costs.freight }, { account: '7690', amount: costs.promotion });
+      cash += channelCost;
+      report.channelCost = channelCost;
+      report.packagingCost = costs.packaging;
+    }
+    const spot = plan.spot + over;
+    if (spot > 0 && loanRate > spotNet) {
       // Below the loan rate the co-op pledges all its sugar to the CCC and forfeits what it would
-      // sell: the loans are nonrecourse, so the loan rate is the price.
+      // sell on the market: the loans are nonrecourse, so the loan rate is the price.
       const loan = book.cccLoan ?? 0;
       const full = roundCents(book.sugarCwt * loanRate * 100);
       if (full > loan) {
         lines.push({ account: '2050', amount: -(full - loan) });
         cash -= full - loan;
       }
-      const value = Math.min(full, roundCents((sell + over) * loanRate * 100));
+      const value = Math.min(full, roundCents(spot * loanRate * 100));
       book.cccLoan = full - value;
       post(state, { source: 'ccc-forfeit', memo: 'Sugar forfeited to the CCC at the loan rate', lines: [{ account: '2050', division: DIV, amount: value }, { account: '4000', division: DIV, amount: -value }] });
-      if (!(book.reports[book.reports.length - 1]?.forfeitedCwt)) ctx.inbox({ kind: 'memo', title: 'Sugar forfeited to the CCC', body: `Refined sugar is selling below the CCC loan rate of $${loanRate.toFixed(2)}/cwt, so we are handing pledged sugar to the government instead of selling it. The loans are nonrecourse: the loan rate is our price.` });
-      report.forfeitedCwt = sell + over;
+      if (!(book.reports[book.reports.length - 1]?.forfeitedCwt)) ctx.inbox({ kind: 'memo', title: 'Sugar forfeited to the CCC', body: `Refined sugar is selling below the CCC loan rate of $${loanRate.toFixed(2)}/cwt, so we are handing pledged sugar to the government instead of selling it on the market. The loans are nonrecourse: the loan rate is our price. Sugar under contract, bagged for distributors or packed for grocers still goes to its buyers.` });
+      report.forfeitedCwt = spot;
       report.revenue += value;
-      sell += over;
-    } else {
-      const revenue = roundCents((sell * price + over * price * (1 - SUGAR.overflowDiscount.value)) * 100);
-      sell += over;
+      channels.spot = { cwt: spot, revenue: value };
+    } else if (spot > 0) {
+      const revenue = roundCents((plan.spot * spotNet + over * spotNet * (1 - SUGAR.overflowDiscount.value)) * 100);
       lines.push({ account: '4000', amount: -revenue });
       cash -= revenue;
       report.revenue += revenue;
+      channels.spot = { cwt: spot, revenue };
     }
+    report.channels = channels;
+    sell += over;
     const costOut = roundCents(book.sugarCost * Math.min(1, sell / book.sugarCwt));
     book.sugarCwt -= sell;
     book.sugarCost -= costOut;
@@ -544,7 +572,7 @@ function resetShareFromProceeds(ctx: TickContext): void {
   const sliced = reps.reduce((a, r) => a + r.sliced, 0);
   if (sliced <= 0) return;
   const is = incomeStatement(state.ledger, Math.max(state.ledger.firstMonth, mi - 12), mi - 1, DIV);
-  const perTon = (reps.reduce((a, r) => a + r.processingCost + r.haulCost, 0) + is.totalOpex + is.interestNet) / 100 / sliced;
+  const perTon = (reps.reduce((a, r) => a + r.processingCost + r.haulCost + (r.packagingCost ?? 0), 0) + is.totalOpex + is.interestNet) / 100 / sliced;
   const value = productValuePerTon(state, mi, beetSugarTrend(yearOf(mi)));
   // What a ton actually brought in last year (after pile losses and the like), at today's sugar price.
   const avgPrice = reps.reduce((a, r) => a + r.sugarPrice, 0) / reps.length;
@@ -568,6 +596,17 @@ export function setSugarPolicy(state: GameState, policy: Partial<SugarPolicy>): 
   if (next.targetAcres !== null) next.targetAcres = Math.round(next.targetAcres);
   if (next.agriculturists !== undefined && !(Number.isInteger(next.agriculturists) && next.agriculturists >= 0 && next.agriculturists <= SUGAR_STAFF.maxAgriculturists)) return [{ level: 'error', text: `Agriculturists must be a whole number from 0 to ${SUGAR_STAFF.maxAgriculturists}.` }];
   if (next.campaignCrew !== undefined && !['lean', 'standard', 'full'].includes(next.campaignCrew)) return [{ level: 'error', text: 'Unknown crew level.' }];
+  if (next.sales) {
+    const sl = next.sales;
+    const share = (v: number, max: number) => typeof v === 'number' && v >= 0 && v <= max;
+    if (!share(sl.forwardShare, 1)) return [{ level: 'error', text: 'The forward-contracted share must be between 0% and 100% of bulk sugar.' }];
+    if (!share(sl.wholesaleShare, SUGAR_SALES.maxShare.wholesale) || !share(sl.retailShare, SUGAR_SALES.maxShare.retail)) return [{ level: 'error', text: `Bagged and packed sugar may each be at most ${Math.round(SUGAR_SALES.maxShare.retail * 100)}% of sales.` }];
+    if (!['none', 'modest', 'strong'].includes(sl.brand) || !['agency', 'direct'].includes(sl.selling)) return [{ level: 'error', text: 'Unknown brand support or selling choice.' }];
+    if (policy.sales) {
+      state.coop.sugarPolicy = next;
+      return [{ level: 'info', text: `Sugar sales: ${Math.round(sl.forwardShare * 100)}% of bulk sugar forward, ${Math.round(sl.wholesaleShare * 100)}% to distributors, ${Math.round(sl.retailShare * 100)}% to grocers; brand support ${sl.brand}; selling ${sl.selling === 'agency' ? 'through an agency' : 'ourselves'}.` }];
+    }
+  }
   state.coop.sugarPolicy = next;
   return [{ level: 'info', text: `Beet contracts: ${next.targetAcres === null ? 'what our plants can handle' : `${next.targetAcres.toLocaleString('en-US')} acres`} at ${Math.round(next.growerShare * 100)}% of a ton's value at delivery.` }];
 }

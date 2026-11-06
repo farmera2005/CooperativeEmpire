@@ -89,5 +89,7 @@ export { agCoverage, agEffect, agriculturistCost, beetGrowers, beetSugarTrend, b
 export { cccCapacity, cccLoanRate } from './sugar/finance';
 export { sharePrice, shareholderStats } from './sugar/operate';
 export { marketPrice, shareValue } from './sugar/shares';
+export { channelLimits, channelQuotes, defaultSugarSales, marketingYear, planSales, sellingFee, sugarSalesPolicy, trailingSugarPrice, SUGAR_CHANNELS } from './sugar/sales';
+export type { ChannelQuote } from './sugar/sales';
 export type { SugarCapacity } from './sugar/operate';
 export { elevatorScale, grainScale, regionalYield, suggestedMembers } from './world/regional';

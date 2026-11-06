@@ -21,7 +21,7 @@ export type ComponentId =
   // Retail
   | 'c-store' | 'farm-store'
   // Sugar (D-133)
-  | 'beet-slicing' | 'lime-kiln' | 'sugar-boiler' | 'pulp-dryer' | 'sugar-silo' | 'desugarization'
+  | 'beet-slicing' | 'lime-kiln' | 'sugar-boiler' | 'pulp-dryer' | 'sugar-silo' | 'desugarization' | 'sugar-packaging'
   | 'beet-piler' | 'beet-pile' | 'beet-pile-vent';
 
 /** What kind of site a facility is; each kind belongs to one division. */
@@ -119,6 +119,8 @@ export const COMPONENTS: Record<ComponentId, ComponentDef> = {
   'pulp-dryer': c({ id: 'pulp-dryer', label: 'Pulp press, dryer & pellet mill', division: 'SUGAR', unit: 'tpd', cost2024: s([3_500, 6_000], 'low', 'Per ton/day of beets whose pulp it dries'), account: '1520', lifeYears: 25, buildMonths: 10, permitMonths: 4, availableFrom: 1930, decayPerYear: 2, repairRate: 0.025, ftePerUnit: 0.002 }),
   'sugar-silo': c({ id: 'sugar-silo', label: 'Sugar silo & packaging/loadout', division: 'SUGAR', unit: 'cwt', cost2024: s([18, 30], 'low', 'Concrete or steel silos of 20,000–50,000 tons with conditioning'), account: '1510', lifeYears: 45, buildMonths: 14, permitMonths: 4, availableFrom: 1955, decayPerYear: 0.8, repairRate: 0.008, ftePerUnit: 0.000005 }),
   desugarization: c({ id: 'desugarization', label: 'Molasses desugarization (chromatographic separator)', division: 'SUGAR', unit: 'each', cost2024: s([60_000_000, 110_000_000], 'medium', 'Renville $18M (1989), Hillsboro $103M (1998), Minn-Dak $70M (2015), Bay City $109M (2024)'), account: '1520', lifeYears: 25, buildMonths: 18, permitMonths: 6, availableFrom: 1989, decayPerYear: 2, repairRate: 0.03, ftePerUnit: 8 }),
+  // Consumer packaging for retail (D-141): baggers for 1–25 lb packs, case packers, palletizers and a packed-goods warehouse.
+  'sugar-packaging': c({ id: 'sugar-packaging', label: 'Consumer packaging line & warehouse (retail packs)', division: 'SUGAR', unit: 'cwt', cost2024: s([8, 14], 'low', 'Per cwt a year of packing capacity: form-fill-seal baggers, case packers, palletizers, warehouse'), account: '1520', lifeYears: 20, buildMonths: 8, permitMonths: 2, availableFrom: 1950, decayPerYear: 2, repairRate: 0.03, ftePerUnit: 0.00006 }),
   'beet-piler': c({ id: 'beet-piler', label: 'Beet piler & tare lab', division: 'SUGAR', unit: 'tpd', cost2024: s([140, 220], 'low', 'Truck dump, screens, boom piler and sampling/tare lab'), account: '1520', lifeYears: 20, buildMonths: 4, permitMonths: 1, availableFrom: 1940, decayPerYear: 3, repairRate: 0.04, ftePerUnit: 0.0008, variableFteShare: 0.95 }),
   'beet-pile': c({ id: 'beet-pile', label: 'Beet pile ground (graded, drained pad)', division: 'SUGAR', unit: 'tons', cost2024: s([3, 6], 'low'), account: '1510', lifeYears: 30, buildMonths: 2, permitMonths: 1, availableFrom: 1900, decayPerYear: 1, repairRate: 0.01 }),
   'beet-pile-vent': c({ id: 'beet-pile-vent', label: 'Ventilated beet pile (ducts & fans)', division: 'SUGAR', unit: 'tons', cost2024: s([9, 14], 'low', 'Forced-air pile ventilation; covered or frozen piles hold sugar longer'), account: '1520', lifeYears: 20, buildMonths: 3, permitMonths: 1, availableFrom: 1975, decayPerYear: 2.5, repairRate: 0.025 }),
@@ -135,7 +137,7 @@ export const TYPICAL_SITE: Record<Exclude<FacilityKind, 'elevator'>, Partial<Rec
   station: { site: 1, 'c-store': 2500 },
   farmstore: { site: 2, 'farm-store': 5000 },
   // A 1970s-80s Great Lakes factory slicing ~3,500 tons a day, with its yard piles (D-133).
-  sugarfactory: { site: 120, 'beet-slicing': 3500, 'lime-kiln': 1, 'sugar-boiler': 1, 'pulp-dryer': 4000, 'sugar-silo': 1_000_000, 'beet-piler': 8000, 'beet-pile': 200_000 },
+  sugarfactory: { site: 120, 'beet-slicing': 3500, 'lime-kiln': 1, 'sugar-boiler': 1, 'pulp-dryer': 4000, 'sugar-silo': 1_000_000, 'sugar-packaging': 300_000, 'beet-piler': 8000, 'beet-pile': 200_000 },
   beetstation: { site: 20, 'beet-piler': 8000, 'beet-pile': 100_000 },
 };
 

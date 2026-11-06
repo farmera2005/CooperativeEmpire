@@ -70,8 +70,12 @@ pledged for USDA CCC loans, forfeited at the loan rate when the market is lower.
 screen, hire a sugar factory manager and an agricultural manager, and set the agriculturists
 (field staff) and the campaign crew. Every acre grown needs a beet share: growers buy shares for new acres,
 non-member farms join to grow beets, and growers buy and sell shares among themselves each
-January on a share market whose price follows beet profitability. Sources are
-in `docs/research/sugar.md`.
+January on a share market whose price follows beet profitability. On the Sugar > Sales tab, choose
+how the sugar is sold: in bulk to food makers, forward under annual contracts or at the market,
+bagged for wholesale grocers and foodservice distributors, or packed for grocery shelves under
+your brand. Retail packs need the factory's packaging line and shelf space, and pay best when
+wholesale prices are weak. Sell through a marketing agency or set up your own sales office.
+Sources are in `docs/research/sugar.md` and `docs/research/sugar-sales.md`.
 
 ## Accounts
 

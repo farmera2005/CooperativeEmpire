@@ -3,7 +3,7 @@
 // plants to the growers — the way most U.S. beet factories became grower-owned — and closes
 // the factory if no one buys it. The company and its people are fictional.
 
-import { SUGAR, SUGAR_COMPANY } from '../../data/sugar';
+import { SUGAR, SUGAR_COMPANY, SUGAR_SALES } from '../../data/sugar';
 import { typicalSite } from '../../data/facilities';
 import { formatMonth, monthOf, toMonthIndex, yearOf } from '../core/calendar';
 import { formatCents } from '../core/format';
@@ -82,6 +82,11 @@ function offerPlants(state: GameState, co: SugarCompany, mi: number, deadline: n
   return lines;
 }
 
+/** The company's retail brand and its grocers come with its factory (D-141). */
+function acquireBrand(state: GameState): void {
+  state.coop.sugar.brand = Math.max(state.coop.sugar.brand ?? 0, SUGAR_SALES.acquiredBrand.value);
+}
+
 const ownsFactoryAt = (state: GameState, townId: number) =>
   state.coop.facilities.some((f) => f.kind === 'sugarfactory' && f.townId === townId && f.status !== 'closed');
 
@@ -104,6 +109,7 @@ export function stepSugarCompany(ctx: TickContext): void {
   if (co.status !== 'forSale') return;
   if (ownsFactoryAt(state, co.factoryTownId)) {
     co.status = 'sold';
+    acquireBrand(state);
     // Contracts for this year's crop come with the plants.
     const m = monthOf(mi);
     if (m > 2 && m < SUGAR.harvest.prepileMonth && !state.coop.sugar.campaign) contractBeets(ctx);
@@ -166,6 +172,7 @@ export function foundSugarCooperative(state: GameState, financePct: number): str
   }
   if (!ownsFactoryAt(state, co.factoryTownId)) return null;
   co.status = 'sold';
+  acquireBrand(state);
   state.coop.sugarPolicy = { ...state.coop.sugarPolicy, paymentBasis: 'proceeds', growerShare: SUGAR.foundingGrowerShare };
   // The campaign under way comes with the factory: beets in the piles and sugar in the silos.
   const factory = state.coop.facilities.find((f) => f.kind === 'sugarfactory' && f.townId === co.factoryTownId)!;

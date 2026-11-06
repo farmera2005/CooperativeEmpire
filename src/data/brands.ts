@@ -248,6 +248,7 @@ export const BRANDS: Brand[] = [
   b('amalgamated-research', 'Amalgamated Research (ARI)', 'Applied Separation Research', 'sugarEquipment', 1989, undefined, 'medium', { notes: 'Twin Falls, ID; research arm of Amalgamated Sugar.' }),
   b('finnsugar', 'Finnsugar', 'Nordic Sugar Engineering', 'sugarEquipment', 1980, undefined, 'low'),
   b('lockwood', 'Lockwood', 'Lockhart Beet Equipment', 'sugarEquipment', 1970, 2008, 'low', { notes: 'Gering, NE. End year assumed.' }),
+  b('hayssen', 'Hayssen', 'Hayden Packaging', 'sugarEquipment', 1970, undefined, 'low', { notes: 'Sheboygan, WI; vertical form-fill-seal packaging machines.' }),
   b('amity', 'Amity Technology', 'Amber Technology', 'sugarEquipment', 1985, undefined, 'low', { notes: 'Fargo, ND.' }),
   // Retail programs and competitors
   b('true-value', 'True Value', 'True Hardware', 'retailProgram', 1970, undefined, 'medium'),

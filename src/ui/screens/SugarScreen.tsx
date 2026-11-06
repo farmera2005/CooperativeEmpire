@@ -3,12 +3,14 @@
 
 import { useState } from 'react';
 import { Bar, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { SUGAR, SUGAR_FINANCE } from '../../data/sugar';
+import { SUGAR, SUGAR_FINANCE, SUGAR_SALES } from '../../data/sugar';
 import {
   beetSugarTrend, beetYield, fiscalYearOf, fiscalYearStart, formatMonth, formatMonthShort, growerReturns, incomeStatement, productValuePerTon,
   recovery, shareDemand, shareDriveTowns, sugarCapacity, suggestedAcres, yearOf,
   cccCapacity, cccLoanRate, lineDrawn, marketPrice, sharePrice, shareValue, shareholderStats,
+  channelLimits, channelQuotes, marketingYear, nominalCents, pathFor, sugarSalesPolicy, SUGAR_CHANNELS,
 } from '../../engine/index';
+import type { SugarChannel, SugarSalesPolicy } from '../../engine/types';
 import { CommitNumber } from '../components/CommitNumber';
 import { FacilitiesPanel, OffersPanel } from '../components/FacilityPanels';
 import { ConsultantsPanel, ProjectPlanner } from '../components/Projects';
@@ -16,7 +18,7 @@ import { Panel, Stat } from '../components/Panel';
 import { money, num, pct } from '../format';
 import { useStore } from '../store';
 
-type Sub = 'overview' | 'contracts' | 'facilities' | 'buy';
+type Sub = 'overview' | 'contracts' | 'sales' | 'facilities' | 'buy';
 const KINDS = ['sugarfactory', 'beetstation'] as const;
 
 export function SugarScreen() {
@@ -25,14 +27,94 @@ export function SugarScreen() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="headline mr-3 text-2xl font-bold">Sugar beets</h1>
-        {([['overview', 'Overview'], ['contracts', 'Contracts & shares'], ['facilities', 'Facilities'], ['buy', 'Buy or build']] as [Sub, string][]).map(([id, l]) => (
+        {([['overview', 'Overview'], ['contracts', 'Contracts & shares'], ['sales', 'Sales'], ['facilities', 'Facilities'], ['buy', 'Buy or build']] as [Sub, string][]).map(([id, l]) => (
           <button key={id} className={`btn ${sub === id ? 'btn-primary' : ''}`} onClick={() => setSub(id)}>{l}</button>
         ))}
       </div>
       {sub === 'overview' && <Overview />}
       {sub === 'contracts' && <Contracts />}
+      {sub === 'sales' && <Sales />}
       {sub === 'facilities' && <FacilitiesPanel division="SUGAR" />}
       {sub === 'buy' && <Buy />}
+    </div>
+  );
+}
+
+const CHANNEL_LABEL: Record<SugarChannel, string> = {
+  contract: 'Industrial, contracted',
+  spot: 'Industrial, at the market',
+  wholesale: 'Wholesale grocers & foodservice',
+  retail: 'Retail packs for grocers',
+};
+
+/** Selling the sugar (D-141): industrial buyers under contract or at the market, distributors, grocery shelves. */
+function Sales() {
+  const game = useStore((s) => s.game)!;
+  const command = useStore((s) => s.command);
+  const mi = game.clock.monthIndex;
+  const book = game.coop.sugar;
+  const pol = sugarSalesPolicy(game);
+  const set = (patch: Partial<SugarSalesPolicy>) => command({ type: 'setSugarPolicy', policy: { sales: { ...pol, ...patch } } });
+  const quotes = channelQuotes(game, mi);
+  const lim = channelLimits(game);
+  const reps = book.reports.filter((r) => r.monthIndex > mi - 12 && r.channels);
+  const year = SUGAR_CHANNELS.map((c) => ({ c, cwt: reps.reduce((a, r) => a + r.channels![c].cwt, 0), revenue: reps.reduce((a, r) => a + r.channels![c].revenue, 0) }));
+  const sold = year.reduce((a, y) => a + y.cwt, 0);
+  const channelCost = reps.reduce((a, r) => a + (r.channelCost ?? 0), 0);
+  const contract = book.contractPrice?.year === marketingYear(mi) ? book.contractPrice.price : null;
+  const owns = game.coop.facilities.some((f) => f.kind === 'sugarfactory' && f.status !== 'closed');
+  const maxW = Math.round(SUGAR_SALES.maxShare.wholesale * 100);
+  const maxR = Math.round(SUGAR_SALES.maxShare.retail * 100);
+  return (
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <Panel title="How we sell the sugar">
+        <div className="space-y-3 text-sm">
+          <p>Most beet sugar goes in bulk, by rail and truck, to <b>industrial users</b>: bakers, confectioners, cereal, dairy and beverage makers. Much of it is sold <b>forward</b> under contracts for the marketing year (October to September), priced each October. The rest is bagged for <b>wholesale grocers and foodservice distributors</b> or packed in consumer bags for <b>grocery shelves</b>, under our brand or grocers' store brands.</p>
+          <label className="block">Sell <CommitNumber min={0} max={100} value={Math.round(pol.forwardShare * 100)} onCommit={(v) => set({ forwardShare: v / 100 })} ariaLabel="Forward-contracted share" />% of bulk sugar forward under annual contracts{contract !== null ? ` (this year's contracts at $${contract.toFixed(2)}/cwt)` : ' (priced next October)'}</label>
+          <label className="block">Bag <CommitNumber min={0} max={maxW} value={Math.round(pol.wholesaleShare * 100)} onCommit={(v) => set({ wholesaleShare: v / 100 })} ariaLabel="Wholesale share" />% for distributors (up to {maxW}%)</label>
+          <label className="block">Pack <CommitNumber min={0} max={maxR} value={Math.round(pol.retailShare * 100)} onCommit={(v) => set({ retailShare: v / 100 })} ariaLabel="Retail share" />% for grocers (up to {maxR}%, as far as the packaging line and shelf space allow)</label>
+          <label className="block">Brand support{' '}
+            <select className="input" aria-label="Brand support" value={pol.brand} onChange={(e) => set({ brand: e.target.value as SugarSalesPolicy['brand'] })}>
+              {(['none', 'modest', 'strong'] as const).map((b) => <option key={b} value={b}>{b === 'none' ? 'none (store brands only)' : `${b}: ${money(nominalCents(pathFor(game), mi, SUGAR_SALES.brand.value[b].cost2024), { compact: true })} a year`}</option>)}
+            </select>
+          </label>
+          <label className="block">Selling{' '}
+            <select className="input" aria-label="Selling" value={pol.selling} onChange={(e) => set({ selling: e.target.value as SugarSalesPolicy['selling'] })}>
+              <option value="agency">through a marketing agency ({pct(SUGAR.marketingCostPct.value, 0)} of sales)</option>
+              <option value="direct">ourselves ({pct(SUGAR_SALES.directFeePct.value, 1)} of sales plus a {money(nominalCents(pathFor(game), mi, SUGAR_SALES.directOffice2024.value), { compact: true })} sales office)</option>
+            </select>
+          </label>
+          <p className="text-xs text-stone-500">Grower co-ops in the same region often market together through one agency; a co-op selling alone needs its own account managers and brokers. Forward contracts steady the year's price but give up a rising market.</p>
+        </div>
+      </Panel>
+      <Panel title="What a cwt brings now">
+        <table className="data text-sm">
+          <thead><tr><th>Channel</th><th className="r">Buyer pays</th><th className="r">Our costs</th><th className="r">Net</th></tr></thead>
+          <tbody>{quotes.map((q) => (
+            <tr key={q.channel} title={q.why}><td>{CHANNEL_LABEL[q.channel]}<div className="text-xs text-stone-500">{q.why}</div></td><td className="r">${q.price.toFixed(2)}</td><td className="r">${q.cost.toFixed(2)}</td><td className="r font-semibold">${q.net.toFixed(2)}</td></tr>
+          ))}</tbody>
+        </table>
+        <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+          <Stat label="Brand strength" value={pct(book.brand ?? 0, 0)} sub={`builds toward ${pct(SUGAR_SALES.brand.value[pol.brand].target, 0)} with ${pol.brand} support`} />
+          <Stat label="Shelf space" value={`${num(lim.shelf)} cwt/yr`} sub="grocers who would carry our packs" />
+          <Stat label="Packaging lines" value={`${num(lim.packing)} cwt/yr`} sub={lim.packing > 0 ? 'consumer packing capacity' : 'add a packaging line at the factory'} tone={lim.packing > 0 || pol.retailShare === 0 ? 'neutral' : 'bad'} />
+          <Stat label="Distributors" value={`${num(lim.wholesale)} cwt/yr`} sub="bagged-sugar demand in our trade area" />
+        </div>
+        <p className="mt-2 text-xs text-stone-500">Shelf prices follow wholesale by about a year: retail packs pay best when the market falls and least when it spikes. The selling fee comes off every channel's price.</p>
+      </Panel>
+      {owns && (
+        <Panel title="Sugar sold, last 12 months">
+          {sold <= 0 ? <p className="text-sm text-stone-500">No sugar sold yet.</p> : (
+            <table className="data text-sm">
+              <thead><tr><th>Channel</th><th className="r">cwt</th><th className="r">Share</th><th className="r">Sales</th><th className="r">$/cwt</th></tr></thead>
+              <tbody>
+                {year.map((y) => <tr key={y.c}><td>{CHANNEL_LABEL[y.c]}</td><td className="r">{num(y.cwt)}</td><td className="r">{pct(y.cwt / sold, 0)}</td><td className="r">{money(y.revenue, { compact: true })}</td><td className="r">{y.cwt > 0 ? `$${(y.revenue / 100 / y.cwt).toFixed(2)}` : '—'}</td></tr>)}
+                <tr><td>Bagging, packaging, freight and trade promotion</td><td /><td /><td className="r">{money(-channelCost, { compact: true })}</td><td /></tr>
+              </tbody>
+            </table>
+          )}
+        </Panel>
+      )}
     </div>
   );
 }
