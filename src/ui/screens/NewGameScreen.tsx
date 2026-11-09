@@ -15,6 +15,8 @@ import {
   suggestCoopNames, suggestedMembers, type CapitalPreset, type GameSetup,
 } from '../../engine/index';
 import { TerritoryMap } from '../components/TerritoryMap';
+import { CharacterCreator, defaultCharacterInput } from '../components/CharacterCreator';
+import { makeCharacter } from '../../engine/index';
 import { Term } from '../components/Term';
 import { money } from '../format';
 import { useStore } from '../store';
@@ -35,6 +37,8 @@ export function NewGameScreen() {
   const [customDollars, setCustomDollars] = useState('');
   const [guide, setGuide] = useState(true);
   const [nameSeed, setNameSeed] = useState(1);
+  const [careerMode, setCareerMode] = useState(false);
+  const [character, setCharacter] = useState(defaultCharacterInput);
   const up = (p: Partial<GameSetup>) => setSetup((s) => ({ ...s, ...p }));
 
   const territory = useMemo(
@@ -64,9 +68,11 @@ export function NewGameScreen() {
   const customers = territoryCustomers(setup);
   const valid = setup.startingMembers >= SETUP.membersRange[0] && setup.startingMembers <= SETUP.membersRange[1] && capital > 0
     && (setup.territoryCustomers === undefined || (setup.territoryCustomers >= setup.startingMembers && setup.territoryCustomers <= SETUP.customersRange[1] * Math.max(1, TERRITORY.sizes.value[setup.territorySize ?? 'standard'])));
+  const built = careerMode ? makeCharacter(character, setup.startYear) : null;
   const go = () => start({
     ...setup, lenderId, homeTownId, coopName: setup.coopName.trim() || suggestions[0],
     ...(setup.capitalPreset === 'custom' ? { customCapital: capital } : {}),
+    ...(built && typeof built !== 'string' ? { career: { character: built } } : {}),
   }, guide);
 
   return (
@@ -212,8 +218,13 @@ export function NewGameScreen() {
               </label>
             ))}
           </div>
+          <fieldset className="rounded border border-stone-300 p-2">
+            <legend className="px-1 text-sm font-semibold">Career mode</legend>
+            <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={careerMode} onChange={(e) => setCareerMode(e.target.checked)} /><span>Play as a general manager with stats, a contract and a career: negotiate your pay, take offers from other co-ops, and find a new job if the board lets you go.</span></label>
+            {careerMode && <div className="mt-2"><CharacterCreator value={character} onChange={setCharacter} startYear={setup.startYear} /></div>}
+          </fieldset>
           <TerritoryMap world={territory} homeTownId={homeTownId} height={300} fictionalize={setup.fictionalizeBrands} onSelectTown={(t) => up({ homeTownId: t.id })} selectedTownId={homeTownId} />
-          <button className="btn btn-primary w-full justify-center py-2 text-base" disabled={!valid} onClick={go}>Hold the organizing meeting</button>
+          <button className="btn btn-primary w-full justify-center py-2 text-base" disabled={!valid || typeof built === 'string'} onClick={go}>Hold the organizing meeting</button>
         </section>
       </div>
     </main>

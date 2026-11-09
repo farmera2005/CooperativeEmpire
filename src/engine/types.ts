@@ -1,6 +1,7 @@
 // Core game state. Plain, JSON-serializable data only (no classes, Maps or typed arrays),
 // so saves are simple and cloning is predictable.
 
+import type { BackgroundId, CeoStat } from '../data/career';
 import type { InvestmentType } from '../data/investments';
 import type { Cents } from './core/money';
 import type { SeriesId } from '../data/markets';
@@ -52,6 +53,8 @@ export interface GameSetup {
   coopType?: 'grain' | 'sugar';
   /** Set when the game began as a scenario (DESIGN §19). */
   scenarioId?: string;
+  /** Career mode (D-142): play as this character, hired by the founding board. */
+  career?: { character: CeoCharacter };
   /** Debug mode (D-105): testing tools on the Debug screen. Chosen at creation only. */
   debugMode?: boolean;
   /** Debug: firing and liquidation are cancelled and play continues. */
@@ -1383,7 +1386,9 @@ export interface GameState {
   nextInboxId: number;
   firedEvents: FiredEvent[];
   history: MonthSnapshot[];
-  outcome: null | { kind: 'fired' | 'liquidated' | 'absorbed'; monthIndex: number; text: string };
+  outcome: null | { kind: 'fired' | 'liquidated' | 'absorbed' | 'resigned' | 'notRenewed' | 'moved' | 'retired'; monthIndex: number; text: string };
+  /** Career mode (D-142): the player's character, contract and career across co-ops. */
+  career?: CareerState;
 }
 
 /** What the co-op offers beet growers (D-133). */
@@ -1514,4 +1519,89 @@ export interface SugarCompany {
   offerIds: number[];
   /** Last month to buy the factory before it closes for good. */
   deadline?: number;
+}
+
+// ---------- Career mode (D-142) ----------
+
+/** The player as a co-op general manager / CEO. */
+export interface CeoCharacter {
+  name: string;
+  female: boolean;
+  birthYear: number;
+  background: BackgroundId;
+  /** 1–20, as leaders' skills (10 is an ordinary manager). */
+  stats: Record<CeoStat, number>;
+}
+
+/** The player's employment agreement with the board. Pay is nominal cents a year. */
+export interface EmploymentContract {
+  coopName: string;
+  startMonth: number;
+  /** The term ends after this month; the board renews or lets it lapse. */
+  endMonth: number;
+  base: Cents;
+  /** Bonus at target as a share of base; paid from nothing at review score 50 to twice the target at 100. */
+  bonusTarget: number;
+  /** Months of base paid if let go without cause. */
+  severanceMonths: number;
+}
+
+export interface JobOffer {
+  id: number;
+  monthIndex: number;
+  expiresMonth: number;
+  coopName: string;
+  regionId: string;
+  coopType: 'grain' | 'sugar';
+  /** Members the co-op had when its history began, and the year it began. */
+  members: number;
+  historyFrom: number;
+  mapSeed: number;
+  homeTownId?: number;
+  territorySize?: GameSetup['territorySize'];
+  /** A co-op in our own territory. */
+  neighbor: boolean;
+  base: Cents;
+  bonusTarget: number;
+  severanceMonths: number;
+  termYears: number;
+  /** Counters made so far, and the board's opening package (for the negotiation). */
+  rounds: number;
+  opening: { base: Cents; bonusTarget: number; severanceMonths: number };
+  note: string;
+}
+
+export type StintEnd = 'fired' | 'resigned' | 'notRenewed' | 'liquidated' | 'absorbed' | 'moved' | 'retired';
+
+export interface CareerStint {
+  coopName: string;
+  regionId: string;
+  fromMonth: number;
+  toMonth: number | null;
+  end?: StintEnd;
+  reviews: number[];
+  earnings: Cents;
+  startMembers: number;
+}
+
+export interface CareerState {
+  seed: number;
+  character: CeoCharacter;
+  status: 'employed' | 'searching' | 'retired';
+  /** The career's own clock: the game's clock while employed, the job search's while not. */
+  monthIndex: number;
+  contract: EmploymentContract | null;
+  reputation: number;
+  offers: JobOffer[];
+  nextOfferId: number;
+  stints: CareerStint[];
+  /** Salary, bonuses and severance earned in the career (nominal cents). */
+  earnings: Cents;
+  /** The review month of the last raise request (one per review). */
+  askedAfterReview?: number;
+  /** Months of severance still to be paid while looking. */
+  severanceLeft?: number;
+  /** Base pay of the last contract (for severance). */
+  lastBase?: Cents;
+  log: { monthIndex: number; text: string }[];
 }

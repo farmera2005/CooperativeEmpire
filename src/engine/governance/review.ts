@@ -17,6 +17,7 @@ import type { Demand, DivisionId, GameState, GmReview, OpDivision } from '../typ
 import { nominalCents } from '../world/macro';
 import { farmStress } from '../supply/credit';
 import { engagement } from './elections';
+import { boardDrift } from '../career/core';
 
 const memberName = (s: GameState, id: number) => s.members.list.find((m) => m.id === id)?.name ?? 'A director';
 
@@ -128,7 +129,7 @@ function driftConfidence(ctx: TickContext): void {
   const avg = averageSatisfaction(state);
   const last = g.reviews[g.reviews.length - 1];
   const target = last?.score ?? CONFIDENCE.start;
-  const drift = (CONFIDENCE.lenderStatus[state.coop.finance.status] ?? 0) + CONFIDENCE.satisfaction.value * (avg - 50) + CONFIDENCE.reversion.value * (target - g.boardConfidence);
+  const drift = (CONFIDENCE.lenderStatus[state.coop.finance.status] ?? 0) + CONFIDENCE.satisfaction.value * (avg - 50) + CONFIDENCE.reversion.value * (target - g.boardConfidence) + boardDrift(state);
   g.boardConfidence = clamp(g.boardConfidence + drift, 0, 100);
   const loyal = clamp(target, 20, 85);
   g.directors = g.directors.map((d) => ({ ...d, loyaltyToGM: clamp(d.loyaltyToGM + CONFIDENCE.directorLoyaltyReversion.value * (loyal - d.loyaltyToGM), 0, 100) }));
@@ -190,7 +191,9 @@ export function gmReview(ctx: TickContext, fy: number): GmReview {
   // Bonus.
   const members0 = state.members.list.filter((m) => m.kind === 'member' && m.status === 'active').length;
   const salary = nominalCents(ctx.path, ctx.mi, OVERHEAD.gmSalaryBase.value + OVERHEAD.gmSalaryPerMember.value * members0 + OVERHEAD.gmSalaryPerLocation.value * state.coop.facilities.filter((f) => f.status !== 'closed').length);
-  const bonus = roundCents(salary * GM_REVIEW.maxBonus.value * clamp((score - 50) / 50, 0, 1));
+  // In career mode the contract sets the pay and the bonus target: nothing at 50, the target at 75, twice it at 100 (D-142).
+  const contract = state.career?.status === 'employed' ? state.career.contract : null;
+  const bonus = contract ? roundCents(contract.base * contract.bonusTarget * clamp((score - 50) / 25, 0, 2)) : roundCents(salary * GM_REVIEW.maxBonus.value * clamp((score - 50) / 50, 0, 1));
   if (bonus > 0) post(state, { source: 'gm-bonus', memo: `General manager's bonus, fiscal ${fy}`, lines: [{ account: '7000', division: 'CORP', amount: bonus }, { account: '1000', division: 'CORP', amount: -bonus }] });
   const wasPip = g.pip;
   let fired = false;

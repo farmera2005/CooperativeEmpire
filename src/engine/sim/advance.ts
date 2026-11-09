@@ -29,6 +29,7 @@ import { stepAnnualMeeting, stepMemberDemocracy } from '../governance/elections'
 import { stepDepreciation, stepFacilityCosts, stepProjects } from '../facilities/facilities';
 import { stepGrain } from '../grain/operate';
 import { stepSugar } from '../sugar/operate';
+import { stepCareer } from '../career/career';
 import { stepCccLoans } from '../sugar/finance';
 import { stepFarmEconomyReports } from '../world/farmEconomy';
 import { stepSupply } from '../supply/operate';
@@ -173,6 +174,8 @@ export function advanceMonth(state: GameState, decisions: Command[] = [], opts: 
   if (w.inbox.length > INBOX_LIMIT) w.inbox = w.inbox.slice(w.inbox.length - INBOX_LIMIT);
   // 29. loss conditions (the lender's forced action; governance in M5); debug mode may cancel them
   suppressGameOver(ctx);
+  // Career mode: pay, reviews, contract, offers; a lost job turns to the job search (D-142).
+  stepCareer(ctx);
   if (w.outcome) interrupts.push({ kind: 'gameOver', text: w.outcome.text });
   stepScenario(ctx);
   for (const item of w.inbox) if (item.monthIndex === ctx.mi && item.kind === 'alert') interrupts.push({ kind: 'alert', text: item.title });

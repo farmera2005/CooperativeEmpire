@@ -51,6 +51,19 @@ and 200 towns. On larger maps the founders farm around the home town and the out
 belong to county-wide co-ops that grow, open new elevators, merge with each other over the decades
 (fastest from the 1990s) and can become your merger partners (Deals & Competitors, nearest first).
 
+## Career mode
+
+Tick **Career mode** on the New Game screen to play as a general manager you create: a name, an
+age, a background (grain merchandiser, ag lender, agronomist, plant manager, outside executive
+or farmer-director) and points spent on seven stats — financial acumen, operations,
+merchandising & sales, leadership, board relations, member relations and negotiation. Your stats
+add to what your managers deliver, cover roles you have not filled, and sway the board. The
+**Career** screen (key C) shows your contract (base pay, bonus target, severance, term), your
+reputation and earnings, and the offers other co-ops' boards make. Counter an offer or ask your
+own board for better terms after a review; ask too much and the offer may be withdrawn. If you
+resign or the board lets you go, look for work month by month and take an offer: the game
+continues at the new co-op, with its own history. Sources are in `docs/research/career.md`.
+
 ## Sugar beets
 
 A co-op can go into beet sugar (**Sugar beets**, key U). A beet factory needs a processing line,

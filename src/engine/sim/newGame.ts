@@ -33,6 +33,7 @@ import { generateTerritory, makeDistricts, townFarmWeight, type Territory } from
 import { weatherFor } from '../world/weather';
 import { snapshot } from './snapshot';
 import { refreshMarkets } from './steps';
+import { newCareer } from '../career/core';
 
 export const DEFAULT_SETUP: GameSetup = {
   coopName: '',
@@ -171,6 +172,8 @@ export function newGame(setupIn: GameSetup): GameState {
     outcome: null,
   };
   refreshMarkets(state);
+  // Career mode (D-142): the founding board hires the player's character.
+  if (setup.career) state.career = newCareer(state, setup.career.character);
 
   // Founding capital: member stock subscriptions, in proportion to farm size.
   const capital = startingCapital({ ...setup, startingMembers: members });
@@ -212,7 +215,7 @@ export function newGame(setupIn: GameSetup): GameState {
   const push = (title: string, body: string) => state.inbox.push({ id: state.nextInboxId++, monthIndex: startMonth, kind: 'memo', title, body, read: false });
   push(
     `${name} is organized`,
-    `At an organizing meeting in ${homeTown.name}, ${founders.length} farmers subscribed for member stock and elected a board of ${governance.directors.length} directors. The board has hired you as General Manager.${sugarFounding ? `\n\n${sugarFounding}` : sugarStart ? `\n\nThe growers meant to buy ${state.coop.sugar.company?.name ?? 'the sugar company'}'s beet factory, but the money did not come together. The factory and stations stay on offer for a year (Sugar beets screen); a share drive can raise more.` : ''}\n\nBoard of directors:\n${dir.join('\n')}`,
+    `At an organizing meeting in ${homeTown.name}, ${founders.length} farmers subscribed for member stock and elected a board of ${governance.directors.length} directors. The board has hired ${state.career ? `you, ${state.career.character.name},` : 'you'} as General Manager${state.career?.contract ? ` at ${formatCents(state.career.contract.base)} a year on a ${Math.round((state.career.contract.endMonth - state.career.contract.startMonth + 1) / 12)}-year agreement` : ''}.${sugarFounding ? `\n\n${sugarFounding}` : sugarStart ? `\n\nThe growers meant to buy ${state.coop.sugar.company?.name ?? 'the sugar company'}'s beet factory, but the money did not come together. The factory and stations stay on offer for a year (Sugar beets screen); a share drive can raise more.` : ''}\n\nBoard of directors:\n${dir.join('\n')}`,
   );
   push(
     'Banking and supply arrangements',

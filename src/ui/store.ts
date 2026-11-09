@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import {
-  advanceMonth, advanceUntilAttention, applyCommand, DEFAULT_INTERRUPTS, newGame, newScenario,
-  type Command, type GameSetup, type GameState, type MonthSummary,
+  acceptOffer, advanceMonth, advanceUntilAttention, applyCommand, DEFAULT_INTERRUPTS, newGame, newScenario,
+  type CareerResult, type Command, type GameSetup, type GameState, type MonthSummary,
 } from '../engine/index';
 import { saveSlot, setSaveTarget } from '../persistence/saves';
 import type { RegistrationMode, UserView } from './accountClient';
@@ -18,7 +18,7 @@ export interface ProjectDraft {
   designId?: number;
 }
 
-export type Tab = 'dashboard' | 'deals' | 'operations' | 'reports' | 'glossary' | 'grain' | 'supply' | 'sugar' | 'map' | 'markets' | 'members' | 'financials' | 'locations' | 'equity' | 'lender' | 'settings' | 'people' | 'board' | 'inbox' | 'saves' | 'admin' | 'debug';
+export type Tab = 'career' | 'dashboard' | 'deals' | 'operations' | 'reports' | 'glossary' | 'grain' | 'supply' | 'sugar' | 'map' | 'markets' | 'members' | 'financials' | 'locations' | 'equity' | 'lender' | 'settings' | 'people' | 'board' | 'inbox' | 'saves' | 'admin' | 'debug';
 
 export interface Toast {
   id: number;
@@ -65,6 +65,11 @@ interface UiState {
   advanceUntilAttention(): void;
   advanceMonths(n: number): void;
   clearError(): void;
+  /** Career mode (D-142): apply a career action (negotiate, search, resign); messages appear as toasts. */
+  careerAct(fn: (s: GameState) => CareerResult): boolean;
+  /** Take a job offer: builds the new employer's history, which takes a few seconds. */
+  takeJob(offerId: number): void;
+  busy: string | null;
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -179,4 +184,33 @@ export const useStore = create<UiState>((set, get) => ({
     }
   },
   clearError: () => set({ error: null }),
+  busy: null,
+  careerAct: (fn) => {
+    const g = get().game;
+    if (!g) return false;
+    const r = fn(g);
+    const toasts = r.messages.map((m) => ({ id: ++toastId, level: m.level, text: m.text }));
+    set({ ...(r.ok ? { game: r.state } : {}), toasts: [...get().toasts, ...toasts].slice(-5) });
+    for (const t of toasts) setTimeout(() => get().dismissToast(t.id), t.level === 'error' ? 8000 : 4500);
+    if (r.ok) scheduleAutosave(get, set);
+    return r.ok;
+  },
+  takeJob: (offerId) => {
+    const g = get().game;
+    const o = g?.career?.offers.find((x) => x.id === offerId);
+    if (!g || !o) return;
+    set({ busy: `Moving to ${o.coopName}…` });
+    // Let the screen show the notice before the history is built.
+    setTimeout(() => {
+      try {
+        const r = acceptOffer(g, offerId);
+        const toasts = r.messages.map((m) => ({ id: ++toastId, level: m.level, text: m.text }));
+        set({ busy: null, ...(r.ok ? { game: r.state, tab: 'inbox' as Tab, summaries: [] } : {}), toasts: [...get().toasts, ...toasts].slice(-5) });
+        for (const t of toasts) setTimeout(() => get().dismissToast(t.id), 4500);
+        if (r.ok) scheduleAutosave(get, set);
+      } catch (e) {
+        set({ busy: null, error: (e as Error).message });
+      }
+    }, 30);
+  },
 }));

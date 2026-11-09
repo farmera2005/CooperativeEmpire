@@ -93,3 +93,6 @@ export { channelLimits, channelQuotes, defaultSugarSales, marketingYear, planSal
 export type { ChannelQuote } from './sugar/sales';
 export type { SugarCapacity } from './sugar/operate';
 export { elevatorScale, grainScale, regionalYield, suggestedMembers } from './world/regional';
+export { ageOf, ceoStat, makeCharacter, marketPay, pointsFor, type CharacterInput } from './career/core';
+export { askBoard, backgroundLabel, boardSlack, boardWillingness, counterOffer, declineOffer, packageValue, raiseWindow, regionLabel, resign, retire, searchMonth, type Ask, type CareerResult } from './career/career';
+export { acceptOffer } from './career/move';

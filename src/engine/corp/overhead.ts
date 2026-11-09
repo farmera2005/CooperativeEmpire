@@ -9,13 +9,16 @@ import type { TickContext } from '../sim/context';
 import { marketValue } from '../world/marketPath';
 import { nominalCents, priceLevel } from '../world/macro';
 import { balanceSheet } from '../ledger/statements';
+import { gmBasePay } from '../career/core';
 
 export function postOverhead(ctx: TickContext): void {
   const { state, path, mi } = ctx;
   const members = state.members.list.filter((m) => m.kind === 'member' && m.status === 'active').length;
   const locations = state.coop.facilities.filter((f) => f.status !== 'closed').length;
   const gmAnnual2024 = OVERHEAD.gmSalaryBase.value + OVERHEAD.gmSalaryPerMember.value * members + OVERHEAD.gmSalaryPerLocation.value * locations;
-  const salary = nominalCents(path, mi, gmAnnual2024 / 12);
+  // Career mode: the GM's contract sets the pay (D-142).
+  const contracted = gmBasePay(state);
+  const salary = contracted !== null ? roundCents(contracted / 12) : nominalCents(path, mi, gmAnnual2024 / 12);
   const benefits = roundCents(salary * OVERHEAD.benefitsRate.value);
   // Computers and, later, AI tools trim office work.
   const office = nominalCents(path, mi, (OVERHEAD.officeMonthlyBase.value + OVERHEAD.officeMonthlyPerMember.value * members + OVERHEAD.officeMonthlyPerLocation.value * locations) * techFactor(state, 'officeCost'));

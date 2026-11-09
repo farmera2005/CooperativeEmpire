@@ -5,6 +5,7 @@
 // Yes if support > 0. The chair votes only to break a tie.
 
 import { CONFIDENCE, POLITICAL_CAPITAL, VOTE_MODEL } from '../../data/governance';
+import { voteSupport } from '../career/core';
 import { formatMonth } from '../core/calendar';
 import { clamp } from '../core/math';
 import { distributePatronage } from '../finance/patronage';
@@ -45,6 +46,7 @@ export function baseSupport(s: GameState, d: Director, v: MeritVector, item: Age
     + w.confidence.value * (s.governance.boardConfidence - 50) / 50
     + w.loyalty.value * (d.loyaltyToGM - 50) / 50
     + (item.lobbied.includes(d.memberId) ? w.lobby.value : 0)
+    + voteSupport(s)
     - w.controversy.value * v.controversy;
 }
 

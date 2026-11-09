@@ -25,6 +25,7 @@ import { OperationsScreen } from './OperationsScreen';
 import { ReportsScreen } from './ReportsScreen';
 import { GlossaryScreen } from './GlossaryScreen';
 import { DebugScreen } from './DebugScreen';
+import { CareerScreen } from './CareerScreen';
 
 const TABS: { id: Tab; label: string; key: string }[] = [
   { id: 'dashboard', label: 'Dashboard', key: '1' },
@@ -58,6 +59,7 @@ const inFinance = (t: Tab) => FINANCE_TABS.some((x) => x.id === t);
 const DEBUG_TAB: { id: Tab; label: string; key: string } = { id: 'debug', label: 'Debug tools', key: 'X' };
 /** Shown to admins (D-127): accounts and sharing. */
 const ADMIN_TAB: { id: Tab; label: string; key: string } = { id: 'admin', label: 'Admin menu', key: 'M' };
+const CAREER_TAB: { id: Tab; label: string; key: string } = { id: 'career', label: 'Career', key: 'C' };
 
 export function GameShell() {
   const game = useStore((s) => s.game)!;
@@ -70,7 +72,9 @@ export function GameShell() {
   const debugMode = !!game.setup.debugMode;
   const user = useStore((s) => s.account.user);
   const isAdmin = user?.role === 'admin';
-  const tabs = useMemo(() => [...TABS, ...(isAdmin ? [ADMIN_TAB] : []), ...(debugMode ? [DEBUG_TAB] : [])], [debugMode, isAdmin]);
+  const careerMode = !!game.career;
+  const busy = useStore((s) => s.busy);
+  const tabs = useMemo(() => [...(careerMode ? [CAREER_TAB] : []), ...TABS, ...(isAdmin ? [ADMIN_TAB] : []), ...(debugMode ? [DEBUG_TAB] : [])], [debugMode, isAdmin, careerMode]);
   const setGuide = useStore((s) => s.setGuide);
 
   useEffect(() => {
@@ -134,6 +138,8 @@ export function GameShell() {
         {game.outcome && <GameOver />}
         <GuidePanel />
         <main id="main" tabIndex={-1} className="min-h-0 flex-1 overflow-auto p-4">
+          {busy && <div role="status" className="panel mb-3 p-3 font-semibold">{busy} The co-op's past is being written; this takes a few seconds.</div>}
+          {tab === 'career' && careerMode && <CareerScreen />}
           {tab === 'dashboard' && <Dashboard />}
           {tab === 'inbox' && <InboxScreen />}
           {tab === 'grain' && <GrainScreen />}
@@ -177,12 +183,14 @@ function GameOver() {
   const setTab = useStore((s) => s.setTab);
   const setScreen = useStore((s) => s.setScreen);
   const o = game.outcome!;
-  const title = o.kind === 'fired' ? 'The board has let you go' : o.kind === 'liquidated' ? 'The lender forced a sale' : 'The co-op has been absorbed';
+  const title = ({ fired: 'The board has let you go', liquidated: 'The lender forced a sale', absorbed: 'The co-op has been absorbed', resigned: 'You resigned', notRenewed: 'Your contract was not renewed', moved: 'You moved on', retired: 'You retired' } as Record<string, string>)[o.kind];
+  const looking = game.career?.status === 'searching';
   return (
     <div role="alert" className="border-b-4 border-rust bg-[#f6e3dc] px-4 py-3">
       <div className="headline text-lg font-bold text-rust">{title} — {formatMonth(o.monthIndex)}</div>
       <p className="text-sm">{o.text}</p>
       <div className="mt-2 flex gap-2">
+        {looking && <button className="btn btn-primary" onClick={() => setTab('career')}>Look for a new job</button>}
         <button className="btn" onClick={() => setTab('saves')}>Load an earlier save</button>
         <button className="btn" onClick={() => setScreen('title')}>Title screen</button>
         <span className="self-center text-xs text-stone-500">The books stay open for review; months can no longer be played.</span>

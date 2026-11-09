@@ -12,6 +12,7 @@ import { incomeStatement } from '../ledger/statements';
 import { personName } from '../members/generate';
 import type { DivisionId, GameState, Leader, PeopleState } from '../types';
 import { nominalCents, pathFor, priceLevel } from '../world/macro';
+import { gmEffect, vacancySkill } from '../career/core';
 
 export const ROLE_DIVISION: Partial<Record<Role, DivisionId>> = { GRAIN: 'GRAIN', AGRONOMY: 'AGRONOMY', FEED: 'FEED', ENERGY: 'ENERGY', RETAIL: 'RETAIL', SUGAR: 'SUGAR', AGRI: 'SUGAR' };
 export const DIVISION_ROLE: Partial<Record<DivisionId, Role>> = { GRAIN: 'GRAIN', AGRONOMY: 'AGRONOMY', FEED: 'FEED', ENERGY: 'ENERGY', RETAIL: 'RETAIL', SUGAR: 'SUGAR' };
@@ -59,7 +60,8 @@ export function traitSkill(l: Leader, skill: Skill): number {
 /** The skill the co-op actually brings to a role this month. */
 export function effectiveSkill(s: GameState, role: Role, skill: Skill): number {
   const l = holder(s, role);
-  if (!l) return s.people.needed.includes(role) ? PEOPLE.vacantSkill.value : PEOPLE.baseSkill.value;
+  // In career mode the GM covers a vacant role with their own matching stat (D-142).
+  if (!l) return s.people.needed.includes(role) ? vacancySkill(s, skill) ?? PEOPLE.vacantSkill.value : PEOPLE.baseSkill.value;
   const moraleAdj = clamp((l.morale - 60) / 40, -1, 1) - clamp((l.burnout - 50) / 50, 0, 1);
   return clamp(traitSkill(l, skill) + moraleAdj, 1, 22);
 }
@@ -69,10 +71,12 @@ export function effect(s: GameState, key: EffectKey, division?: DivisionId): num
   const row = EFFECTS.find((e) => e.key === key);
   if (!row) return 0;
   const role: Role | undefined = row.role === 'division' ? (division ? DIVISION_ROLE[division] : undefined) : row.role;
-  if (!role) return 0;
+  // The GM's own stats add to some effects in career mode (D-142).
+  const gm = gmEffect(s, key);
+  if (!role) return clamp(gm, row.min, row.max) + 0;
   const sk = effectiveSkill(s, role, row.skill);
   const coasting = holder(s, role)?.traits.includes('coasting') ? 0.8 : 1;
-  return clamp(row.perPoint * (sk - 10) * coasting, row.min, row.max) + 0; // + 0 normalizes −0
+  return clamp(row.perPoint * (sk - 10) * coasting + gm, row.min, row.max) + 0; // + 0 normalizes −0
 }
 
 const marketSalary = (s: GameState, role: Role) => nominalCents(pathFor(s), s.clock.monthIndex, ROLE_DEFS[role].salary);
