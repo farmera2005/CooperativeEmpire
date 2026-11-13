@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  acceptOffer, advanceMonth, balance, askBoard, checkInvariants, counterOffer, DEFAULT_SETUP, effect, makeCharacter, newGame, packageValue, raiseWindow, resign, searchMonth,
+  acceptOffer, advanceMonth, balance, startGame, askBoard, checkInvariants, counterOffer, DEFAULT_SETUP, effect, makeCharacter, newGame, packageValue, raiseWindow, resign, searchMonth,
   type CharacterInput, type GameState,
 } from '../src/engine/index';
 import { POLICIES } from '../src/engine/sim/policies';
@@ -122,5 +122,26 @@ describe('career mode (D-142)', () => {
     let b = fire(run(newGame(setup(character(), 6)), 26));
     for (let i = 0; i < 12; i++) { a = searchMonth(a).state; b = searchMonth(b).state; }
     expect(JSON.stringify(a.career)).toBe(JSON.stringify(b.career));
+  }, 120_000);
+
+  it('career mode can start at an established co-op with years of history (D-143)', () => {
+    const ch = character();
+    const s = startGame({ ...setup(ch), startYear: 1985, career: { character: ch, establishedYears: 10 } });
+    expect(s.outcome).toBeNull();
+    expect(s.clock.monthIndex + 1).toBe(1985 * 12);
+    expect(Math.floor(s.coop.foundedMonth / 12)).toBe(1975);
+    expect(s.coop.facilities.filter((f) => f.status === 'operating').length).toBeGreaterThan(0);
+    expect(s.career!.status).toBe('employed');
+    expect(s.career!.stints).toHaveLength(1);
+    expect(s.career!.stints[0].fromMonth).toBe(1985 * 12);
+    expect(s.career!.contract!.startMonth).toBe(1985 * 12);
+    expect(s.governance.reviews).toEqual([]);
+    expect(s.inbox.filter((i) => !i.read).map((i) => i.title)).toEqual([`You are the new general manager of ${s.coop.name}`]);
+    // The board pays the going rate for a co-op of this size, more than a founding board would.
+    expect(s.career!.contract!.base).toBeGreaterThan(newGame({ ...setup(ch), startYear: 1985 }).career!.contract!.base);
+    const after = run(s, 3);
+    expect(checkInvariants(after)).toEqual([]);
+    expect(after.career!.earnings).toBeGreaterThan(0);
+    expect(() => startGame({ ...setup(ch), startYear: 1978, career: { character: ch, establishedYears: 10 } })).toThrow();
   }, 120_000);
 });

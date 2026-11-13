@@ -4,7 +4,9 @@
 // Then the board hands it to you on the terms you agreed.
 
 import { CAREER } from '../../data/career';
-import { formatMonth } from '../core/calendar';
+import { formatMonth, toMonthIndex, yearOf } from '../core/calendar';
+import type { Cents } from '../core/money';
+import { newCareer } from './core';
 import { formatCents } from '../core/format';
 import { advanceMonth } from '../sim/advance';
 import { DEFAULT_SETUP, newGame } from '../sim/newGame';
@@ -51,22 +53,70 @@ export function acceptOffer(s0: GameState, offerId: number): CareerResult {
   let s: GameState | null = null;
   for (let attempt = 0; attempt < 3 && !s; attempt++) s = buildEmployer(s0, o, arrive, attempt);
   if (!s) return { state: s0, ok: false, messages: [{ level: 'error', text: `${o.coopName} could not be set up; try another offer.` }] };
-  const mi = s.clock.monthIndex;
-  const members = s.members.list.filter((m) => m.kind === 'member' && m.status === 'active').length;
-  career.status = 'employed';
-  career.monthIndex = mi;
   career.offers = career.offers.filter((x) => x.id !== o.id);
   career.severanceLeft = 0;
-  career.contract = { coopName: s.coop.name, startMonth: mi + 1, endMonth: mi + o.termYears * 12, base: o.base, bonusTarget: o.bonusTarget, severanceMonths: o.severanceMonths };
-  career.stints = [...career.stints, { coopName: s.coop.name, regionId: o.regionId, fromMonth: mi + 1, toMonth: null, reviews: [], earnings: 0, startMembers: members }];
-  career.log = [...career.log, { monthIndex: mi, text: `Joined ${s.coop.name} as general manager at ${formatCents(o.base)} a year.` }].slice(-80);
-  // The handover, as in a scenario: the past is history, the board starts with an open mind.
-  s = { ...s, inbox: s.inbox.map((i) => ({ ...i, read: true })), deals: s.deals.filter((d) => d.stage === 'closed' || d.stage === 'dead'), career };
-  s.clock = { ...s.clock, startMonth: mi + 1 };
-  s.governance = { ...s.governance, boardConfidence: 60 + Math.round((career.character.stats.boardRelations - 10) / 2), pip: false, reviews: [] };
-  s.inbox.push({
-    id: s.nextInboxId++, monthIndex: mi, read: false, kind: 'memo', title: `You are the new general manager of ${s.coop.name}`,
-    body: `The board of ${s.coop.name} (${members.toLocaleString('en-US')} active members, ${s.coop.facilities.filter((f) => f.status === 'operating').length} operating sites) welcomes you. You start in ${formatMonth(mi + 1)} on a ${o.termYears}-year agreement: base ${formatCents(o.base)} a year, bonus target ${Math.round(o.bonusTarget * 100)}% of base, ${o.severanceMonths} months' severance.\n\nThe co-op's past annual reports are on the Reports screen. Your first review comes after the next fiscal year end${CAREER.settleMonths ? '; other boards will leave you alone for a while' : ''}.`,
-  });
+  s = handOver(s, career, o);
   return { state: s, ok: true, messages: [{ level: 'info', text: `You join ${s.coop.name}.` }] };
 }
+
+interface Terms { base: Cents; bonusTarget: number; severanceMonths: number; termYears: number }
+
+/**
+ * The handover, as in a scenario: the co-op's past is history, the board starts with an open
+ * mind, and the GM starts next month on the agreed terms.
+ */
+function handOver(s0: GameState, career: CareerState, t: Terms): GameState {
+  const mi = s0.clock.monthIndex;
+  const members = s0.members.list.filter((m) => m.kind === 'member' && m.status === 'active').length;
+  career.status = 'employed';
+  career.monthIndex = mi;
+  career.contract = { coopName: s0.coop.name, startMonth: mi + 1, endMonth: mi + t.termYears * 12, base: t.base, bonusTarget: t.bonusTarget, severanceMonths: t.severanceMonths };
+  career.stints = [...career.stints, { coopName: s0.coop.name, regionId: s0.setup.regionId, fromMonth: mi + 1, toMonth: null, reviews: [], earnings: 0, startMembers: members }];
+  career.log = [...career.log, { monthIndex: mi, text: `Joined ${s0.coop.name} as general manager at ${formatCents(t.base)} a year.` }].slice(-80);
+  const s = { ...s0, inbox: s0.inbox.map((i) => ({ ...i, read: true })), deals: s0.deals.filter((d) => d.stage === 'closed' || d.stage === 'dead'), career };
+  s.clock = { ...s.clock, startMonth: mi + 1 };
+  s.governance = { ...s.governance, boardConfidence: 60 + Math.round((career.character.stats.boardRelations - 10) / 2), pip: false, reviews: [] };
+  const founded = yearOf(s.coop.foundedMonth);
+  s.inbox.push({
+    id: s.nextInboxId++, monthIndex: mi, read: false, kind: 'memo', title: `You are the new general manager of ${s.coop.name}`,
+    body: `The board of ${s.coop.name} (organized ${founded}; ${members.toLocaleString('en-US')} active members, ${s.coop.facilities.filter((f) => f.status === 'operating').length} operating sites) welcomes you. You start in ${formatMonth(mi + 1)} on a ${t.termYears}-year agreement: base ${formatCents(t.base)} a year, bonus target ${Math.round(t.bonusTarget * 100)}% of base, ${t.severanceMonths} months' severance.\n\nThe co-op's past annual reports are on the Reports screen, its plants on the Map and Locations screens, and its people on the People screen. Your first review comes after the next fiscal year end${CAREER.settleMonths ? '; other boards will leave you alone for a while' : ''}.`,
+  });
+  return s;
+}
+
+/** Years an established co-op may have behind it at the start of a career (D-143). */
+export const ESTABLISHED_YEARS = [5, 10, 15, 25];
+
+/**
+ * Career mode at an established co-op (D-143): the co-op is organized `establishedYears` before
+ * the start year with the setup's members, capital, lender and region, run by a prudent manager
+ * (the baseline bot) until the start year, and then its board hires the player's character at
+ * the going rate for a co-op of its size.
+ */
+export function newEstablishedGame(setup: GameSetup): GameState {
+  const ch = setup.career?.character;
+  const years = setup.career?.establishedYears ?? 0;
+  if (!ch || years <= 0) return newGame(setup);
+  const from = setup.startYear - years;
+  if (from < 1970) throw new Error(`A co-op ${years} years old in ${setup.startYear} would have been organized before 1970, where the game's history begins.`);
+  const takeover = toMonthIndex(setup.startYear, 1);
+  let s: GameState | null = null;
+  // A history that ends in failure is rerun on a neighboring map.
+  for (let attempt = 0; attempt < 4 && !s; attempt++) {
+    const { career: _c, ...rest } = setup;
+    void _c;
+    let h = newGame({ ...rest, startYear: from, mapSeed: setup.mapSeed + attempt * 7, ...(attempt === 0 && setup.homeTownId !== undefined ? { homeTownId: setup.homeTownId } : { homeTownId: undefined }), ...(attempt === 0 ? {} : { coopName: '' }) });
+    while (h.clock.monthIndex < takeover - 1 && !h.outcome) h = advanceMonth(h, POLICIES.baseline(h)).state;
+    s = h.outcome ? null : h;
+  }
+  if (!s) throw new Error('The co-op\'s history ended in failure on every try; choose another start.');
+  s = { ...s, setup: { ...s.setup, career: setup.career } };
+  const career = newCareer(s, ch);
+  career.stints = [];
+  career.log = [];
+  const t = { base: career.contract!.base, bonusTarget: career.contract!.bonusTarget, severanceMonths: career.contract!.severanceMonths, termYears: CAREER.termYears };
+  return handOver(s, career, t);
+}
+
+/** Start a game from the setup screen: a founding, or (career mode) an established co-op. */
+export const startGame = (setup: GameSetup): GameState => (setup.career?.establishedYears ? newEstablishedGame(setup) : newGame(setup));

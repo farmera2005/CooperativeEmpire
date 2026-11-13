@@ -54,7 +54,7 @@ export interface GameSetup {
   /** Set when the game began as a scenario (DESIGN §19). */
   scenarioId?: string;
   /** Career mode (D-142): play as this character, hired by the founding board. */
-  career?: { character: CeoCharacter };
+  career?: { character: CeoCharacter; /** Start at a co-op organized this many years before the start year (D-143); none = found one. */ establishedYears?: number };
   /** Debug mode (D-105): testing tools on the Debug screen. Chosen at creation only. */
   debugMode?: boolean;
   /** Debug: firing and liquidation are cancelled and play continues. */

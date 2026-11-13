@@ -53,7 +53,8 @@ belong to county-wide co-ops that grow, open new elevators, merge with each othe
 
 ## Career mode
 
-Tick **Career mode** on the New Game screen to play as a general manager you create: a name, an
+Tick **Career mode** on the New Game screen to play as a general manager you create, hired either
+by the founding board or by the board of an established co-op with 5–25 years of history: a name, an
 age, a background (grain merchandiser, ag lender, agronomist, plant manager, outside executive
 or farmer-director) and points spent on seven stats — financial acumen, operations,
 merchandising & sales, leadership, board relations, member relations and negotiation. Your stats

@@ -12,7 +12,7 @@ const REGION_NOTES = {
 } as const;
 import {
   availableLenders, availableRegionals, DEFAULT_SETUP, defaultHomeTown, MONTH_NAMES, previewTerritory, startingCapital, territoryCustomers,
-  suggestCoopNames, suggestedMembers, type CapitalPreset, type GameSetup,
+  suggestCoopNames, suggestedMembers, ESTABLISHED_YEARS, type CapitalPreset, type GameSetup,
 } from '../../engine/index';
 import { TerritoryMap } from '../components/TerritoryMap';
 import { CharacterCreator, defaultCharacterInput } from '../components/CharacterCreator';
@@ -39,21 +39,28 @@ export function NewGameScreen() {
   const [nameSeed, setNameSeed] = useState(1);
   const [careerMode, setCareerMode] = useState(false);
   const [character, setCharacter] = useState(defaultCharacterInput);
+  // Career mode can start at a co-op organized years earlier (D-143); previews then show its founding.
+  const [established, setEstablished] = useState(false);
+  const [estYears, setEstYears] = useState(10);
+  const yearsOk = ESTABLISHED_YEARS.filter((y) => setup.startYear - y >= 1970);
+  const ageYears = established && careerMode ? (yearsOk.includes(estYears) ? estYears : yearsOk[yearsOk.length - 1] ?? 0) : 0;
+  const foundYear = setup.startYear - ageYears;
+  const busy = useStore((s) => s.busy);
   const up = (p: Partial<GameSetup>) => setSetup((s) => ({ ...s, ...p }));
 
   const territory = useMemo(
-    () => previewTerritory({ mapSeed: setup.mapSeed, regionId: setup.regionId, startYear: setup.startYear, startingMembers: Math.max(SETUP.membersRange[0], Math.min(SETUP.membersRange[1], setup.startingMembers)), territoryCustomers: setup.territoryCustomers, territorySize: setup.territorySize }),
-    [setup.mapSeed, setup.regionId, setup.startYear, setup.startingMembers, setup.territoryCustomers, setup.territorySize],
+    () => previewTerritory({ mapSeed: setup.mapSeed, regionId: setup.regionId, startYear: foundYear, startingMembers: Math.max(SETUP.membersRange[0], Math.min(SETUP.membersRange[1], setup.startingMembers)), territoryCustomers: setup.territoryCustomers, territorySize: setup.territorySize }),
+    [setup.mapSeed, setup.regionId, foundYear, setup.startingMembers, setup.territoryCustomers, setup.territorySize],
   );
   const homeTownId = setup.homeTownId !== undefined && setup.homeTownId < territory.towns.length ? setup.homeTownId : defaultHomeTown(territory).id;
-  const suggestions = useMemo(() => suggestCoopNames(territory, setup.startYear, setup.mapSeed + nameSeed * 7919, 6, setup.coopType), [territory, setup.startYear, setup.mapSeed, nameSeed, setup.coopType]);
-  const lenders = availableLenders(setup.startYear);
-  const regionals = availableRegionals(setup.startYear, setup.regionId);
+  const suggestions = useMemo(() => suggestCoopNames(territory, foundYear, setup.mapSeed + nameSeed * 7919, 6, setup.coopType), [territory, foundYear, setup.mapSeed, nameSeed, setup.coopType]);
+  const lenders = availableLenders(foundYear);
+  const regionals = availableRegionals(foundYear, setup.regionId);
   const lenderId = lenders.some((l) => l.id === setup.lenderId) ? setup.lenderId : lenders[0].id;
   const capital = useMemo(() => {
     if (setup.capitalPreset === 'custom') return Math.round(Number(customDollars || 0) * 100);
-    return startingCapital({ ...setup, lenderId });
-  }, [setup, customDollars, lenderId]);
+    return startingCapital({ ...setup, startYear: foundYear, lenderId });
+  }, [setup, customDollars, lenderId, foundYear]);
   const regionalFor = (line: SupplyLine) => setup.regionalAffiliations.find((a) => a.lines.includes(line))?.regionalId ?? '';
   const setRegional = (line: SupplyLine, id: string) => {
     const rest = setup.regionalAffiliations.map((a) => ({ ...a, lines: a.lines.filter((l) => l !== line) })).filter((a) => a.lines.length);
@@ -72,7 +79,7 @@ export function NewGameScreen() {
   const go = () => start({
     ...setup, lenderId, homeTownId, coopName: setup.coopName.trim() || suggestions[0],
     ...(setup.capitalPreset === 'custom' ? { customCapital: capital } : {}),
-    ...(built && typeof built !== 'string' ? { career: { character: built } } : {}),
+    ...(built && typeof built !== 'string' ? { career: { character: built, ...(ageYears > 0 ? { establishedYears: ageYears } : {}) } } : {}),
   }, guide);
 
   return (
@@ -146,7 +153,7 @@ export function NewGameScreen() {
               ))}
             </div>
             {setup.capitalPreset === 'custom' && <input className="input mt-1" placeholder="Dollars" value={customDollars} onChange={(e) => setCustomDollars(e.target.value.replace(/[^\d.]/g, ''))} />}
-            <div className="mt-1 text-sm">Raised: <b className="num">{money(capital)}</b> in {setup.startYear} dollars</div>
+            <div className="mt-1 text-sm">Raised: <b className="num">{money(capital)}</b> in {foundYear} dollars</div>
           </fieldset>
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
@@ -221,10 +228,20 @@ export function NewGameScreen() {
           <fieldset className="rounded border border-stone-300 p-2">
             <legend className="px-1 text-sm font-semibold">Career mode</legend>
             <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={careerMode} onChange={(e) => setCareerMode(e.target.checked)} /><span>Play as a general manager with stats, a contract and a career: negotiate your pay, take offers from other co-ops, and find a new job if the board lets you go.</span></label>
+            {careerMode && (
+              <div className="mt-2 space-y-1 text-sm">
+                <b>Where you start</b>
+                <label className="flex items-start gap-2"><input type="radio" name="careerStart" checked={!established} onChange={() => setEstablished(false)} /><span>Hired by the founding board of a new co-op (the settings on this screen).</span></label>
+                <label className="flex items-start gap-2"><input type="radio" name="careerStart" checked={established} disabled={!yearsOk.length} onChange={() => setEstablished(true)} /><span>Hired by the board of an <b>established co-op</b>, organized{' '}
+                  <select className="input" aria-label="Years since the co-op was organized" value={ageYears || estYears} disabled={!established} onChange={(e) => setEstYears(Number(e.target.value))}>
+                    {ESTABLISHED_YEARS.map((y) => <option key={y} value={y} disabled={setup.startYear - y < 1970}>{y}</option>)}
+                  </select>{' '}years before {setup.startYear}{yearsOk.length ? '' : ' (choose a start year after 1974)'}. The settings on this screen describe its founding{established ? ` in ${foundYear}` : ''}; a prudent manager runs it until you arrive, and its plants, people, members and books are what those years made them.</span></label>
+              </div>
+            )}
             {careerMode && <div className="mt-2"><CharacterCreator value={character} onChange={setCharacter} startYear={setup.startYear} /></div>}
           </fieldset>
           <TerritoryMap world={territory} homeTownId={homeTownId} height={300} fictionalize={setup.fictionalizeBrands} onSelectTown={(t) => up({ homeTownId: t.id })} selectedTownId={homeTownId} />
-          <button className="btn btn-primary w-full justify-center py-2 text-base" disabled={!valid || typeof built === 'string'} onClick={go}>Hold the organizing meeting</button>
+          <button className="btn btn-primary w-full justify-center py-2 text-base" disabled={!valid || typeof built === 'string' || !!busy} onClick={go}>{busy ?? (ageYears > 0 ? `Take the job (history from ${foundYear})` : 'Hold the organizing meeting')}</button>
         </section>
       </div>
     </main>

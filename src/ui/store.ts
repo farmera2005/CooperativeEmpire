@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import {
-  acceptOffer, advanceMonth, advanceUntilAttention, applyCommand, DEFAULT_INTERRUPTS, newGame, newScenario,
+  acceptOffer, advanceMonth, advanceUntilAttention, applyCommand, DEFAULT_INTERRUPTS, newScenario, startGame,
   type CareerResult, type Command, type GameSetup, type GameState, type MonthSummary,
 } from '../engine/index';
 import { saveSlot, setSaveTarget } from '../persistence/saves';
@@ -116,13 +116,20 @@ export const useStore = create<UiState>((set, get) => ({
   setScreen: (screen) => set({ screen }),
   setTab: (tab) => set({ tab, visited: get().visited.includes(tab) ? get().visited : [...get().visited, tab] }),
   start: (setup, guide = false) => {
-    try {
-      const game = newGame(setup);
-      set({ game, screen: 'game', tab: 'inbox', summaries: [], draft: null, guide, visited: ['inbox'] });
-      scheduleAutosave(get, set);
-    } catch (e) {
-      set({ error: (e as Error).message });
-    }
+    const go = () => {
+      try {
+        const game = startGame(setup);
+        set({ game, busy: null, screen: 'game', tab: 'inbox', summaries: [], draft: null, guide, visited: ['inbox'] });
+        scheduleAutosave(get, set);
+      } catch (e) {
+        set({ busy: null, error: (e as Error).message });
+      }
+    };
+    // An established co-op's past is simulated first (D-143): show a notice, then build it.
+    if (setup.career?.establishedYears) {
+      set({ busy: `Writing ${setup.career.establishedYears} years of the co-op's history…` });
+      setTimeout(go, 30);
+    } else go();
   },
   startScenario: (id) => {
     try {
