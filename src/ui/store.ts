@@ -127,7 +127,7 @@ export const useStore = create<UiState>((set, get) => ({
     };
     // An established co-op's past is simulated first (D-143): show a notice, then build it.
     if (setup.career?.establishedYears) {
-      set({ busy: `Writing ${setup.career.establishedYears} years of the co-op's history…` });
+      set({ busy: 'Finding a co-op and writing its history…' });
       setTimeout(go, 30);
     } else go();
   },

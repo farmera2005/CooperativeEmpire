@@ -67,6 +67,17 @@ export const CAREER = {
   growthChance: s(0.5, 'low'),
   declineFromAge: 64,
 
+  // ---- an established co-op chosen at random (D-144) ----
+  /** Years of history the co-op has when you arrive (never founded before 1970). */
+  establishedYears: [5, 25] as [number, number],
+  /** Chance of each region, of a sugar beet co-op, and of each world size. */
+  establishedRegions: { eccb: 0.4, wcb: 0.2, rrv: 0.2, glk: 0.2 } as Record<string, number>,
+  establishedSugar: 0.12,
+  establishedSizes: { small: 0.15, standard: 0.6, large: 0.25 } as Record<string, number>,
+  /** Founding members against a typical co-op of the region and year. */
+  establishedMembers: [0.6, 1.6] as [number, number],
+  establishedCapital: { shoestring: 0.25, typical: 0.55, well: 0.2 } as Record<string, number>,
+
   // ---- pay ----
   /**
    * Bonus target as a share of base pay; co-op GM plans run ~10–25% of base, 15% typical.

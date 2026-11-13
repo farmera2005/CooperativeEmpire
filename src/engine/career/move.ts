@@ -7,9 +7,13 @@ import { CAREER } from '../../data/career';
 import { formatMonth, toMonthIndex, yearOf } from '../core/calendar';
 import type { Cents } from '../core/money';
 import { newCareer } from './core';
+import { SETUP } from '../../data/tuning';
+import { clamp } from '../core/math';
+import { stream } from '../core/rng';
+import { suggestedMembers } from '../world/regional';
 import { formatCents } from '../core/format';
 import { advanceMonth } from '../sim/advance';
-import { DEFAULT_SETUP, newGame } from '../sim/newGame';
+import { availableLenders, DEFAULT_SETUP, newGame } from '../sim/newGame';
 import { POLICIES } from '../sim/policies';
 import type { CareerState, GameSetup, GameState, JobOffer } from '../types';
 import type { CareerResult } from './career';
@@ -84,8 +88,48 @@ function handOver(s0: GameState, career: CareerState, t: Terms): GameState {
   return s;
 }
 
-/** Years an established co-op may have behind it at the start of a career (D-143). */
-export const ESTABLISHED_YEARS = [5, 10, 15, 25];
+/** Earliest start year for a career at an established co-op: it needs a few years of history after 1970. */
+export const ESTABLISHED_FROM_YEAR = 1970 + CAREER.establishedYears[0];
+
+/**
+ * An established co-op chosen at random (D-144): the player sets only the start year, the
+ * difficulty and their character; region, kind, size, age, capital, lender, map and name are
+ * drawn from the game seed.
+ */
+export function randomEstablishedSetup(base: GameSetup): GameSetup {
+  const ch = base.career?.character;
+  if (!ch) throw new Error('A career needs a character.');
+  if (base.startYear < ESTABLISHED_FROM_YEAR) throw new Error(`An established co-op needs a start year of ${ESTABLISHED_FROM_YEAR} or later.`);
+  const rng = stream(base.gameSeed, -1, 'career.established');
+  const pickW = (w: Record<string, number>) => rng.weighted(Object.keys(w).sort(), (k) => w[k]);
+  const [y0, y1] = CAREER.establishedYears;
+  const years = rng.int(y0, Math.min(y1, base.startYear - 1970));
+  const founded = base.startYear - years;
+  const regionId = pickW(CAREER.establishedRegions);
+  const [m0, m1] = CAREER.establishedMembers;
+  const [mn, mx] = SETUP.membersRange;
+  const members = clamp(Math.round(suggestedMembers(regionId, founded) * rng.range(m0, m1) / 10) * 10, mn, Math.min(mx, 2500));
+  const lenders = availableLenders(founded);
+  return {
+    ...DEFAULT_SETUP,
+    startYear: base.startYear,
+    difficulty: base.difficulty,
+    gameSeed: base.gameSeed,
+    mapSeed: base.mapSeed,
+    historyMode: base.historyMode,
+    fictionalizeBrands: base.fictionalizeBrands,
+    ...(base.debugMode ? { debugMode: true } : {}),
+    regionId,
+    coopType: rng.chance(CAREER.establishedSugar) ? 'sugar' : 'grain',
+    territorySize: pickW(CAREER.establishedSizes) as GameSetup['territorySize'],
+    startingMembers: members,
+    capitalPreset: pickW(CAREER.establishedCapital) as GameSetup['capitalPreset'],
+    fiscalYearEndMonth: rng.weighted([6, 8, 9, 12], (m) => (m === 8 ? 3 : 1)),
+    lenderId: lenders.length > 1 && rng.chance(0.15) ? lenders[lenders.length - 1].id : lenders[0].id,
+    regionalAffiliations: [],
+    career: { character: ch, establishedYears: years },
+  };
+}
 
 /**
  * Career mode at an established co-op (D-143): the co-op is organized `establishedYears` before

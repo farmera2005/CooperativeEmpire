@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  acceptOffer, advanceMonth, balance, startGame, askBoard, checkInvariants, counterOffer, DEFAULT_SETUP, effect, makeCharacter, newGame, packageValue, raiseWindow, resign, searchMonth,
+  acceptOffer, advanceMonth, balance, randomEstablishedSetup, startGame, askBoard, checkInvariants, counterOffer, DEFAULT_SETUP, effect, makeCharacter, newGame, packageValue, raiseWindow, resign, searchMonth,
   type CharacterInput, type GameState,
 } from '../src/engine/index';
 import { POLICIES } from '../src/engine/sim/policies';
@@ -143,5 +143,29 @@ describe('career mode (D-142)', () => {
     expect(checkInvariants(after)).toEqual([]);
     expect(after.career!.earnings).toBeGreaterThan(0);
     expect(() => startGame({ ...setup(ch), startYear: 1978, career: { character: ch, establishedYears: 10 } })).toThrow();
+  }, 120_000);
+
+  it('the established co-op is chosen at random; only the start year and difficulty are the player\'s (D-144)', () => {
+    const ch = character();
+    const base = (seed: number) => ({ ...DEFAULT_SETUP, startYear: 1990, difficulty: 'hard' as const, gameSeed: seed, mapSeed: seed, career: { character: ch } });
+    const a = randomEstablishedSetup(base(11));
+    expect(JSON.stringify(randomEstablishedSetup(base(11)))).toBe(JSON.stringify(a));
+    expect(a.startYear).toBe(1990);
+    expect(a.difficulty).toBe('hard');
+    const y = a.career!.establishedYears!;
+    expect(y).toBeGreaterThanOrEqual(5);
+    expect(y).toBeLessThanOrEqual(20);
+    // Across seeds the co-ops differ in region, size and age.
+    const many = Array.from({ length: 24 }, (_, i) => randomEstablishedSetup(base(100 + i)));
+    expect(new Set(many.map((x) => x.regionId)).size).toBeGreaterThan(1);
+    expect(new Set(many.map((x) => x.startingMembers)).size).toBeGreaterThan(5);
+    expect(new Set(many.map((x) => x.career!.establishedYears)).size).toBeGreaterThan(3);
+    expect(() => randomEstablishedSetup({ ...base(1), startYear: 1972 })).toThrow();
+    const s = startGame(a);
+    expect(s.outcome).toBeNull();
+    expect(s.career!.status).toBe('employed');
+    expect(s.setup.difficulty).toBe('hard');
+    expect(s.clock.monthIndex + 1).toBe(1990 * 12);
+    expect(s.coop.foundedMonth).toBeLessThanOrEqual((1990 - y) * 12 + 1);
   }, 120_000);
 });
