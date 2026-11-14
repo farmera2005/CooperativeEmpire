@@ -6,6 +6,7 @@
 import { PEOPLE, ROLE_DEFS, SKILLS, type Role } from '../../data/people';
 import { clamp } from '../core/math';
 import { formatCents } from '../core/format';
+import { formatMonth } from '../core/calendar';
 import { stream } from '../core/rng';
 import { post } from '../ledger/ledger';
 import { generateLeader } from '../people/leaders';
@@ -25,6 +26,19 @@ export type DebugAction =
 
 const err = (text: string): CommandMessage[] => [{ level: 'error', text }];
 const info = (text: string): CommandMessage[] => [{ level: 'info', text: `Debug: ${text}` }];
+
+/**
+ * Enter debug mode in a game under way (D-145). It is one-way: the game stays a debug game for
+ * good, and the month it began is recorded and shown, so results after it are known to be
+ * assisted. Allowed after a game over too, to read the books with the tools at hand.
+ */
+export function enterDebugMode(s: GameState): CommandMessage[] {
+  if (s.setup.debugMode) return err('This game is already in debug mode.');
+  const mi = s.clock.monthIndex;
+  s.setup = { ...s.setup, debugMode: true, debugSinceMonth: mi };
+  s.inbox.push({ id: s.nextInboxId++, monthIndex: mi, read: false, kind: 'memo', title: 'Debug mode entered', body: `From ${formatMonth(mi)} this is a debug game: the Debug tools screen (key X) can add cash, set board confidence and member satisfaction, reset the lender, place managers, reveal skills and cancel a game over. Debug mode cannot be turned off.` });
+  return info(`debug mode is on from ${formatMonth(mi)}. Open the Debug tools screen (key X).`);
+}
 
 export function applyDebug(s: GameState, a: DebugAction): CommandMessage[] {
   if (!s.setup.debugMode) return err('Debug tools are only available in a game created in debug mode.');

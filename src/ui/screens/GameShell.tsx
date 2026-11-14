@@ -103,7 +103,7 @@ export function GameShell() {
         <div className="border-b border-stone-300 p-3">
           <div className="headline text-sm font-bold leading-tight">{game.coop.name}</div>
           <div className="text-xs text-stone-600">{game.world.towns[game.coop.homeTownId].name}</div>
-          {game.setup.debugMode && <div className="mt-1 inline-block rounded bg-amber-500 px-1.5 text-xs font-bold text-white">DEBUG GAME</div>}
+          {game.setup.debugMode && <div className="mt-1 inline-block rounded bg-amber-500 px-1.5 text-xs font-bold text-white" title={game.setup.debugSinceMonth !== undefined ? `Debug mode since ${formatMonth(game.setup.debugSinceMonth)}` : 'Created in debug mode'}>DEBUG GAME{game.setup.debugSinceMonth !== undefined ? ` since ${formatMonth(game.setup.debugSinceMonth)}` : ''}</div>}
         </div>
         {tabs.map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)} aria-current={tab === t.id || (t.id === 'financials' && inFinance(tab))}

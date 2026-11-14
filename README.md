@@ -92,6 +92,14 @@ your brand. Retail packs need the factory's packaging line and shelf space, and 
 wholesale prices are weak. Sell through a marketing agency or set up your own sales office.
 Sources are in `docs/research/sugar.md` and `docs/research/sugar-sales.md`.
 
+## Debug mode
+
+For testing, tick **Debug mode** on the New Game screen, or enter it in a game under way from
+**Settings** (key T) > **Enter debug mode**. The Debug tools screen (key X) can add or remove cash,
+set board confidence and member satisfaction, reset the lender, reveal skills, place managers and
+cancel a game over. Debug mode cannot be turned off; the game is marked DEBUG GAME from the month
+it began.
+
 ## Accounts
 
 When the game runs on its own server (`npm run dev`, `npm run preview`, `npm run share`, or the

@@ -5,7 +5,7 @@ import type { Cents } from '../core/money';
 import { adoptTech } from '../world/tech';
 import { comply } from '../world/regulation';
 import { chooseOption } from '../world/events';
-import { applyDebug, type DebugAction } from './debug';
+import { applyDebug, enterDebugMode, type DebugAction } from './debug';
 import { setSalesStaff } from '../people/sales';
 import { setLivestockProgram } from '../supply/livestock';
 import { investInVenture, sellStake } from '../deals/investments';
@@ -111,7 +111,8 @@ export type Command =
   | { type: 'adoptTech'; techId: string }
   | { type: 'comply'; ruleId: string; facilityId: number }
   | { type: 'chooseOption'; inboxId: number; optionId: string }
-  | { type: 'debug'; action: DebugAction };
+  | { type: 'debug'; action: DebugAction }
+  | { type: 'enterDebugMode' };
 
 export interface CommandMessage {
   level: 'info' | 'warning' | 'error';
@@ -300,6 +301,7 @@ function run(s: GameState, cmd: Command): CommandMessage[] {
     case 'comply': return comply(s, cmd.ruleId, cmd.facilityId);
     case 'chooseOption': return chooseOption(s, cmd.inboxId, cmd.optionId);
     case 'debug': return applyDebug(s, cmd.action);
+    case 'enterDebugMode': return enterDebugMode(s);
     case 'proposeDivisionSale': return proposeDivisionSale(s, cmd.division);
     case 'respondDeal': return respondDeal(s, cmd.dealId, cmd.accept);
     case 'dealDiligence': return dealDiligence(s, cmd.dealId);

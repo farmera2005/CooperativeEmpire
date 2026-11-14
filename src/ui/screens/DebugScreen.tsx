@@ -5,7 +5,7 @@ import { Panel, Stat } from '../components/Panel';
 import { money } from '../format';
 import { useStore } from '../store';
 
-/** Testing tools for a game created in debug mode (D-105). */
+/** Testing tools for a debug game: created in debug mode (D-105) or entered later (D-145). */
 export function DebugScreen() {
   const game = useStore((s) => s.game)!;
   const command = useStore((s) => s.command);

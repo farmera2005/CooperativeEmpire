@@ -15,6 +15,20 @@ describe('debug mode', () => {
     expect(r.ok).toBe(false);
   });
 
+  it('a game under way can enter debug mode, for good (D-145)', () => {
+    let s = game(false);
+    for (let i = 0; i < 3; i++) s = advanceMonth(s).state;
+    const r = applyCommand(s, { type: 'enterDebugMode' });
+    expect(r.ok).toBe(true);
+    expect(r.state.setup.debugMode).toBe(true);
+    expect(r.state.setup.debugSinceMonth).toBe(s.clock.monthIndex);
+    expect(r.state.inbox.some((m) => m.title === 'Debug mode entered')).toBe(true);
+    expect(applyCommand(r.state, { type: 'debug', action: { kind: 'addCash', amount: 100_000_00 } }).ok).toBe(true);
+    expect(applyCommand(r.state, { type: 'enterDebugMode' }).ok).toBe(false);
+    expect(s.setup.debugMode).toBeFalsy();
+    expect(checkInvariants(advanceMonth(r.state).state)).toEqual([]);
+  });
+
   it('adds cash through the books, against debug equity, without touching income', () => {
     const s = game(true);
     const cash = balance(s.ledger, '1000');
