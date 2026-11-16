@@ -309,7 +309,7 @@ export interface Bylaws {
 
 export type ProposalType =
   | 'capitalProject' | 'facilityClosure' | 'patronage' | 'redemptionPolicy' | 'budget' | 'affiliationChange'
-  | 'lenderChange' | 'borrowing' | 'riskPolicy' | 'creditPolicy' | 'bylawRecommendation' | 'deal';
+  | 'lenderChange' | 'borrowing' | 'riskPolicy' | 'creditPolicy' | 'bylawRecommendation' | 'deal' | 'nameChange';
 
 export type BylawChange =
   | { field: 'boardSize'; value: number }
@@ -343,6 +343,8 @@ export interface AgendaItem {
   /** The command to execute if the board approves (GM proposals). */
   command?: unknown;
   bylaw?: BylawChange;
+  /** A proposed new name for the co-op (D-146). */
+  newName?: string;
   source: 'gm' | 'system';
   tabled: number;
   attempts: number;
@@ -408,9 +410,10 @@ export interface ElectionResult {
 
 export interface MemberVote {
   id: number;
-  kind: 'bylaw' | 'recall';
+  kind: 'bylaw' | 'recall' | 'name';
   title: string;
   bylaw?: BylawChange;
+  newName?: string;
   directorId?: number;
   meetingMonth: number;
   supermajority: boolean;
@@ -767,6 +770,8 @@ export interface FinanceState {
 }
 
 export interface CoopState {
+  /** Names the co-op had before (D-146), oldest first, with the month each was given up. */
+  formerNames?: { name: string; untilMonth: number }[];
   name: string;
   homeTownId: number;
   foundedMonth: number;

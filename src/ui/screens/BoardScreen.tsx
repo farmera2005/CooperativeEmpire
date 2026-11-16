@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
 import {
-  averageSatisfaction, bylawTitle, confidenceWhy, factionOf, forecastItem, formatMonth, formatMonthShort, PROPOSAL_LABEL, yearOf,
+  averageSatisfaction, bylawTitle, checkNameChange, confidenceWhy, nameChangeCost, factionOf, forecastItem, formatMonth, formatMonthShort, PROPOSAL_LABEL, yearOf,
   type AgendaItem, type BylawChange, type Director, type GameState, type PetIssue,
 } from '../../engine/index';
 import { BYLAWS_DEFAULT, POLITICAL_CAPITAL } from '../../data/governance';
 import { Why } from '../components/Why';
 import { Panel, Stat } from '../components/Panel';
-import { pct } from '../format';
+import { money, pct } from '../format';
 import { useStore } from '../store';
 
 const stanceLabel = (s: number) => (s > 0.35 ? 'Growth-minded' : s < -0.35 ? 'Conservative' : 'Moderate');
@@ -52,6 +52,7 @@ export function BoardScreen() {
         <ElectionsPanel />
       </div>
       <BylawsPanel />
+      <NamePanel />
     </div>
   );
 }
@@ -225,6 +226,33 @@ function ElectionsPanel() {
           </table>
         </>
       )}
+    </Panel>
+  );
+}
+
+/** Renaming the co-op (D-146): the board recommends, the members adopt. */
+function NamePanel() {
+  const game = useStore((s) => s.game)!;
+  const command = useStore((s) => s.command);
+  const [name, setName] = useState('');
+  const b = game.governance.bylaws;
+  const problem = name.trim() ? checkNameChange(game, name)[0]?.text : undefined;
+  const pendingBoard = game.governance.agenda.find((i) => i.type === 'nameChange');
+  const pendingMembers = game.governance.memberVotes.find((v) => v.kind === 'name' && !v.result);
+  const former = game.coop.formerNames ?? [];
+  return (
+    <Panel title="The co-op's name">
+      <div className="space-y-2 text-sm">
+        <p>The name is in the articles of incorporation. A new one goes to the board; if the board recommends it, the members vote at a special meeting and must adopt it by {Math.round(b.supermajority * 100)}% of votes cast. Filing the amendment and new signs, truck lettering and stationery at every site would cost about <b>{money(nameChangeCost(game), { compact: true })}</b>. Members are fond of familiar names; renaming goes down best after a merger.</p>
+        {former.length > 0 && <p className="text-stone-600">Formerly {former.map((f) => `${f.name} (until ${formatMonthShort(f.untilMonth)})`).join(', ')}.</p>}
+        {pendingBoard && <p><b>On the board's agenda:</b> {pendingBoard.title}.</p>}
+        {pendingMembers && <p><b>Before the members</b> in {formatMonth(pendingMembers.meetingMonth)}: {pendingMembers.title}.</p>}
+        <div className="flex flex-wrap items-center gap-2">
+          <input className="input w-80" aria-label="Proposed new name" placeholder="Proposed new name" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
+          <button className="btn" disabled={!name.trim() || !!problem} onClick={() => { if (command({ type: 'proposeNameChange', name })) setName(''); }}>Send to the board</button>
+        </div>
+        {problem && <p className="text-xs text-rust">{problem}</p>}
+      </div>
     </Panel>
   );
 }

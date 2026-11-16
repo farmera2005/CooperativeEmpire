@@ -175,6 +175,11 @@ function execute(ctx: TickContext, item: AgendaItem): string {
       if (!item.bylaw) return '';
       state.governance.memberVotes = [...state.governance.memberVotes, { id: item.id, kind: 'bylaw', title: item.title, bylaw: item.bylaw, meetingMonth: ctx.mi + 2, supermajority: true }];
       return `Sent to the members for a vote at a special meeting in ${formatMonth(ctx.mi + 2)}.`;
+    case 'nameChange':
+      // The name is in the articles: the members decide (D-146).
+      if (!item.newName) return '';
+      state.governance.memberVotes = [...state.governance.memberVotes, { id: item.id, kind: 'name', title: item.title, newName: item.newName, meetingMonth: ctx.mi + 2, supermajority: true }];
+      return `Sent to the members for a vote at a special meeting in ${formatMonth(ctx.mi + 2)}.`;
     default: {
       if (!item.command) return '';
       const msgs = runCommand(state, item.command as Command, true);

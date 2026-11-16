@@ -1,7 +1,8 @@
 // Member democracy (DESIGN §14.5): annual director elections with nominees and insurgents,
 // the annual meeting, member petitions (recalls) and member votes on bylaw amendments.
 
-import { ELECTIONS, MEETING_REMARKS, PETITIONS } from '../../data/governance';
+import { ELECTIONS, MEETING_REMARKS, NAME_CHANGE, PETITIONS } from '../../data/governance';
+import { renameCoop } from './rename';
 import { GOVERNANCE_SETUP } from '../../data/tuning';
 import { formatMonth, monthOf } from '../core/calendar';
 import { formatCents } from '../core/format';
@@ -226,6 +227,7 @@ function holdMemberVote(ctx: TickContext, mv: MemberVote, rng: Rng): void {
   let cast = 0;
   let eligible = 0;
   const appeal = (() => {
+    if (mv.kind === 'name') return NAME_CHANGE.memberAppeal.value;
     const c = mv.bylaw;
     if (!c) return 0;
     switch (c.field) {
@@ -253,6 +255,13 @@ function holdMemberVote(ctx: TickContext, mv: MemberVote, rng: Rng): void {
       g.bylaws = { ...g.bylaws, [c.field]: c.value };
     }
     ctx.inbox({ kind: 'memo', title: `Members ${passed ? 'adopt' : 'reject'} bylaw amendment`, body: `${mv.title}: ${Math.round(yesShare * 100)}% yes on ${Math.round(turnout * 100)}% turnout (${mv.supermajority ? `${Math.round(g.bylaws.supermajority * 100)}% needed` : 'majority needed'}).${passed && mv.bylaw.field === 'boardSize' ? ' The new board size takes effect at the next election.' : ''}` });
+    return;
+  }
+  if (mv.kind === 'name' && mv.newName) {
+    // The name may have been taken or changed since the board voted.
+    const still = passed && !state.competitors.some((c) => c.status === 'active' && c.name.toLowerCase() === mv.newName!.toLowerCase());
+    const done = still ? renameCoop(ctx, mv.newName) : '';
+    ctx.inbox({ kind: 'memo', title: `Members ${still ? 'adopt' : 'reject'} the new name`, body: `${mv.title}: ${Math.round(yesShare * 100)}% yes on ${Math.round(turnout * 100)}% turnout (${Math.round(g.bylaws.supermajority * 100)}% needed).${done ? ` ${done}` : passed ? ' Another business took the name first; the old name stays.' : ''}` });
     return;
   }
   if (mv.kind === 'recall' && mv.directorId !== undefined) {

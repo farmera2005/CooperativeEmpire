@@ -96,3 +96,4 @@ export { elevatorScale, grainScale, regionalYield, suggestedMembers } from './wo
 export { ageOf, ceoStat, makeCharacter, marketPay, pointsFor, type CharacterInput } from './career/core';
 export { askBoard, backgroundLabel, boardSlack, boardWillingness, counterOffer, declineOffer, packageValue, raiseWindow, regionLabel, resign, retire, searchMonth, type Ask, type CareerResult } from './career/career';
 export { acceptOffer, ESTABLISHED_FROM_YEAR, newEstablishedGame, randomEstablishedSetup, startGame } from './career/move';
+export { checkNameChange, nameChangeCost } from './governance/rename';

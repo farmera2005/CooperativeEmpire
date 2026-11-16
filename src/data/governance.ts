@@ -3,6 +3,24 @@
 
 import { s } from './types';
 
+/**
+ * Renaming the co-op (D-146): the name is in the articles of incorporation, so the board
+ * recommends it and the members adopt it by the bylaw supermajority. Costs in 2024 $.
+ */
+export const NAME_CHANGE = {
+  /** Amending and filing the articles, legal review, notices to the lender and regionals. */
+  filingCost2024: s(15_000, 'low', 'State filing fees are small; attorney time for the amendment and notices is most of it'),
+  /** New signs, truck and bin lettering, scale tickets, forms and stationery, per site. */
+  perSite2024: s(8_000, 'low'),
+  /** Members' lean on a new name (familiar names are popular; satisfied members follow the board). */
+  memberAppeal: s(-0.05, 'low'),
+  /** Board members' read: a name change costs money and touches tradition. */
+  boardMerit: s(-0.05, 'low'),
+  /** A name change is a big step only after a merger; members want years between them. */
+  minMonthsBetween: 60,
+  length: [3, 60] as [number, number],
+};
+
 export const BYLAWS_DEFAULT = {
   quorumPct: s(0.1, 'medium', 'Typical member-meeting quorum'),
   /** Capital projects at or above this cost (2024 $) need a board vote. */

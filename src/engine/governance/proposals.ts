@@ -22,11 +22,13 @@ import { farmStress } from '../supply/credit';
 import type { Command } from '../sim/commands';
 import type { AgendaItem, DivisionId, GameState, MeritVector, ProposalType } from '../types';
 import { nominalCents, pathFor } from '../world/macro';
+import { NAME_CHANGE } from '../../data/governance';
+import { nameChangeCost } from './rename';
 
 export const PROPOSAL_LABEL: Record<ProposalType, string> = {
   capitalProject: 'Capital project', facilityClosure: 'Facility closure', patronage: 'Patronage distribution', redemptionPolicy: 'Redemption policy',
   budget: 'Annual budget', deal: 'Merger, sale or joint venture', affiliationChange: 'Regional affiliation', lenderChange: 'Change of lender', borrowing: 'Borrowing',
-  riskPolicy: 'Grain risk policy', creditPolicy: 'Customer credit policy', bylawRecommendation: 'Bylaw amendment',
+  riskPolicy: 'Grain risk policy', creditPolicy: 'Customer credit policy', bylawRecommendation: 'Bylaw amendment', nameChange: 'Name change',
 };
 
 /** Cost of a capital command (for the approval threshold), or null if not capital. */
@@ -88,6 +90,7 @@ export function boardGate(s: GameState, cmd: Command): { type: ProposalType; tit
     case 'setSupplyPolicy':
       return cmd.policy.credit === 'loose' && s.coop.supplyPolicy[cmd.division].credit !== 'loose' ? { type: 'creditPolicy', title: `Loosen customer credit in ${cmd.division.toLowerCase()}` } : null;
     case 'proposeBylaw': return { type: 'bylawRecommendation', title: bylawTitle(cmd.change) };
+    case 'proposeNameChange': return { type: 'nameChange', title: `Rename the co-op ${cmd.name.trim().replace(/\s+/g, ' ')}` };
     default: return null;
   }
   function capitalTitle(st: GameState, c: Command, cost: Cents): string {
@@ -402,6 +405,15 @@ export function evaluate(s: GameState, item: AgendaItem): MeritVector {
       else v.trueMerit = 0;
       v.headlineMerit = 0;
       v.controversy = 0.4;
+      break;
+    }
+    case 'nameChange': {
+      // Worth it mostly after a merger, when the old name no longer fits the business.
+      const merged = s.deals.some((d) => d.stage === 'closed' && s.clock.monthIndex - (d.closedMonth ?? -999) < 36);
+      v.trueMerit = NAME_CHANGE.boardMerit.value + (merged ? 0.3 : 0);
+      v.headlineMerit = merged ? 0.2 : -0.1;
+      v.controversy = 0.3;
+      v.notes.push(`Filing and new signs at every site: about ${formatCents(nameChangeCost(s))}; the members must adopt it`);
       break;
     }
   }

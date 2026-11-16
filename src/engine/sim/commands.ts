@@ -6,6 +6,7 @@ import { adoptTech } from '../world/tech';
 import { comply } from '../world/regulation';
 import { chooseOption } from '../world/events';
 import { applyDebug, enterDebugMode, type DebugAction } from './debug';
+import { checkNameChange } from '../governance/rename';
 import { setSalesStaff } from '../people/sales';
 import { setLivestockProgram } from '../supply/livestock';
 import { investInVenture, sellStake } from '../deals/investments';
@@ -112,7 +113,8 @@ export type Command =
   | { type: 'comply'; ruleId: string; facilityId: number }
   | { type: 'chooseOption'; inboxId: number; optionId: string }
   | { type: 'debug'; action: DebugAction }
-  | { type: 'enterDebugMode' };
+  | { type: 'enterDebugMode' }
+  | { type: 'proposeNameChange'; name: string };
 
 export interface CommandMessage {
   level: 'info' | 'warning' | 'error';
@@ -145,7 +147,7 @@ export function runCommand(s: GameState, cmd: Command, boardApproved = false): C
       // A revised policy proposal replaces the pending one rather than stacking a second.
       const replaces = s.governance.agenda.find((i) => i.source === 'gm' && sameSubject(i.command as Command | undefined, cmd));
       if (replaces) s.governance.agenda = s.governance.agenda.filter((i) => i !== replaces);
-      addAgendaItem(s, { type: gate.type, title: gate.title, submittedMonth: s.clock.monthIndex, command: cmd, source: 'gm', ...(cmd.type === 'proposeBylaw' ? { bylaw: cmd.change } : {}) });
+      addAgendaItem(s, { type: gate.type, title: gate.title, submittedMonth: s.clock.monthIndex, command: cmd, source: 'gm', ...(cmd.type === 'proposeBylaw' ? { bylaw: cmd.change } : {}), ...(cmd.type === 'proposeNameChange' ? { newName: cmd.name.trim().replace(/\s+/g, ' ') } : {}) });
       return [{ level: 'info', text: `"${gate.title}" ${replaces ? 'replaces the pending proposal and ' : ''}goes to the board at next month's meeting.` }];
     }
   }
@@ -165,6 +167,7 @@ function sameSubject(a: Command | undefined, b: Command): boolean {
     case 'setAffiliation': return (a as typeof b).category === b.category;
     case 'setSupplyPolicy': return (a as typeof b).division === b.division;
     case 'proposeBylaw': return (a as typeof b).change.field === b.change.field;
+    case 'proposeNameChange': return true;
     default: return false;
   }
 }
@@ -302,6 +305,8 @@ function run(s: GameState, cmd: Command): CommandMessage[] {
     case 'chooseOption': return chooseOption(s, cmd.inboxId, cmd.optionId);
     case 'debug': return applyDebug(s, cmd.action);
     case 'enterDebugMode': return enterDebugMode(s);
+    // Only reached as the board's trial run: the rename itself waits for the members (D-146).
+    case 'proposeNameChange': return checkNameChange(s, cmd.name);
     case 'proposeDivisionSale': return proposeDivisionSale(s, cmd.division);
     case 'respondDeal': return respondDeal(s, cmd.dealId, cmd.accept);
     case 'dealDiligence': return dealDiligence(s, cmd.dealId);
