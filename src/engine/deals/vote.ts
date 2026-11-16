@@ -2,7 +2,7 @@
 // the vote itself and the forecast shown before the deal goes to the board, so the player sees
 // why members lean the way they do.
 
-import { MERGER_VOTE as V } from '../../data/competition';
+import { GRAIN_SALE, MERGER_VOTE as V } from '../../data/competition';
 import { bd, type Breakdown } from '../core/breakdown';
 import { clamp } from '../core/math';
 import { expectedReferendum } from '../governance/elections';
@@ -51,6 +51,8 @@ export function dealAppeal(s: GameState, d: Deal, terms: DealTerms, p: DealPartn
     const near = partner?.sites.some((site) => ourSites.some((o) => (s.world.distances[o.townId]?.[site.townId] ?? Infinity) <= V.distanceMiles)) ?? true;
     add('distance', 'A partner from outside our trade area', near ? 0 : -V.distance.value);
     add('hardTimes', 'Hard times make consolidation look sensible', V.hardTimes.value * stress);
+    // Selling the elevators is losing the co-op's core business (D-147).
+    if (d.kind === 'divisionSale' && d.division === 'GRAIN') add('grain', 'Losing our own elevators', -GRAIN_SALE.memberAppeal.value);
   }
   add('trust', 'Members\' trust in management (board confidence)', V.trust.value * (s.governance.boardConfidence - 50));
   return { appeal: f.reduce((a, x) => a + x.value, 0), factors: f };

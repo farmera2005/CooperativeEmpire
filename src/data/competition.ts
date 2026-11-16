@@ -151,6 +151,19 @@ export const MERGER_VOTE = {
 };
 
 /** Mergers, division sales, joint ventures and buyouts (DESIGN §14.6). */
+/**
+ * Selling the grain business (D-147): the elevators go to another co-op or a grain company with
+ * the grain in them, the deferred-payment contracts and members' stored grain; our hedges are
+ * lifted. Members lose their own elevator and vote harder against it than against other sales.
+ */
+export const GRAIN_SALE = {
+  /** Members' lean against selling the elevators, on top of the usual deal factors. */
+  memberAppeal: s(0.35, 'low', 'Grain is the core of a local co-op; members value their own elevator'),
+  /** Satisfaction members lose when their elevator is sold. */
+  satisfactionHit: s(6, 'low'),
+  buyerName: 'A regional grain company',
+};
+
 export const DEALS = {
   studyCost: s(40_000, 'low', 'Feasibility study by a co-op consultant (2024 $)'),
   studyMonths: 2,

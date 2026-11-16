@@ -5,7 +5,8 @@
 // its owner, not a board or members, decides whether to sell (D-102).
 
 import { investmentReturn, investmentTypeOf } from './investments';
-import { DEALS, MERGER_VOTE } from '../../data/competition';
+import { DEALS, GRAIN_SALE, MERGER_VOTE } from '../../data/competition';
+import { grainCapacity } from '../facilities/facilities';
 import { dealAppeal, theirYes } from './vote';
 import type { SupplyDivision } from '../../data/supply';
 import { fiscalYearOf, formatMonth, isFiscalYearEnd, yearOf } from '../core/calendar';
@@ -139,15 +140,16 @@ export function sellerAcceptance(d: Deal, offer: Cents): number {
 }
 
 export function proposeDivisionSale(s: GameState, division: OpDivision): Msgs {
-  if (division === 'GRAIN') return err('Selling the grain business would mean selling the co-op; consider a merger instead.');
   const facs = s.coop.facilities.filter((f) => f.status !== 'closed' && f.division === division);
+  // The grain business can go only if the co-op has another business to carry on (D-147).
+  if (division === 'GRAIN' && !s.coop.facilities.some((f) => f.status !== 'closed' && f.division !== 'GRAIN')) return err('Grain is the whole co-op: selling it would leave nothing to run. Consider a merger or a sale of the co-op instead.');
   if (!facs.length) return err('We have nothing in that division to sell.');
   if (s.coop.projects.some((p) => facs.some((f) => f.id === p.facilityId))) return err('Finish the projects in that division first.');
   if (s.deals.some((d) => openDeal(d) && d.kind === 'divisionSale' && d.division === division)) return err('That sale is already being shopped.');
   const buyer = [...s.competitors].filter((c) => c.status === 'active' && (c.kind === 'national' || c.kind === 'coop') && c.sites.some((x) => x.division === division)).sort((a, b) => (b.strength ?? 50) - (a.strength ?? 50) || a.id - b.id)[0];
   chargeStudy(s, `sale of ${division.toLowerCase()}`);
   const truth = ourDivisionProfile(s, division);
-  newDeal(s, 'divisionSale', buyer ?? null, buyer ? competitorName(s, buyer) : 'A regional farm-supply company', false, truth, division);
+  newDeal(s, 'divisionSale', buyer ?? null, buyer ? competitorName(s, buyer) : division === 'GRAIN' ? GRAIN_SALE.buyerName : 'A regional farm-supply company', false, truth, division);
   return info(`Our advisers are shopping the ${division.toLowerCase()} division. Offers in ${DEALS.studyMonths} months.`);
 }
 
@@ -159,7 +161,8 @@ function ourDivisionProfile(s: GameState, division: OpDivision): DealPartner {
 }
 
 function workingCapitalOf(s: GameState, division: OpDivision): Cents {
-  if (division === 'GRAIN') return 0;
+  // Grain: the buyer takes the grain at book and assumes the deferred-payment contracts.
+  if (division === 'GRAIN') return Object.values(s.coop.grain.pos).reduce((a, p) => a + p.book - p.dpLiability, 0);
   const book = s.coop.supply[division as SupplyDivision];
   const inv = Object.values(book.inventory).reduce((a, layers) => a + (layers ?? []).reduce((b, x) => b + x.cost, 0), 0);
   const ar = book.ar.current + book.ar.past30 + book.ar.past60 + book.ar.past90 + book.ar.harvest;
@@ -544,15 +547,42 @@ function transferWorkingCapital(state: GameState, division: SupplyDivision) {
   return { lines, net };
 }
 
+/**
+ * Hand the grain business's working capital over (D-147): grain at book and the deferred-payment
+ * contracts go to the buyer, as do members' grain in open storage; our futures are lifted and the
+ * margin deposit comes back as cash.
+ */
+function transferGrainWorkingCapital(state: GameState): { lines: JournalLine[]; net: number } {
+  const g = state.coop.grain;
+  const lines: JournalLine[] = [];
+  let book = 0;
+  let dp = 0;
+  for (const c of Object.keys(g.pos) as (keyof typeof g.pos)[]) {
+    const p = g.pos[c];
+    book += p.book;
+    dp += p.dpLiability;
+    g.pos[c] = { ...p, ownedBu: 0, book: 0, dpBu: 0, dpLiability: 0, openStorageBu: 0, shortBu: 0 };
+  }
+  if (book) lines.push({ account: '1200', division: 'GRAIN', amount: -book });
+  if (dp) lines.push({ account: '2110', division: 'GRAIN', amount: dp });
+  if (g.marginAccount) {
+    lines.push({ account: '1310', division: 'GRAIN', amount: -g.marginAccount }, { account: '1000', division: 'GRAIN', amount: g.marginAccount });
+    g.marginAccount = 0;
+  }
+  for (const f of state.coop.facilities) if (f.division === 'GRAIN' && f.grain) for (const c of Object.keys(f.grain.bu) as (keyof typeof f.grain.bu)[]) f.grain.bu[c] = 0;
+  return { lines, net: book - dp };
+}
+
 function closeDivisionSale(ctx: TickContext, d: Deal): void {
   const { state, mi } = ctx;
-  const division = d.division as SupplyDivision;
+  const division = d.division as SupplyDivision | 'GRAIN';
+  const grain = division === 'GRAIN';
   const facs = state.coop.facilities.filter((f) => f.status !== 'closed' && f.division === division);
   const price = d.terms?.price ?? 0;
-  const wc = transferWorkingCapital(state, division);
+  const wc = grain ? transferGrainWorkingCapital(state) : transferWorkingCapital(state, division);
   const lines: JournalLine[] = [...wc.lines];
   let nbv = 0;
-  const sites = facs.map((f) => ({ townId: f.townId, kind: f.kind, components: { ...f.components }, builtYear: f.builtYear, condition: f.condition }));
+  const sites = facs.map((f) => ({ townId: f.townId, kind: f.kind, components: { ...f.components }, builtYear: f.builtYear, condition: f.condition, units: f.units.map((u) => ({ ...u })) }));
   for (const f of facs) {
     const x = disposeLines(state, f);
     lines.push(...x.lines);
@@ -566,11 +596,27 @@ function closeDivisionSale(ctx: TickContext, d: Deal): void {
   post(state, { source: 'division-sale', memo: `Sale of the ${division.toLowerCase()} division to ${d.partnerName}`, lines });
   // The buyer keeps serving the plants' customers.
   const buyer = state.competitors.find((c) => c.id === d.partnerId);
-  const newSites = sites.map((x, i) => ({ id: 100 + i, townId: x.townId, division, kind: x.kind, components: x.components, storageBu: 0, receiveBuHr: 0, dryBuHr: 0, loadout: 'truck' as const, builtYear: x.builtYear, condition: x.condition }));
+  // Elevators keep their bins, legs and dryers in the buyer's hands (D-147).
+  const base = Math.max(100, ...(buyerSites(state, d.partnerId)));
+  const newSites = sites.map((x, i) => {
+    const cap = grain ? grainCapacity(x.components) : null;
+    return { id: base + 1 + i, townId: x.townId, division, kind: x.kind, components: x.components, storageBu: cap ? Math.round(cap.storageBu) : 0, receiveBuHr: cap ? Math.round(cap.receiveBuHr) : 0, dryBuHr: cap ? Math.round(cap.dryBuHr) : 0, loadout: cap ? cap.loadout : 'truck' as const, builtYear: x.builtYear, condition: x.condition, units: x.units };
+  });
   if (buyer) buyer.sites = [...buyer.sites, ...newSites];
   else state.competitors = [...state.competitors, { id: Math.max(0, ...state.competitors.map((c) => c.id)) + 1, name: d.partnerName, kind: 'national', sites: newSites, posture: 0.5, service: 0.1, status: 'active', ownerAge: 50, volumeYtd: 0, strength: 70 }];
   setDeal(state, d.id, { stage: 'closed', log: [...d.log, `${formatMonth(mi)}: closed for ${formatCents(price)}.`] });
-  ctx.inbox({ kind: 'memo', title: `${division[0]}${division.slice(1).toLowerCase()} division sold`, body: `The sale to ${d.partnerName} closed for ${formatCents(price)}, a ${gain >= 0 ? 'gain' : 'loss'} of ${formatCents(Math.abs(gain))} on the plants. Members will buy from ${d.partnerName} now.` });
+  if (grain) {
+    // Members lose their own elevator; they deliver to the buyer now.
+    for (const m of state.members.list) if (m.status === 'active') m.satisfaction = clamp(m.satisfaction - GRAIN_SALE.satisfactionHit.value, 0, 100);
+  }
+  ctx.inbox({ kind: 'memo', title: `${division[0]}${division.slice(1).toLowerCase()} division sold`, body: grain
+    ? `The sale of our elevators to ${d.partnerName} closed for ${formatCents(price)}, a ${gain >= 0 ? 'gain' : 'loss'} of ${formatCents(Math.abs(gain))} on the plants and working capital. ${d.partnerName} took the grain in the bins at book, the deferred-payment contracts and members' stored grain; our futures were lifted and the margin deposit came back as cash. Members deliver their grain to ${d.partnerName} now, and some are unhappy about it. Grain patronage ends with this fiscal year.`
+    : `The sale to ${d.partnerName} closed for ${formatCents(price)}, a ${gain >= 0 ? 'gain' : 'loss'} of ${formatCents(Math.abs(gain))} on the plants. Members will buy from ${d.partnerName} now.` });
+}
+
+/** Site ids the buyer already uses (new sites are numbered after them). */
+function buyerSites(state: GameState, partnerId: number | null): number[] {
+  return state.competitors.find((c) => c.id === partnerId)?.sites.map((x) => x.id) ?? [];
 }
 
 function closeJv(ctx: TickContext, d: Deal): void {

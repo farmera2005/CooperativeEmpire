@@ -35,6 +35,9 @@ export function DealsScreen() {
   const open = game.deals.filter((d) => d.stage !== 'closed' && d.stage !== 'dead');
   const past = game.deals.filter((d) => d.stage === 'closed' || d.stage === 'dead').slice(-8).reverse();
   const ourDivisions = (Object.keys(DIVISION_LABEL) as OpDivision[]).filter((d) => d !== 'GRAIN' && game.coop.facilities.some((f) => f.status !== 'closed' && f.division === d));
+  // The grain business can be sold when the co-op has another business to carry on (D-147).
+  const canSellGrain = game.coop.facilities.some((f) => f.status !== 'closed' && f.division === 'GRAIN') && game.coop.facilities.some((f) => f.status !== 'closed' && f.division !== 'GRAIN');
+  const sellable: OpDivision[] = [...(canSellGrain ? ['GRAIN' as OpDivision] : []), ...ourDivisions];
   const integrating = integrationPenalty(game) > 0;
   return (
     <div className="space-y-4">
@@ -66,14 +69,14 @@ export function DealsScreen() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title="Sell a division">
-          {ourDivisions.length ? (
+          {sellable.length ? (
             <div className="flex flex-wrap gap-2">
-              {ourDivisions.map((d) => (
+              {sellable.map((d) => (
                 <button key={d} className="btn" disabled={open.some((x) => x.kind === 'divisionSale' && x.division === d)} onClick={() => command({ type: 'proposeDivisionSale', division: d })}>Shop the {DIVISION_LABEL[d].toLowerCase()} division</button>
               ))}
             </div>
-          ) : <p className="text-sm text-stone-500">We have no farm-supply divisions to sell.</p>}
-          <p className="mt-2 text-xs text-stone-500">Advisers find a buyer and bring a price. The board and then the members must approve; the gain or loss is booked at closing.</p>
+          ) : <p className="text-sm text-stone-500">We have no divisions we could sell.</p>}
+          <p className="mt-2 text-xs text-stone-500">Advisers find a buyer and bring a price. The board and then the members must approve; the gain or loss is booked at closing.{canSellGrain ? ' Selling the grain business hands the elevators, the grain in them, deferred-payment contracts and members\' stored grain to the buyer; our hedges are lifted. Members vote harder against losing their elevators, and some will be unhappy.' : ' The grain business can be sold only when the co-op has another business to carry on.'}</p>
         </Panel>
         <Panel title={<><Term id="joint-venture">Joint ventures</Term> and investments</>}>
           {game.jvs.length ? (
