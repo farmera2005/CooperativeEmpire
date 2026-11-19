@@ -97,3 +97,4 @@ export { ageOf, ceoStat, makeCharacter, marketPay, pointsFor, type CharacterInpu
 export { askBoard, backgroundLabel, boardSlack, boardWillingness, counterOffer, declineOffer, packageValue, raiseWindow, regionLabel, resign, retire, searchMonth, type Ask, type CareerResult } from './career/career';
 export { acceptOffer, ESTABLISHED_FROM_YEAR, newEstablishedGame, randomEstablishedSetup, startGame } from './career/move';
 export { checkNameChange, nameChangeCost } from './governance/rename';
+export { agronomyTieActive, tiedBeetAcres } from './sugar/agronomyTie';

@@ -39,6 +39,8 @@ import { layerQty, lowerOfCostOrMarket, relieve } from './inventory';
 import { linePrice, seriesRatio, supplierTerms, type LinePrice } from './prices';
 import { stepCredit } from './credit';
 import { addFyLine } from '../finance/defaults';
+import { agronomyTieActive, beetAgronomyDemand, tiedGrower } from '../sugar/agronomyTie';
+import { BEET_INPUTS } from '../../data/sugar';
 import { effect } from '../people/leaders';
 import { staffServicePenalty } from '../people/staff';
 
@@ -214,6 +216,8 @@ export function stepSupply(ctx: TickContext): void {
     const refundPct = expectedRefundRate(state) * 100;
     const dist = state.world.distances;
 
+    // Shareholders growing beets buy their beet agronomy from us when the co-op requires it (D-148).
+    const tie = d === 'AGRONOMY' && open && agronomyTieActive(state);
     if (d !== 'RETAIL') {
       for (const m of state.members.list) {
         if (m.status !== 'active') continue;
@@ -241,6 +245,28 @@ export function stepSupply(ctx: TickContext): void {
         const prev = m.share[d] ?? 0;
         const share = prev + (target > prev ? SS.inertiaUp.value : SS.inertiaDown.value) * (target - prev);
         m.share[d] = share;
+        // Beet acres' agronomy (D-148): bought like other crops' at the member's share, or all
+        // from us, delivered from our nearest agronomy site, when the requirement binds them.
+        if (d === 'AGRONOMY' && (m.beetAcres ?? 0) > 0) {
+          const tied = tie && tiedGrower(m);
+          const beetShare = tied ? 1 : best ? share : 0;
+          const near = tied && !best ? facs.reduce((a, f) => (dist[m.townId][f.townId] < dist[m.townId][a.townId] ? f : a), facs[0]) : best?.site.facility;
+          const beet = beetAgronomyDemand(m, year, inp, tied);
+          for (const id of lines) {
+            const a = (beet[id] ?? 0) * m.weight;
+            if (a <= 0) continue;
+            const qty = a * seasonShare(id, month);
+            add(acc.demand, id, qty);
+            add(acc.annualOurs, id, a * beetShare);
+            const ours = qty * beetShare;
+            add(acc.ours, id, ours);
+            credit(acc, near?.id, id, ours);
+            if (m.kind === 'member') add(acc.memberUnits, id, ours);
+            if (ours > 0) acc.buyers.push({ m, line: id, qty: ours });
+          }
+          // Being told where to buy rankles, more so when our prices are above the market.
+          if (tied) m.satisfaction = clamp(m.satisfaction - BEET_INPUTS.tieIrritation.value - BEET_INPUTS.tieIrritationPerPctAbove.value * Math.max(0, -ourAdv), 0, 100);
+        }
         if (!best || share <= 0.001) continue;
         // Satisfaction (D-116): our price and service in this business, what members get back, and grievances.
         if (share > 0.02) {

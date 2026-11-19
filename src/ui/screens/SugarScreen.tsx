@@ -3,12 +3,12 @@
 
 import { useState } from 'react';
 import { Bar, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { SUGAR, SUGAR_FINANCE, SUGAR_SALES } from '../../data/sugar';
+import { BEET_INPUTS, SUGAR, SUGAR_FINANCE, SUGAR_SALES } from '../../data/sugar';
 import {
   beetSugarTrend, beetYield, fiscalYearOf, fiscalYearStart, formatMonth, formatMonthShort, growerReturns, incomeStatement, productValuePerTon,
   recovery, shareDemand, shareDriveTowns, sugarCapacity, suggestedAcres, yearOf,
   cccCapacity, cccLoanRate, lineDrawn, marketPrice, sharePrice, shareValue, shareholderStats,
-  channelLimits, channelQuotes, marketingYear, nominalCents, pathFor, sugarSalesPolicy, SUGAR_CHANNELS,
+  channelLimits, channelQuotes, marketingYear, nominalCents, pathFor, sugarSalesPolicy, SUGAR_CHANNELS, agronomyTieActive, tiedBeetAcres, priceLevel,
 } from '../../engine/index';
 import type { SugarChannel, SugarSalesPolicy } from '../../engine/types';
 import { CommitNumber } from '../components/CommitNumber';
@@ -115,6 +115,27 @@ function Sales() {
           )}
         </Panel>
       )}
+    </div>
+  );
+}
+
+/** Shareholders must buy their beet agronomy from us (D-148). */
+function AgronomyTie() {
+  const game = useStore((s) => s.game)!;
+  const command = useStore((s) => s.command);
+  const on = !!game.coop.sugarPolicy.agronomyTie;
+  const hasAgronomy = game.coop.facilities.some((f) => f.division === 'AGRONOMY' && f.status !== 'closed');
+  const active = agronomyTieActive(game);
+  const t = tiedBeetAcres(game);
+  const pl = priceLevel(pathFor(game), game.clock.monthIndex);
+  const perAcre = (BEET_INPUTS.cpPerAcre2024.value + BEET_INPUTS.seedPerAcre2024.value) * pl;
+  return (
+    <div className="rounded border border-stone-300 p-2">
+      <label className="block"><input type="checkbox" checked={on} disabled={!hasAgronomy && !on} onChange={(e) => command({ type: 'setSugarPolicy', policy: { agronomyTie: e.target.checked } })} /> Require shareholders growing beets to buy <b>all their beet agronomy</b> (fertilizer, crop protection, seed, custom application) from our agronomy business</label>
+      <p className="mt-1 text-xs text-stone-500">
+        {!hasAgronomy ? 'Available once the co-op owns an agronomy plant (Farm supply > Buy or build). ' : active ? `In force: ${num(t.acres)} beet acres of ${num(t.growers)} shareholders, about $${num(perAcre)} an acre of seed and crop protection alone, delivered from our nearest agronomy site. ` : on ? 'Set, but not in force until we run both a beet factory and an agronomy plant. ' : ''}
+        Growers resent being told where to buy, more so when our agronomy prices are above the market, and a few more will pass on beets. Beet co-ops do require approved seed bought through them.
+      </p>
     </div>
   );
 }
@@ -250,6 +271,7 @@ function Contracts() {
           <label className="block"><input type="checkbox" checked={p.targetAcres === null} onChange={(e) => command({ type: 'setSugarPolicy', policy: { targetAcres: e.target.checked ? null : suggested } })} /> Contract what our plants can handle ({num(suggested)} acres this year)</label>
           {p.targetAcres !== null && <label className="block">Target <CommitNumber min={0} max={500_000} value={p.targetAcres} onCommit={(v) => command({ type: 'setSugarPolicy', policy: { targetAcres: v } })} /> acres</label>}
           <label className="block">Pay growers <CommitNumber min={Math.round(lo * 100)} max={Math.round(hi * 100)} value={Math.round(p.growerShare * 100)} onCommit={(v) => command({ type: 'setSugarPolicy', policy: { growerShare: v / 100 } })} />% of a ton's value at delivery</label>
+          <AgronomyTie />
           <label className="block"><input type="checkbox" checked={p.paymentBasis === 'proceeds'} onChange={(e) => command({ type: 'setSugarPolicy', policy: { paymentBasis: e.target.checked ? 'proceeds' : 'fixed' } })} /> Pay from proceeds: each February reset the share to what last year's sugar sales could pay after the factory's costs (growers carry the sugar price)</label>
           <table className="data">
             <tbody>

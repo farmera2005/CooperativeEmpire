@@ -8,7 +8,8 @@
 // the year; pulp and molasses are sold as made. Growers are paid a share of a ton's product
 // value at delivery and the rest of the division's savings comes back as patronage on tons.
 
-import { SUGAR, SUGAR_COMPANY, SUGAR_FINANCE, SUGAR_SALES, SUGAR_STAFF } from '../../data/sugar';
+import { BEET_INPUTS, SUGAR, SUGAR_COMPANY, SUGAR_FINANCE, SUGAR_SALES, SUGAR_STAFF } from '../../data/sugar';
+import { agronomyTieActive } from './agronomyTie';
 import { PEOPLE } from '../../data/people';
 import { effect } from '../people/leaders';
 import { valueAt } from '../../data/types';
@@ -215,7 +216,9 @@ export function contractBeets(ctx: TickContext): void {
   if (!hasFactory || !sites.length || target <= 0) return;
   const { beets, corn } = growerReturns(state, mi);
   const ratio = beets / Math.max(1, corn);
-  const willing = clamp(0.2 + SUGAR.signupSlope.value * (ratio - 0.8) + effect(state, 'sugar.signup') + SUGAR_STAFF.maxSignupGain.value * agEffect(state), 0.03, 0.95);
+  // Requiring growers to buy their beet agronomy from us puts a few off beets (D-148).
+  const tiePenalty = agronomyTieActive(state) ? BEET_INPUTS.tieSignupPenalty.value : 0;
+  const willing = clamp(0.2 + SUGAR.signupSlope.value * (ratio - 0.8) + effect(state, 'sugar.signup') + SUGAR_STAFF.maxSignupGain.value * agEffect(state) - tiePenalty, 0.03, 0.95);
   // Any farm near the plants can grow beets; a non-member joins the co-op to do it (D-136).
   const growers = growersNear(state, sites, (f) => f.townId, true);
   // Shareholders grow their shares first (it is their right and their duty); others fill what is
@@ -596,6 +599,12 @@ export function setSugarPolicy(state: GameState, policy: Partial<SugarPolicy>): 
   if (next.targetAcres !== null) next.targetAcres = Math.round(next.targetAcres);
   if (next.agriculturists !== undefined && !(Number.isInteger(next.agriculturists) && next.agriculturists >= 0 && next.agriculturists <= SUGAR_STAFF.maxAgriculturists)) return [{ level: 'error', text: `Agriculturists must be a whole number from 0 to ${SUGAR_STAFF.maxAgriculturists}.` }];
   if (next.campaignCrew !== undefined && !['lean', 'standard', 'full'].includes(next.campaignCrew)) return [{ level: 'error', text: 'Unknown crew level.' }];
+  if (policy.agronomyTie !== undefined) {
+    // Only a co-op with an agronomy business can require growers to buy from it (D-148).
+    if (policy.agronomyTie && !state.coop.facilities.some((f) => f.division === 'AGRONOMY' && f.status !== 'closed')) return [{ level: 'error', text: 'We need an agronomy plant before we can require growers to buy their beet inputs from us.' }];
+    state.coop.sugarPolicy = { ...state.coop.sugarPolicy, agronomyTie: policy.agronomyTie };
+    return [{ level: 'info', text: policy.agronomyTie ? 'Shareholders growing beets must now buy all their beet agronomy from the co-op.' : 'Growers may buy their beet agronomy wherever they like.' }];
+  }
   if (next.sales) {
     const sl = next.sales;
     const share = (v: number, max: number) => typeof v === 'number' && v >= 0 && v <= max;

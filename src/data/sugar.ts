@@ -172,6 +172,26 @@ export const SUGAR_SALES = {
   maxShare: { wholesale: 0.4, retail: 0.4 },
 };
 
+/**
+ * Agronomy for beet acres (D-148), 2024 $ and per acre, and the requirement that shareholders
+ * buy it from the co-op. Beets take less nitrogen than corn (excess N lowers sugar), several
+ * fungicide passes against Cercospora leaf spot, herbicides, and expensive pelleted seed.
+ */
+export const BEET_INPUTS = {
+  nLbsPerAcre: s(110, 'medium', 'University of Minnesota / NDSU: about 100–130 lb N an acre from soil and fertilizer; more lowers sugar content and purity'),
+  pkTonsPerAcre: s(0.08, 'low'),
+  cpPerAcre2024: s(200, 'low', 'NDSU/U of M budgets: herbicides plus 3–5 Cercospora fungicide sprays, roughly $150–250 an acre'),
+  seedPerAcre2024: s(260, 'medium', 'Pelleted, treated hybrid seed: roughly $250–300 an acre in 2020s budgets'),
+  /** Share of beet seed bought at retail when growers are free to buy direct from seed companies. */
+  seedRetailShare: s(0.5, 'low'),
+  /** Custom-applied passes per acre (fungicide sprays by ground or air), where growers hire application. */
+  passesPerAcre: s(2, 'low'),
+  /** The requirement: growers' irritation (satisfaction points a month), more per point our agronomy prices sit above the market, and the dent in beet sign-ups. */
+  tieIrritation: s(0.15, 'low', 'Growers resent being told where to buy; beet co-ops do require approved seed bought through them'),
+  tieIrritationPerPctAbove: s(0.05, 'low'),
+  tieSignupPenalty: s(0.04, 'low'),
+};
+
 /** The beet share market among growers (D-137). */
 export const SHARE_MARKET = {
   /** A share is worth this many years of beets' advantage over corn per acre. */

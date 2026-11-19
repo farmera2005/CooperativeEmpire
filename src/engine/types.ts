@@ -1415,6 +1415,8 @@ export interface SugarPolicy {
   campaignCrew?: 'lean' | 'standard' | 'full';
   /** Growers may trade shares among themselves (D-137); when closed the co-op redeems departing growers' shares. Default open. */
   shareTrading?: boolean;
+  /** Shareholders growing beets must buy all their beet agronomy from us, while we run an agronomy business (D-148). */
+  agronomyTie?: boolean;
   /** How the sugar is sold (D-141); undefined = all in bulk on the spot market through an agency. */
   sales?: SugarSalesPolicy;
 }
