@@ -3,6 +3,7 @@ import { balance } from '../ledger/ledger';
 import { activityFor, balanceSheet, netSavingsOf } from '../ledger/statements';
 import { totalAcres } from '../members/generate';
 import type { GameState, MonthSnapshot } from '../types';
+import { isOurs } from '../private/kind';
 
 export function snapshot(state: GameState): MonthSnapshot {
   const mi = state.clock.monthIndex;
@@ -15,7 +16,8 @@ export function snapshot(state: GameState): MonthSnapshot {
     if (m.status !== 'active') continue;
     farms += m.weight;
     acres += totalAcres(m) * m.weight;
-    if (m.kind === 'member') {
+    // A private company counts its regular customers in place of members (D-149).
+    if (isOurs(state, m)) {
       members += m.weight;
       sat += m.satisfaction * m.weight;
     }

@@ -15,6 +15,7 @@ import type { Director, ElectionResult, ElectionSeat, GameState, Member, MemberV
 import { assignOfficers, makeDirector } from './board';
 import { averageSatisfaction } from './review';
 import { effect } from '../people/leaders';
+import { isPrivate } from '../private/kind';
 
 const age = (m: Member, year: number) => year - m.birthYear;
 /** How much of a member's business is with us (0..1): engaged patrons vote and sign petitions. */
@@ -157,6 +158,8 @@ export function runElection(ctx: TickContext): ElectionResult | null {
 /** The annual meeting: four months after fiscal year end. */
 export function stepAnnualMeeting(ctx: TickContext): void {
   const { state } = ctx;
+  // A private company's owners appoint its directors; there are no member meetings (D-149).
+  if (isPrivate(state)) return;
   const fye = state.setup.fiscalYearEndMonth;
   if ((monthOf(ctx.mi) - fye + 12) % 12 !== 4 || ctx.mi - state.coop.foundedMonth < 6) return;
   const rng = ctx.rng('governance.annualMeeting');
@@ -194,6 +197,7 @@ export function stepAnnualMeeting(ctx: TickContext): void {
 /** Petitions and special meetings; member votes on bylaw amendments and recalls. */
 export function stepMemberDemocracy(ctx: TickContext): void {
   const { state } = ctx;
+  if (isPrivate(state)) return;
   const g = state.governance;
   const rng = ctx.rng('governance.members');
   // Member votes due this month.

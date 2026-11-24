@@ -13,6 +13,7 @@ import { personName } from '../members/generate';
 import type { DivisionId, GameState, Leader, PeopleState } from '../types';
 import { nominalCents, pathFor, priceLevel } from '../world/macro';
 import { gmEffect, vacancySkill } from '../career/core';
+import { regularCustomers } from '../private/kind';
 
 export const ROLE_DIVISION: Partial<Record<Role, DivisionId>> = { GRAIN: 'GRAIN', AGRONOMY: 'AGRONOMY', FEED: 'FEED', ENERGY: 'ENERGY', RETAIL: 'RETAIL', SUGAR: 'SUGAR', AGRI: 'SUGAR' };
 export const DIVISION_ROLE: Partial<Record<DivisionId, Role>> = { GRAIN: 'GRAIN', AGRONOMY: 'AGRONOMY', FEED: 'FEED', ENERGY: 'ENERGY', RETAIL: 'RETAIL', SUGAR: 'SUGAR' };
@@ -37,7 +38,7 @@ export function rolesNeeded(s: GameState): Role[] {
   const toReal = 100 * priceLevel(pathFor(s), mi) * (Math.max(1, mi - from + 1) / 12);
   const gross = (d?: DivisionId) => incomeStatement(s.ledger, from, mi, d ?? 'ALL').grossRevenue / toReal;
   const fte = totalFte(s);
-  const members = s.members.list.filter((m) => m.kind === 'member' && m.status === 'active').length;
+  const members = regularCustomers(s);
   return ROLES.filter((r) => {
     const u = ROLE_DEFS[r].unlock;
     if (u.fromYear !== undefined && year < u.fromYear) return false;

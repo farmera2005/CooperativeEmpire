@@ -59,6 +59,10 @@ const inFinance = (t: Tab) => FINANCE_TABS.some((x) => x.id === t);
 const DEBUG_TAB: { id: Tab; label: string; key: string } = { id: 'debug', label: 'Debug tools', key: 'X' };
 /** Shown to admins (D-127): accounts and sharing. */
 const ADMIN_TAB: { id: Tab; label: string; key: string } = { id: 'admin', label: 'Admin menu', key: 'M' };
+/** A private company's screens say what they hold (D-149). */
+const privateLabel = (g: { setup: { orgType?: string } }, id: Tab): string | null =>
+  g.setup.orgType !== 'private' ? null : id === 'members' ? 'Customers' : id === 'equity' ? 'Owners & Dividends' : null;
+
 const CAREER_TAB: { id: Tab; label: string; key: string } = { id: 'career', label: 'Career', key: 'C' };
 
 export function GameShell() {
@@ -108,7 +112,7 @@ export function GameShell() {
         {tabs.map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)} aria-current={tab === t.id || (t.id === 'financials' && inFinance(tab))}
             className={`flex items-center justify-between px-3 py-2 text-left text-sm hover:bg-[#e0d8bf] ${tab === t.id || (t.id === 'financials' && inFinance(tab)) ? 'bg-[#d9cfae] font-semibold' : ''}`}>
-            <span>{t.label}</span>
+            <span>{privateLabel(game, t.id) ?? t.label}</span>
             <span className="text-xs text-stone-500">{t.id === 'inbox' && (unread || decisions) ? <b className="rounded bg-rust px-1.5 text-white">{decisions ? `${decisions}!` : unread}</b> : t.key}</span>
           </button>
         ))}
@@ -153,7 +157,7 @@ export function GameShell() {
               {FINANCE_TABS.map((t) => (
                 <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
                   className={`-mb-px rounded-t border px-4 py-2 text-sm ${tab === t.id ? 'border-stone-300 border-b-[#f7f3e8] bg-[#f7f3e8] font-semibold' : 'border-transparent text-stone-600 hover:bg-[#ece6d3]'}`}>
-                  {t.label}{t.key ? <span className="ml-1 text-xs text-stone-400">{t.key}</span> : null}
+                  {privateLabel(game, t.id) ?? t.label}{t.key ? <span className="ml-1 text-xs text-stone-400">{t.key}</span> : null}
                 </button>
               ))}
             </div>
@@ -183,7 +187,7 @@ function GameOver() {
   const setTab = useStore((s) => s.setTab);
   const setScreen = useStore((s) => s.setScreen);
   const o = game.outcome!;
-  const title = ({ fired: 'The board has let you go', liquidated: 'The lender forced a sale', absorbed: 'The co-op has been absorbed', resigned: 'You resigned', notRenewed: 'Your contract was not renewed', moved: 'You moved on', retired: 'You retired' } as Record<string, string>)[o.kind];
+  const title = ({ fired: 'The board has let you go', liquidated: 'The lender forced a sale', absorbed: 'The co-op has been absorbed', resigned: 'You resigned', notRenewed: 'Your contract was not renewed', moved: 'You moved on', retired: 'You retired', sold: 'The company is sold' } as Record<string, string>)[o.kind];
   const looking = game.career?.status === 'searching';
   return (
     <div role="alert" className="border-b-4 border-rust bg-[#f6e3dc] px-4 py-3">

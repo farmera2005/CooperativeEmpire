@@ -32,6 +32,9 @@ import { emptySupplyBook } from '../supply/defaults';
 import type { Competitor, JournalLine, Deal, DealKind, DealPartner, DealTerms, Facility, GameState, JointVenture, OpDivision } from '../types';
 import { nominalCents, pathFor } from '../world/macro';
 import { LENDING } from '../../data/tuning';
+import { isPrivate, ownerRun } from '../private/kind';
+import { payPhantom } from '../private/private';
+import { PRIVATE } from '../../data/private';
 
 type Msgs = CommandMessage[];
 const err = (text: string): Msgs => [{ level: 'error', text }];
@@ -85,6 +88,7 @@ function chargeStudy(s: GameState, what: string): void {
 
 export function proposeMerger(s: GameState, partnerId: number): Msgs {
   const c = s.competitors.find((x) => x.id === partnerId && x.status === 'active');
+  if (isPrivate(s)) return err('Only cooperatives merge; a private company buys other businesses or sells itself.');
   if (!c || c.kind !== 'coop') return err('Only another cooperative can merge with us.');
   if (s.deals.some((d) => openDeal(d) && d.partnerId === partnerId)) return err('We are already in talks with them.');
   chargeStudy(s, competitorName(s, c));
@@ -209,7 +213,7 @@ export function submitDeal(s: GameState, dealId: number, terms: DealTerms): Msgs
     setDeal(s, d.id, { stage: 'board', terms: { ...terms, price, financePct } });
   } else setDeal(s, d.id, { stage: 'board', terms: { ...terms, ...(d.terms?.price !== undefined ? { price: d.terms.price } : {}) } });
   addAgendaItem(s, { type: 'deal', title: dealTitle(d), submittedMonth: s.clock.monthIndex, command: { type: 'dealBoardApproved', dealId: d.id }, source: 'gm' });
-  return info(`"${dealTitle(d)}" goes to the board at next month's meeting.`);
+  return info(ownerRun(s) ? `You sign "${dealTitle(d)}"; the papers are done next month.` : `"${dealTitle(d)}" goes to the board at next month's meeting.`);
 }
 
 export function abandonDeal(s: GameState, dealId: number): Msgs {
@@ -225,7 +229,7 @@ export function dealTitle(d: Deal): string {
     case 'merger': return `Merge with ${d.partnerName}`;
     case 'jv': return `Form a ${d.division?.toLowerCase()} joint venture with ${d.partnerName}`;
     case 'divisionSale': return `Sell the ${d.division?.toLowerCase()} division to ${d.partnerName}${d.terms?.price ? ` for ${formatCents(d.terms.price)}` : ''}`;
-    case 'buyout': return `Sell the cooperative to ${d.partnerName}${d.terms?.price ? ` for ${formatCents(d.terms.price)}` : ''}`;
+    case 'buyout': return `Sell the ${d.incoming ? 'cooperative' : 'company'} to ${d.partnerName}${d.terms?.price ? ` for ${formatCents(d.terms.price)}` : ''}`;
     case 'acquisition': return `Buy ${d.partnerName}${d.terms?.price && d.stage !== 'study' ? ` for ${formatCents(d.terms.price)}` : ''}`;
   }
 }
@@ -244,7 +248,8 @@ export function proposeIncomingMerger(ctx: TickContext, c: Competitor): void {
 /** A buyer approaches a struggling co-op. */
 function maybeBuyout(ctx: TickContext): void {
   const { state } = ctx;
-  if (ctx.month !== 3 || state.deals.some((d) => openDeal(d) && d.kind === 'buyout')) return;
+  // A private company's owner shops it when they choose to (D-149); unsolicited offers go to co-ops.
+  if (ctx.month !== 3 || isPrivate(state) || state.deals.some((d) => openDeal(d) && d.kind === 'buyout')) return;
   const bs = balanceSheet(state.ledger, ctx.mi);
   const weak = state.coop.finance.status !== 'standard' || (bs.totalAssets > 0 && bs.totalEquity / bs.totalAssets < 0.3);
   if (!weak || bs.totalEquity <= 0 || !ctx.rng('deals.buyout').chance(DEALS.buyoutProb.value)) return;
@@ -269,7 +274,7 @@ export function stepDeals(ctx: TickContext): void {
     }
     if (d.stage === 'study' && mi >= d.stageUntil) {
       const asking = d.kind === 'acquisition' ? askingPrice(state, d, state.competitors.find((c) => c.id === d.partnerId)) : undefined;
-      const price = d.kind === 'divisionSale' ? roundCents(d.truth.fairValue * ctx.rng('deals.divisionPrice', d.id).range(DEALS.divisionPrice[0], DEALS.divisionPrice[1]) + d.truth.workingCapital) : asking;
+      const price = d.kind === 'divisionSale' ? roundCents(d.truth.fairValue * ctx.rng('deals.divisionPrice', d.id).range(DEALS.divisionPrice[0], DEALS.divisionPrice[1]) + d.truth.workingCapital) : d.kind === 'buyout' ? d.truth.fairValue : asking;
       const terms: DealTerms = {
         name: state.coop.name, partnerSeats: d.kind === 'merger' ? Math.min(3, Math.max(1, Math.round(d.truth.sites))) : 0,
         ...(price !== undefined ? { price } : {}), ...(d.kind === 'acquisition' ? { financePct: Math.min(0.6, LENDING.maxFinancePct.value) } : {}),
@@ -278,7 +283,9 @@ export function stepDeals(ctx: TickContext): void {
       const e = d.estimate;
       ctx.inbox({
         kind: 'memo', title: `Study complete: ${dealTitle({ ...d, terms })}`,
-        body: d.kind === 'divisionSale'
+        body: d.kind === 'buyout'
+          ? `${d.partnerName} offers ${formatCents(price!)} for the company, about ${Math.round((price! / Math.max(1, balanceSheet(state.ledger, mi).totalEquity)) * 100)}% of book equity. ${ownerRun(state) ? 'Accept it from the Deals screen, or walk away.' : 'Send it to the owners\' board from the Deals screen, or walk away.'}`
+          : d.kind === 'divisionSale'
           ? `${d.partnerName} offers ${formatCents(price!)} for the ${d.division?.toLowerCase()} division (plants and working capital). Send it to the board from the Deals screen, or walk away.`
           : d.kind === 'acquisition'
           ? `The owner of ${d.partnerName} is asking ${formatCents(asking!)} for the business: ${e.sites} site${e.sites > 1 ? 's' : ''} our consultant values at ${formatCents(e.fairValue)}, plus about ${formatCents(e.workingCapital)} of inventory and receivables. The seller pays off their own debt. Set our offer and financing and send it to the board from the Deals screen.`
@@ -333,7 +340,8 @@ export function dealBoardApproved(ctx: TickContext, dealId: number): string {
     setDeal(state, d.id, { stage: 'closing', stageUntil: mi + 1, log: [...d.log, `${formatMonth(mi)}: our board approved; the owner accepted ${formatCents(offer)}.`] });
     return `The owner accepted. The purchase closes in ${formatMonth(mi + 1)}.`;
   }
-  const needsMembers = d.kind === 'merger' || d.kind === 'buyout';
+  // A private company has no members to vote; its owners' approval is the board's (D-149).
+  const needsMembers = (d.kind === 'merger' || d.kind === 'buyout') && !isPrivate(state);
   setDeal(state, d.id, { stage: needsMembers ? 'members' : 'closing', stageUntil: mi + (needsMembers ? DEALS.memberMeetingMonths : 0), log: [...d.log, `${formatMonth(mi)}: boards approved.`] });
   return needsMembers ? `Member information meetings begin; the vote is in ${formatMonth(mi + DEALS.memberMeetingMonths)}.` : 'Closing follows.';
 }
@@ -341,6 +349,48 @@ export function dealBoardApproved(ctx: TickContext, dealId: number): string {
 export function dealBoardRejected(ctx: TickContext, dealId: number): void {
   const d = ctx.state.deals.find((x) => x.id === dealId);
   if (d) setDeal(ctx.state, d.id, { stage: 'dead', log: [...d.log, `${formatMonth(ctx.mi)}: our board said no.`] });
+}
+
+/**
+ * Sell the company (D-149): advisers shop a private company to the strongest national or
+ * co-op that would want it, at a multiple of book equity. Only the controlling owner can.
+ */
+export function shopCompany(s: GameState): Msgs {
+  if (!isPrivate(s)) return err('A cooperative belongs to its members; only they can vote to sell it.');
+  if (!ownerRun(s)) return err('The owners decide whether to sell the company, not the CEO.');
+  if (s.deals.some((d) => openDeal(d) && d.kind === 'buyout')) return err('The company is already being shopped.');
+  const equity = balanceSheet(s.ledger, s.clock.monthIndex).totalEquity;
+  if (equity <= 0) return err('With no equity left there is nothing to sell; the lender would take the assets.');
+  const buyer = s.competitors.filter((c) => c.status === 'active' && (c.kind === 'national' || c.kind === 'coop')).sort((a, b) => (b.strength ?? 50) - (a.strength ?? 50) || a.id - b.id)[0];
+  chargeStudy(s, 'sale of the company');
+  const [m0, m1] = PRIVATE.saleMultiple.value;
+  const rng = stream(s.setup.gameSeed, s.clock.monthIndex, 'deals.companySale');
+  // A buyer pays more for a healthy, profitable business.
+  const health = s.coop.finance.status === 'standard' ? 1 : 0.85;
+  const price = roundCents(equity * rng.range(m0, m1) * health);
+  const d = newDeal(s, 'buyout', buyer ?? null, buyer ? competitorName(s, buyer) : 'A regional agribusiness', false, { strength: buyer?.strength ?? 70, sites: 0, fairValue: price, debt: 0, workingCapital: 0, allocatedEquity: 0, members: 0 });
+  setDeal(s, d.id, { stageUntil: s.clock.monthIndex + PRIVATE.saleStudyMonths });
+  return info(`Advisers are shopping the company. An offer in ${PRIVATE.saleStudyMonths} months.`);
+}
+
+/** The company is sold: the owners are paid; the player's stake, or a hired CEO's phantom equity, comes due. */
+function closePrivateSale(ctx: TickContext, d: Deal): void {
+  const { state } = ctx;
+  const price = d.terms?.price ?? 0;
+  const pc = state.privateCo;
+  const stake = pc?.playerStake ?? 0;
+  const phantom = pc?.phantom ? payPhantom(state, 'sale of the company') : 0;
+  const mine = roundCents(price * stake);
+  const c = state.career;
+  if (c && mine > 0) {
+    c.earnings += mine;
+    const st = c.stints[c.stints.length - 1];
+    if (st) st.earnings += mine;
+  }
+  state.outcome = {
+    kind: 'sold', monthIndex: ctx.mi,
+    text: `${state.coop.name} has been sold to ${d.partnerName} for ${formatCents(price)}.${stake > 0 ? ` Your ${Math.round(stake * 100)}% brings you ${formatCents(mine)}.` : ''}${phantom > 0 ? ` Your phantom equity pays ${formatCents(phantom)}.` : ''} ${stake >= 0.5 ? 'You have cashed out.' : 'The new owner brings its own management; your job is done.'}`,
+  };
 }
 
 // ---------- Closing ----------
@@ -354,6 +404,10 @@ function closeDeal(ctx: TickContext, d: Deal): void {
     case 'buyout': {
       const { state } = ctx;
       setDeal(state, d.id, { stage: 'closed' });
+      if (isPrivate(state)) {
+        closePrivateSale(ctx, d);
+        break;
+      }
       state.outcome = { kind: 'absorbed', monthIndex: ctx.mi, text: `${state.coop.name} has been sold to ${d.partnerName} for ${formatCents(d.terms?.price ?? 0)}. Members' equity is paid out and the cooperative is dissolved. Your work as general manager is done.` };
       break;
     }

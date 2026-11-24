@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { brandName, type SupplyLine } from '../../data/brands';
 import { DATA_END_YEAR } from '../../data/markets';
 import { SETUP, TERRITORY } from '../../data/tuning';
+import { PRIVATE } from '../../data/private';
 import { REGION_IDS, REGIONS } from '../../data/regions/eccb';
 
 const REGION_NOTES = {
@@ -51,8 +52,10 @@ export function NewGameScreen() {
     [setup.mapSeed, setup.regionId, setup.startYear, setup.startingMembers, setup.territoryCustomers, setup.territorySize],
   );
   const homeTownId = setup.homeTownId !== undefined && setup.homeTownId < territory.towns.length ? setup.homeTownId : defaultHomeTown(territory).id;
-  const suggestions = useMemo(() => suggestCoopNames(territory, setup.startYear, setup.mapSeed + nameSeed * 7919, 6, setup.coopType), [territory, setup.startYear, setup.mapSeed, nameSeed, setup.coopType]);
-  const lenders = availableLenders(setup.startYear);
+  const priv = setup.orgType === 'private';
+  const suggestions = useMemo(() => suggestCoopNames(territory, setup.startYear, setup.mapSeed + nameSeed * 7919, 6, setup.coopType, setup.orgType), [territory, setup.startYear, setup.mapSeed, nameSeed, setup.coopType, setup.orgType]);
+  // The banks for cooperatives lend to co-ops; a private company banks commercially (D-149).
+  const lenders = availableLenders(setup.startYear).filter((l) => !priv || l.id === 'local-bank');
   const regionals = availableRegionals(setup.startYear, setup.regionId);
   const lenderId = lenders.some((l) => l.id === setup.lenderId) ? setup.lenderId : lenders[0].id;
   const capital = useMemo(() => {
@@ -94,7 +97,7 @@ export function NewGameScreen() {
       {careerMode && (
         <div className="mt-2 space-y-1 text-sm">
           <b>Where you start</b>
-          <label className="flex items-start gap-2"><input type="radio" name="careerStart" checked={!established} onChange={() => setEstablished(false)} /><span>Hired by the founding board of a new co-op you set up on this screen.</span></label>
+          <label className="flex items-start gap-2"><input type="radio" name="careerStart" checked={!established} onChange={() => setEstablished(false)} /><span>{priv ? 'Found and own the private company you set up on this screen.' : 'Hired by the founding board of a new co-op you set up on this screen.'}</span></label>
           <label className="flex items-start gap-2"><input type="radio" name="careerStart" checked={established} onChange={() => { setEstablished(true); if (setup.startYear < ESTABLISHED_FROM_YEAR) up({ startYear: ESTABLISHED_FROM_YEAR }); }} /><span>Hired by the board of an <b>established co-op</b> somewhere in the Midwest. Which one is a surprise: its region, kind, size, age (5–25 years) and what those years made of it. You choose only the start year and the difficulty.</span></label>
         </div>
       )}
@@ -133,20 +136,28 @@ export function NewGameScreen() {
   return (
     <main className="mx-auto max-w-6xl p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="headline text-3xl font-bold">Organize a new cooperative</h1>
+        <h1 className="headline text-3xl font-bold">{priv ? 'Start a private company' : 'Organize a new cooperative'}</h1>
         <button className="btn" onClick={() => setScreen('title')}>Back</button>
       </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <section className="panel space-y-3 p-4">
           <fieldset>
-            <legend className="text-sm font-semibold">Kind of cooperative</legend>
+            <legend className="text-sm font-semibold">Kind of business</legend>
             <div className="mt-1 space-y-1 text-sm">
-              <label className="flex items-start gap-2"><input type="radio" name="coopType" checked={(setup.coopType ?? 'grain') === 'grain'} onChange={() => up({ coopType: 'grain', coopName: '' })} /><span><b>Grain &amp; farm supply</b>: start with capital and no plants; buy or build an elevator first.</span></label>
-              <label className="flex items-start gap-2"><input type="radio" name="coopType" checked={setup.coopType === 'sugar'} onChange={() => up({ coopType: 'sugar', coopName: '' })} /><span><b>Sugar beet growers</b>: the growers buy the territory's beet factory and stations from a sugar company leaving the business, financed with beet shares (stock tied to acres) and a term loan. The home town is the factory town.</span></label>
+              <label className="flex items-start gap-2"><input type="radio" name="coopType" checked={!priv && (setup.coopType ?? 'grain') === 'grain'} onChange={() => up({ orgType: 'coop', coopType: 'grain', coopName: '' })} /><span><b>Grain &amp; farm supply</b>: start with capital and no plants; buy or build an elevator first.</span></label>
+              <label className="flex items-start gap-2"><input type="radio" name="coopType" checked={!priv && setup.coopType === 'sugar'} onChange={() => up({ orgType: 'coop', coopType: 'sugar', coopName: '' })} /><span><b>Sugar beet growers</b>: the growers buy the territory's beet factory and stations from a sugar company leaving the business, financed with beet shares (stock tied to acres) and a term loan. The home town is the factory town.</span></label>
+              <label className="flex items-start gap-2"><input type="radio" name="coopType" checked={priv} onChange={() => up({ orgType: 'private', coopType: 'grain', coopName: '', lenderId: 'local-bank', ownerStake: setup.ownerStake ?? 1 })} /><span><b>Private company</b> (grain &amp; farm supply): you put up the capital, with family or local investors if you like, and own the business. Farmers are customers, not members: no patronage, no member votes, no board when you own control. You pay corporate income tax, pay yourself dividends, bank commercially, and can sell the company.</span></label>
+              {priv && (
+                <label className="ml-6 block">Your stake{' '}
+                  <select className="input" aria-label="Your ownership stake" value={setup.ownerStake ?? 1} onChange={(e) => up({ ownerStake: Number(e.target.value) })}>
+                    {PRIVATE.stakeOptions.map((x) => <option key={x} value={x}>{x >= 1 ? '100% — all yours' : `${Math.round(x * 100)}% — investors put in the rest and share the dividends`}</option>)}
+                  </select>
+                </label>
+              )}
             </div>
           </fieldset>
           <label className="block">
-            <span className="text-sm font-semibold">Cooperative name</span>
+            <span className="text-sm font-semibold">{priv ? 'Company name' : 'Cooperative name'}</span>
             <input className="input mt-1 w-full" value={setup.coopName} placeholder={suggestions[0]} onChange={(e) => up({ coopName: e.target.value })} />
             <div className="mt-1 flex flex-wrap gap-1">
               {suggestions.map((s) => <button key={s} className="rounded bg-stone-100 px-2 py-0.5 text-xs hover:bg-stone-200" onClick={() => up({ coopName: s })}>{s}</button>)}
@@ -160,7 +171,7 @@ export function NewGameScreen() {
                 onChange={(e) => up({ startYear: Math.max(1970, Math.min(DATA_END_YEAR, Number(e.target.value) || 1970)) })} />
             </label>
             <label className="block">
-              <span className="text-sm font-semibold">Founding members</span>
+              <span className="text-sm font-semibold">{priv ? 'Farms around home (size of the business)' : 'Founding members'}</span>
               <input type="number" className="input mt-1 w-full" min={SETUP.membersRange[0]} max={SETUP.membersRange[1]} value={setup.startingMembers}
                 onChange={(e) => up({ startingMembers: Number(e.target.value) || 0 })} />
               <span className="text-xs text-stone-500">{SETUP.membersRange[0]}–{SETUP.membersRange[1]}; they put up the starting capital</span>
@@ -191,7 +202,7 @@ export function NewGameScreen() {
             <span className="text-xs text-stone-500">{territory.counties.length} counties, {territory.towns.length} towns, {Math.round(territory.width)} × {Math.round(territory.height)} miles. On larger maps the founders farm around the home town; the farms beyond start as other businesses' customers.</span>
           </label>
           <fieldset>
-            <legend className="text-sm font-semibold">Starting capital <span className="font-normal text-stone-500">(member stock subscriptions)</span></legend>
+            <legend className="text-sm font-semibold">Starting capital <span className="font-normal text-stone-500">{priv ? "(owners' paid-in capital)" : '(member stock subscriptions)'}</span></legend>
             <div className="mt-1 flex flex-wrap gap-3 text-sm">
               {(['shoestring', 'typical', 'well', 'custom'] as CapitalPreset[]).map((p) => (
                 <label key={p} className="flex items-center gap-1">
@@ -248,7 +259,7 @@ export function NewGameScreen() {
 
         <section className="panel space-y-3 p-4">
           <h2 className="font-semibold">Founding decisions</h2>
-          <p className="text-sm text-stone-600">The organizing meeting elects the first board, which hires you as general manager and approves a lender and regional affiliations.</p>
+          <p className="text-sm text-stone-600">{priv ? 'You incorporate the company, choose its bank (a commercial bank: the banks for cooperatives lend to co-ops) and its suppliers. Regional co-ops sell to private companies, but only their members earn patronage.' : 'The organizing meeting elects the first board, which hires you as general manager and approves a lender and regional affiliations.'}</p>
           <label className="block">
             <span className="text-sm font-semibold">Home office town</span>
             <select className="input mt-1 w-full" value={homeTownId} onChange={(e) => up({ homeTownId: Number(e.target.value) })}>
@@ -275,7 +286,7 @@ export function NewGameScreen() {
           </div>
           {careerBox}
           <TerritoryMap world={territory} homeTownId={homeTownId} height={300} fictionalize={setup.fictionalizeBrands} onSelectTown={(t) => up({ homeTownId: t.id })} selectedTownId={homeTownId} />
-          <button className="btn btn-primary w-full justify-center py-2 text-base" disabled={!valid || typeof built === 'string' || !!busy} onClick={go}>{busy ?? 'Hold the organizing meeting'}</button>
+          <button className="btn btn-primary w-full justify-center py-2 text-base" disabled={!valid || typeof built === 'string' || !!busy} onClick={go}>{busy ?? (priv ? 'Incorporate the company' : 'Hold the organizing meeting')}</button>
         </section>
       </div>
     </main>

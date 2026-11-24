@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
-  averageSatisfaction, bylawTitle, checkNameChange, confidenceWhy, nameChangeCost, factionOf, forecastItem, formatMonth, formatMonthShort, PROPOSAL_LABEL, yearOf,
+  averageSatisfaction, bylawTitle, checkNameChange, ownerRun, confidenceWhy, nameChangeCost, factionOf, forecastItem, formatMonth, formatMonthShort, PROPOSAL_LABEL, yearOf,
   type AgendaItem, type BylawChange, type Director, type GameState, type PetIssue,
 } from '../../engine/index';
 import { BYLAWS_DEFAULT, POLITICAL_CAPITAL } from '../../data/governance';
@@ -31,8 +31,20 @@ export function BoardScreen() {
   const yearAgo = game.clock.monthIndex - 12;
   const recent = gov.votes.filter((v) => v.monthIndex > yearAgo);
   const last = gov.reviews[gov.reviews.length - 1];
+  if (ownerRun(game)) {
+    return (
+      <div className="space-y-4">
+        <Panel title="No board to answer to">
+          <p className="text-sm">You own {pct(game.privateCo?.playerStake ?? 1, 0)} of {game.coop.name}: there is no board, no review and no one to fire you. Projects, policies and deals take effect when you decide. The bank, the market and your customers are the judges; a company that runs out of equity is taken over by its lender.</p>
+        </Panel>
+        <NamePanel />
+      </div>
+    );
+  }
+  const priv = !!game.privateCo;
   return (
     <div className="space-y-4">
+      {priv && <Panel title={`The owners' board`}><p className="text-sm">The {game.privateCo!.ownerName} own {game.coop.name} and seat its directors; they hired you as chief executive. They review you on profit, the lender and their own goals, and can let you go. There are no member meetings, elections or member votes.</p></Panel>}
       <div className="grid grid-cols-6 gap-3">
         <Stat label="Board confidence" value={Math.round(gov.boardConfidence)} tone={gov.boardConfidence < 35 ? 'bad' : gov.boardConfidence > 60 ? 'good' : 'neutral'} sub={<>{gov.pip ? 'On a performance improvement plan' : 'in you as general manager'} · <Why b={() => confidenceWhy(game)} /></>} />
         <Stat label="Political capital" value={`${gov.politicalCapital}/${POLITICAL_CAPITAL.max}`} sub={`+${POLITICAL_CAPITAL.monthly} a month; ${POLITICAL_CAPITAL.lobbyCost} per lobbying call`} />
@@ -49,9 +61,9 @@ export function BoardScreen() {
       </div>
       <div className="grid grid-cols-2 gap-4">
         <VotesPanel />
-        <ElectionsPanel />
+        {!priv && <ElectionsPanel />}
       </div>
-      <BylawsPanel />
+      {!priv && <BylawsPanel />}
       <NamePanel />
     </div>
   );
@@ -243,13 +255,13 @@ function NamePanel() {
   return (
     <Panel title="The co-op's name">
       <div className="space-y-2 text-sm">
-        <p>The name is in the articles of incorporation. A new one goes to the board; if the board recommends it, the members vote at a special meeting and must adopt it by {Math.round(b.supermajority * 100)}% of votes cast. Filing the amendment and new signs, truck lettering and stationery at every site would cost about <b>{money(nameChangeCost(game), { compact: true })}</b>. Members are fond of familiar names; renaming goes down best after a merger.</p>
+        <p>The name is in the articles of incorporation. {game.privateCo ? (ownerRun(game) ? 'As owner you can change it at once.' : 'A new one goes to the owners\' board, which decides it.') : `A new one goes to the board; if the board recommends it, the members vote at a special meeting and must adopt it by ${Math.round(b.supermajority * 100)}% of votes cast.`} Filing the amendment and new signs, truck lettering and stationery at every site would cost about <b>{money(nameChangeCost(game), { compact: true })}</b>. Members are fond of familiar names; renaming goes down best after a merger.</p>
         {former.length > 0 && <p className="text-stone-600">Formerly {former.map((f) => `${f.name} (until ${formatMonthShort(f.untilMonth)})`).join(', ')}.</p>}
         {pendingBoard && <p><b>On the board's agenda:</b> {pendingBoard.title}.</p>}
         {pendingMembers && <p><b>Before the members</b> in {formatMonth(pendingMembers.meetingMonth)}: {pendingMembers.title}.</p>}
         <div className="flex flex-wrap items-center gap-2">
           <input className="input w-80" aria-label="Proposed new name" placeholder="Proposed new name" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
-          <button className="btn" disabled={!name.trim() || !!problem} onClick={() => { if (command({ type: 'proposeNameChange', name })) setName(''); }}>Send to the board</button>
+          <button className="btn" disabled={!name.trim() || !!problem} onClick={() => { if (command({ type: 'proposeNameChange', name })) setName(''); }}>{ownerRun(game) ? 'Rename the company' : 'Send to the board'}</button>
         </div>
         {problem && <p className="text-xs text-rust">{problem}</p>}
       </div>

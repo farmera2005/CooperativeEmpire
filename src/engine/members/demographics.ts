@@ -15,6 +15,7 @@ import { nominalCents } from '../world/macro';
 import { marketValue } from '../world/marketPath';
 import { cropSplit, farmAcres, newFarmRecord, sizeClassOf, totalAcres } from './generate';
 import { makeDirector } from '../governance/board';
+import { isPrivate } from '../private/kind';
 
 const monthlyMortality = (age: number): number => {
   const q = Math.min(1, DEMOGRAPHICS.mortalityA.value * Math.exp(DEMOGRAPHICS.mortalityB.value * age));
@@ -111,8 +112,9 @@ function replaceDirector(ctx: TickContext, gone: Member, rng: Rng): void {
   const seat = gov.directors.find((d) => d.memberId === gone.id);
   if (!seat) return;
   gone.isDirector = false;
+  // A private company's board is drawn from its owners' circle among local farm families (D-149).
   const pool = ctx.state.members.list.filter(
-    (x) => x.status === 'active' && x.kind === 'member' && !x.isDirector && (seat.districtId === null || x.districtId === seat.districtId),
+    (x) => x.status === 'active' && (x.kind === 'member' || isPrivate(ctx.state)) && !x.isDirector && (seat.districtId === null || x.districtId === seat.districtId),
   );
   if (!pool.length) {
     gov.directors = gov.directors.filter((d) => d !== seat);

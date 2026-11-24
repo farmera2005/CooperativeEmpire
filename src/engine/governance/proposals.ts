@@ -24,6 +24,7 @@ import type { AgendaItem, DivisionId, GameState, MeritVector, ProposalType } fro
 import { nominalCents, pathFor } from '../world/macro';
 import { NAME_CHANGE } from '../../data/governance';
 import { nameChangeCost } from './rename';
+import { ownerRun } from '../private/kind';
 
 export const PROPOSAL_LABEL: Record<ProposalType, string> = {
   capitalProject: 'Capital project', facilityClosure: 'Facility closure', patronage: 'Patronage distribution', redemptionPolicy: 'Redemption policy',
@@ -57,6 +58,8 @@ export function capitalCost(s: GameState, cmd: Command): Cents | null {
 
 /** Does this GM command need the board? Returns the proposal it becomes, or null. */
 export function boardGate(s: GameState, cmd: Command): { type: ProposalType; title: string } | null {
+  // A controlling owner answers to no board (D-149).
+  if (ownerRun(s)) return null;
   const fin = s.coop.finance;
   const town = (id: number) => s.world.towns[id]?.name ?? 'town';
   switch (cmd.type) {

@@ -10,10 +10,12 @@ import { marketValue } from '../world/marketPath';
 import { nominalCents, priceLevel } from '../world/macro';
 import { balanceSheet } from '../ledger/statements';
 import { gmBasePay } from '../career/core';
+import { regularCustomers } from '../private/kind';
 
 export function postOverhead(ctx: TickContext): void {
   const { state, path, mi } = ctx;
-  const members = state.members.list.filter((m) => m.kind === 'member' && m.status === 'active').length;
+  // A private company's office and GM scale with its regular customers (D-149).
+  const members = regularCustomers(state);
   const locations = state.coop.facilities.filter((f) => f.status !== 'closed').length;
   const gmAnnual2024 = OVERHEAD.gmSalaryBase.value + OVERHEAD.gmSalaryPerMember.value * members + OVERHEAD.gmSalaryPerLocation.value * locations;
   // Career mode: the GM's contract sets the pay (D-142).

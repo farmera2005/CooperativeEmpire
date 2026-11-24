@@ -19,6 +19,7 @@ import * as eccb from './regions/eccb';
 import * as otherRegions from './regions/others';
 import * as tuning from './tuning';
 import * as career from './career';
+import * as privateCo from './private';
 
 export const DATA_REGISTRY: Record<string, Record<string, unknown>> = {
   'markets.ts': markets as unknown as Record<string, unknown>,
@@ -36,6 +37,7 @@ export const DATA_REGISTRY: Record<string, Record<string, unknown>> = {
   'governance.ts': governance as unknown as Record<string, unknown>,
   'people.ts': people as unknown as Record<string, unknown>,
   'career.ts': career as unknown as Record<string, unknown>,
+  'private.ts': privateCo as unknown as Record<string, unknown>,
   'competition.ts': competition as unknown as Record<string, unknown>,
   'events.ts': events as unknown as Record<string, unknown>,
   'regions/eccb.ts': eccb as unknown as Record<string, unknown>,

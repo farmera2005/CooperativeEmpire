@@ -4,7 +4,7 @@ import { REDEMPTION } from '../../data/finance';
 import { DIVISION_LABEL } from '../../data/supply';
 import {
   balance, BASES_FOR, equityOverview, expectedRefundRate, fiscalYearOf, formatMonth, MONTH_NAMES, memberStatement, OP_DIVISIONS, poolLabel, previewDistribution, productionDeductionRate,
-  validateProposal, type LossTreatment, type PatronageBasis, type PatronageProposal, type PoolSplit, type RedemptionPlan, type RedemptionPolicy,
+  validateProposal, ownerRun, bookEquity, phantomValue, type LossTreatment, type PatronageBasis, type PatronageProposal, type PoolSplit, type RedemptionPlan, type RedemptionPolicy,
 } from '../../engine/index';
 import { Panel, Stat } from '../components/Panel';
 import { Term } from '../components/Term';
@@ -20,7 +20,56 @@ const PLAN_LABEL: Record<RedemptionPlan['kind'], string> = {
   estate: 'Estates', ageOfPatron: 'Age of patron', revolving: 'Revolving (oldest year first)', percentagePool: 'Percentage of all equity', baseCapital: 'Base capital',
 };
 
+/** A private company's owners and dividends (D-149). */
+function OwnersScreen() {
+  const game = useStore((s) => s.game)!;
+  const command = useStore((s) => s.command);
+  const pc = game.privateCo!;
+  const owner = ownerRun(game);
+  const equity = bookEquity(game);
+  const paidIn = -balance(game.ledger, '3050');
+  const retained = -balance(game.ledger, '3400');
+  const paid = pc.dividends.reduce((a, d) => a + d.total, 0);
+  const mine = pc.dividends.reduce((a, d) => a + d.toPlayer, 0);
+  const ph = pc.phantom;
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Stat label="Book equity" value={money(equity, { compact: true })} sub={`paid-in ${money(paidIn, { compact: true })}, retained ${money(retained, { compact: true })}`} />
+        <Stat label="Your stake" value={pct(pc.playerStake, 0)} sub={pc.playerStake > 0 ? `worth ${money(Math.round(equity * pc.playerStake), { compact: true })} at book` : `owned by the ${pc.ownerName}`} />
+        <Stat label="Dividends paid" value={money(paid, { compact: true })} sub={pc.playerStake > 0 ? `${money(mine, { compact: true })} to you` : `to the ${pc.ownerName}`} />
+        <Stat label="Payout" value={pct(pc.payout, 0)} sub="of net income after corporate tax" />
+      </div>
+      <Panel title="Ownership and dividends">
+        <div className="space-y-2 text-sm">
+          <p>A private company is owned by its shareholders, not its customers: there is no patronage, member equity or revolvement. Each year end the company pays corporate income tax on its income, and three months later, after the audit, the owners declare a dividend from net income; the rest is retained to grow the business. No dividend is paid while the lender has the company on its watch list.</p>
+          {owner ? (
+            <label className="block">Pay out <input className="input w-16" type="number" min={0} max={100} defaultValue={Math.round(pc.payout * 100)} aria-label="Dividend payout percent" onBlur={(e) => command({ type: 'setDividendPolicy', payout: Number(e.target.value) / 100 })} />% of net income as dividends <span className="text-xs text-stone-500">(family businesses commonly pay out under a quarter)</span></label>
+          ) : <p className="text-stone-600">The {pc.ownerName} set the dividend policy.</p>}
+          {pc.pending && <p>Fiscal {pc.pending.fy}: net income {money(pc.pending.afterTax, { compact: true })}{pc.pending.declared !== null ? `; dividend declared ${money(pc.pending.declared, { compact: true })}` : '; the dividend is declared after the audit'}.</p>}
+          {ph && <p><b>Your phantom equity:</b> {pct(ph.pct, 1)} of the growth in book equity since {formatMonth(ph.sinceMonth)}, now worth {money(phantomValue(game), { compact: true })}. It is paid when your term ends in good standing or the company is sold, and forfeited if you leave early or are let go.</p>}
+          {owner && <p className="text-stone-600">To cash out, sell the company: Deals &amp; Competitors, "Sell the company".</p>}
+        </div>
+      </Panel>
+      {pc.dividends.length > 0 && (
+        <Panel title="Dividend history">
+          <table className="data text-sm">
+            <thead><tr><th>Fiscal year</th><th>Paid</th><th className="r">Dividend</th><th className="r">Yours</th></tr></thead>
+            <tbody>{[...pc.dividends].reverse().map((d) => <tr key={d.fy}><td>{d.fy}</td><td>{formatMonth(d.monthIndex)}</td><td className="r">{money(d.total)}</td><td className="r">{money(d.toPlayer)}</td></tr>)}</tbody>
+          </table>
+        </Panel>
+      )}
+    </div>
+  );
+}
+
 export function EquityScreen() {
+  const game = useStore((s) => s.game)!;
+  if (game.privateCo) return <OwnersScreen />;
+  return <CoopEquityScreen />;
+}
+
+function CoopEquityScreen() {
   const game = useStore((s) => s.game)!;
   const ov = useMemo(() => equityOverview(game), [game]);
   const ep = game.coop.equityProgram;

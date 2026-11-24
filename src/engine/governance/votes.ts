@@ -16,6 +16,8 @@ import { defaultProposal } from '../finance/defaults';
 import { evaluate, PROPOSAL_LABEL } from './proposals';
 import { dealBoardApproved, dealBoardRejected } from '../deals/deals';
 import { stream } from '../core/rng';
+import { isPrivate, ownerRun } from '../private/kind';
+import { renameCoop } from './rename';
 
 export type Faction = 'growth' | 'conservative' | 'swing';
 export const factionOf = (d: Director): Faction => (d.stance > 0.3 ? 'growth' : d.stance < -0.3 ? 'conservative' : 'swing');
@@ -133,6 +135,12 @@ export function holdBoardMeeting(ctx: TickContext): void {
   g.politicalCapital = Math.min(POLITICAL_CAPITAL.max, g.politicalCapital + POLITICAL_CAPITAL.monthly);
   const due = g.agenda.filter((i) => i.submittedMonth < ctx.mi);
   if (!due.length) return;
+  // A controlling owner decides alone: what is on the agenda is simply done (D-149).
+  if (ownerRun(state)) {
+    g.agenda = g.agenda.filter((i) => i.submittedMonth >= ctx.mi);
+    for (const item of due) execute(ctx, item);
+    return;
+  }
   const keep: AgendaItem[] = g.agenda.filter((i) => i.submittedMonth >= ctx.mi);
   const lines: string[] = [];
   for (const item of due) {
@@ -176,8 +184,9 @@ function execute(ctx: TickContext, item: AgendaItem): string {
       state.governance.memberVotes = [...state.governance.memberVotes, { id: item.id, kind: 'bylaw', title: item.title, bylaw: item.bylaw, meetingMonth: ctx.mi + 2, supermajority: true }];
       return `Sent to the members for a vote at a special meeting in ${formatMonth(ctx.mi + 2)}.`;
     case 'nameChange':
-      // The name is in the articles: the members decide (D-146).
+      // The name is in the articles: the members decide (D-146); a private company's board decides alone (D-149).
       if (!item.newName) return '';
+      if (isPrivate(state)) return renameCoop(ctx, item.newName);
       state.governance.memberVotes = [...state.governance.memberVotes, { id: item.id, kind: 'name', title: item.title, newName: item.newName, meetingMonth: ctx.mi + 2, supermajority: true }];
       return `Sent to the members for a vote at a special meeting in ${formatMonth(ctx.mi + 2)}.`;
     default: {

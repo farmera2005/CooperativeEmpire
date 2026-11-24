@@ -34,6 +34,9 @@ import { weatherFor } from '../world/weather';
 import { snapshot } from './snapshot';
 import { refreshMarkets } from './steps';
 import { newCareer } from '../career/core';
+import { PRIVATE } from '../../data/private';
+import { SURNAMES } from '../../data/names';
+import { emptyPrivateCo } from '../private/private';
 
 export const DEFAULT_SETUP: GameSetup = {
   coopName: '',
@@ -78,14 +81,14 @@ export function defaultHomeTown(t: Territory): Town {
   return [...t.towns].sort((a, b) => Number(b.isCountySeat) - Number(a.isCountySeat) || Math.hypot(a.x - cx, a.y - cy) - Math.hypot(b.x - cx, b.y - cy))[0];
 }
 
-export function suggestCoopNames(t: Territory, year: number, seed: number, count = 5, coopType: GameSetup['coopType'] = 'grain'): string[] {
+export function suggestCoopNames(t: Territory, year: number, seed: number, count = 5, coopType: GameSetup['coopType'] = 'grain', orgType: GameSetup['orgType'] = 'coop'): string[] {
   const rng = stream(seed, -1, 'setup.names', year);
-  const patterns = coopType === 'sugar' ? SUGAR_COMPANY.namePatterns.map((pattern) => ({ pattern })) : COOP_NAME_PATTERNS.filter((p) => year >= p.from && year < p.to);
+  const patterns = orgType === 'private' ? PRIVATE.namePatterns.map((pattern) => ({ pattern })) : coopType === 'sugar' ? SUGAR_COMPANY.namePatterns.map((pattern) => ({ pattern })) : COOP_NAME_PATTERNS.filter((p) => year >= p.from && year < p.to);
   const out = new Set<string>();
   for (let i = 0; i < 50 && out.size < count; i++) {
     const town = rng.weighted(t.towns, (x) => x.population);
     const county = t.counties[town.countyId];
-    out.add(rng.pick(patterns).pattern.replace('{town}', town.name).replace('{county}', county.name));
+    out.add(rng.pick(patterns).pattern.replace('{town}', town.name).replace('{county}', county.name).replace('{surname}', rng.pick(SURNAMES)));
   }
   return [...out];
 }
@@ -115,6 +118,8 @@ export function startingCapital(setup: GameSetup): Cents {
 
 export function newGame(setupIn: GameSetup): GameState {
   let setup = setupIn;
+  // A private company is a grain and farm-supply business that banks commercially (D-149).
+  if (setup.orgType === 'private') setup = { ...setup, coopType: 'grain', lenderId: 'local-bank' };
   const region = REGIONS[setup.regionId];
   if (!region) throw new Error(`Unknown region ${setup.regionId}`);
   const [minM, maxM] = SETUP.membersRange;
@@ -133,8 +138,17 @@ export function newGame(setupIn: GameSetup): GameState {
   // On larger maps the founders live around the home town (D-138).
   const area = territoryArea(setup);
   const list = generateMembers(setup.gameSeed, territory.towns, region, setup.startYear, startMonth, members, customers, area > 1 ? { x: homeTown.x, y: homeTown.y, radius: TERRITORY.foundersRadiusMiles.value } : undefined);
-  const governance = electFoundingBoard(stream(setup.gameSeed, -1, 'governance.founding'), list, territory.districts.length, setup.startYear);
-  const name = setup.coopName.trim() || suggestCoopNames(territory, setup.startYear, setup.gameSeed, 1, setup.coopType)[0];
+  // A private company (D-149): every farm is a customer; a controlling owner has no board, a
+  // family company that hires its CEO has a small owners' board.
+  const privateCo = setup.orgType === 'private';
+  const stake = privateCo ? clampStake(setup.ownerStake ?? 1) : 0;
+  if (privateCo) for (const m of list) m.kind = 'nonmember';
+  const governance = privateCo
+    ? stake >= 0.5
+      ? { ...electFoundingBoard(stream(setup.gameSeed, -1, 'governance.founding'), [], territory.districts.length, setup.startYear, { size: 0 }) }
+      : stripCoopPetIssues(electFoundingBoard(stream(setup.gameSeed, -1, 'governance.founding'), list, territory.districts.length, setup.startYear, { anyFarm: true, size: PRIVATE.boardSize }))
+    : electFoundingBoard(stream(setup.gameSeed, -1, 'governance.founding'), list, territory.districts.length, setup.startYear);
+  const name = setup.coopName.trim() || suggestCoopNames(territory, setup.startYear, setup.gameSeed, 1, setup.coopType, setup.orgType)[0];
 
   const state: GameState = {
     schemaVersion: SCHEMA_VERSION,
@@ -178,12 +192,19 @@ export function newGame(setupIn: GameSetup): GameState {
   // Founding capital: member stock subscriptions, in proportion to farm size.
   const capital = startingCapital({ ...setup, startingMembers: members });
   const founders = list.filter((m) => m.kind === 'member');
-  const parts = allocateCents(capital, founders.map((m) => totalAcres(m) + 50));
-  founders.forEach((m, i) => (state.equity.commonStock[m.id] = parts[i]));
-  post(state, {
-    source: 'founding', memo: `Member stock subscriptions from ${founders.length} founding members`,
-    lines: [{ account: '1000', division: 'CORP', amount: capital }, { account: '3000', division: 'CORP', amount: -capital }],
-  });
+  if (privateCo) {
+    // Owners put up the capital as paid-in equity; there is no member stock (D-149).
+    const family = `${stream(setup.gameSeed, -1, 'private.owner').pick(SURNAMES)} family`;
+    state.privateCo = emptyPrivateCo(stake, family);
+    post(state, { source: 'founding', memo: stake >= 1 ? 'Owner\'s paid-in capital' : `Paid-in capital from the owners (${Math.round(stake * 100)}% yours)`, lines: [{ account: '1000', division: 'CORP', amount: capital }, { account: '3050', division: 'CORP', amount: -capital }] });
+  } else {
+    const parts = allocateCents(capital, founders.map((m) => totalAcres(m) + 50));
+    founders.forEach((m, i) => (state.equity.commonStock[m.id] = parts[i]));
+    post(state, {
+      source: 'founding', memo: `Member stock subscriptions from ${founders.length} founding members`,
+      lines: [{ account: '1000', division: 'CORP', amount: capital }, { account: '3000', division: 'CORP', amount: -capital }],
+    });
+  }
 
   // Lender commitment, competitors, and the first facilities offered for sale.
   state.coop.finance.lineCommitment = defaultCommitment(state);
@@ -213,6 +234,17 @@ export function newGame(setupIn: GameSetup): GameState {
   const lender = setup.lenderId === 'local-bank' ? 'a local commercial bank' : getBrand(setup.lenderId)?.name ?? setup.lenderId;
   const regionals = setup.regionalAffiliations.map((r) => `${getBrand(r.regionalId)?.name ?? r.regionalId} (${r.lines.join(', ')})`).join('; ') || 'none yet';
   const push = (title: string, body: string) => state.inbox.push({ id: state.nextInboxId++, monthIndex: startMonth, kind: 'memo', title, body, read: false });
+  if (privateCo) {
+    const pc = state.privateCo!;
+    push(
+      `${name} is incorporated`,
+      `${name} is incorporated in ${homeTown.name} with ${formatCents(capital)} of paid-in capital${stake >= 1 ? ', all of it yours' : stake >= 0.5 ? `: ${Math.round(stake * 100)}% yours, the rest from the ${pc.ownerName} and other local investors` : ` from the ${pc.ownerName}`}. ${stake >= 0.5 ? 'You control the company: there is no board to answer to and no one can fire you. The bank, the market and your customers are the judges.' : `The owners' board has hired ${state.career ? `you, ${state.career.character.name},` : 'you'} as chief executive.`}\n\nThe farmers around ${homeTown.name} are customers, not members: there is no patronage and no member equity. Win their business on price and service. At each year end the company pays corporate income tax on its income and pays the owners a dividend (${Math.round(pc.payout * 100)}% of net income unless you set it otherwise); the rest is retained.${dir.length ? `\n\nOwners' board:\n${dir.join('\n')}` : ''}`,
+    );
+    push('Banking and suppliers', `${lender[0].toUpperCase()}${lender.slice(1)} has approved a seasonal line of ${formatCents(state.coop.finance.lineCommitment)} and will finance up to ${Math.round(LENDING.maxFinancePct.value * 100)}% of facility purchases with term debt. The banks for cooperatives lend to co-ops, so a private company banks commercially. Regional co-ops will sell to us${regionals !== 'none yet' ? ` (${regionals})` : ''}, but only their member co-ops earn patronage.\n\nThe company owns no facilities yet. The usual first move is to buy an existing elevator from a retiring owner or to build one: see the Grain screen's "Buy or build" tab.`);
+    push('Welcome', `It is ${formatMonth(startMonth)}. Review the markets, your customers and the map. End the month when ready.`);
+    state.history.push(snapshot(state));
+    return state;
+  }
   push(
     `${name} is organized`,
     `At an organizing meeting in ${homeTown.name}, ${founders.length} farmers subscribed for member stock and elected a board of ${governance.directors.length} directors. The board has hired ${state.career ? `you, ${state.career.character.name},` : 'you'} as General Manager${state.career?.contract ? ` at ${formatCents(state.career.contract.base)} a year on a ${Math.round((state.career.contract.endMonth - state.career.contract.startMonth + 1) / 12)}-year agreement` : ''}.${sugarFounding ? `\n\n${sugarFounding}` : sugarStart ? `\n\nThe growers meant to buy ${state.coop.sugar.company?.name ?? 'the sugar company'}'s beet factory, but the money did not come together. The factory and stations stay on offer for a year (Sugar beets screen); a share drive can raise more.` : ''}\n\nBoard of directors:\n${dir.join('\n')}`,
@@ -224,4 +256,12 @@ export function newGame(setupIn: GameSetup): GameState {
   push('Welcome', `It is ${formatMonth(startMonth)}. Review the markets, your members, and the map. End the month when ready.`);
   state.history.push(snapshot(state));
   return state;
+}
+
+const clampStake = (x: number): number => Math.max(0, Math.min(1, x));
+
+/** A private company's directors ask nothing about patronage or equity redemption (D-149). */
+function stripCoopPetIssues<T extends { directors: { petIssues: { kind: string }[] }[] }>(g: T): T {
+  for (const d of g.directors) d.petIssues = d.petIssues.filter((p) => p.kind !== 'redemption' && p.kind !== 'patronageCash');
+  return g;
 }

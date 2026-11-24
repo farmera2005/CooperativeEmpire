@@ -17,6 +17,8 @@ import { availableLenders, DEFAULT_SETUP, newGame } from '../sim/newGame';
 import { POLICIES } from '../sim/policies';
 import type { CareerState, GameSetup, GameState, JobOffer } from '../types';
 import type { CareerResult } from './career';
+import { PRIVATE } from '../../data/private';
+import { bookEquity } from '../private/private';
 
 function buildEmployer(from: GameState, o: JobOffer, arrive: number, attempt: number): GameState | null {
   const setup: GameSetup = {
@@ -31,6 +33,8 @@ function buildEmployer(from: GameState, o: JobOffer, arrive: number, attempt: nu
     fictionalizeBrands: from.setup.fictionalizeBrands,
     difficulty: from.setup.difficulty,
     coopType: o.coopType,
+    // A family company hires its CEO; the player owns none of it (D-149).
+    ...(o.orgType === 'private' ? { orgType: 'private' as const, ownerStake: 0 } : {}),
     ...(o.homeTownId !== undefined && attempt === 0 ? { homeTownId: o.homeTownId } : {}),
     ...(o.territorySize ? { territorySize: o.territorySize } : {}),
   };
@@ -59,11 +63,11 @@ export function acceptOffer(s0: GameState, offerId: number): CareerResult {
   if (!s) return { state: s0, ok: false, messages: [{ level: 'error', text: `${o.coopName} could not be set up; try another offer.` }] };
   career.offers = career.offers.filter((x) => x.id !== o.id);
   career.severanceLeft = 0;
-  s = handOver(s, career, o);
+  s = handOver(s, career, { ...o, ...(o.phantomPct ? { phantomPct: o.phantomPct } : {}) });
   return { state: s, ok: true, messages: [{ level: 'info', text: `You join ${s.coop.name}.` }] };
 }
 
-interface Terms { base: Cents; bonusTarget: number; severanceMonths: number; termYears: number }
+interface Terms { base: Cents; bonusTarget: number; severanceMonths: number; termYears: number; phantomPct?: number }
 
 /**
  * The handover, as in a scenario: the co-op's past is history, the board starts with an open
@@ -74,11 +78,13 @@ function handOver(s0: GameState, career: CareerState, t: Terms): GameState {
   const members = s0.members.list.filter((m) => m.kind === 'member' && m.status === 'active').length;
   career.status = 'employed';
   career.monthIndex = mi;
-  career.contract = { coopName: s0.coop.name, startMonth: mi + 1, endMonth: mi + t.termYears * 12, base: t.base, bonusTarget: t.bonusTarget, severanceMonths: t.severanceMonths };
+  career.contract = { coopName: s0.coop.name, startMonth: mi + 1, endMonth: mi + t.termYears * 12, base: t.base, bonusTarget: t.bonusTarget, severanceMonths: t.severanceMonths, ...(t.phantomPct ? { phantomPct: t.phantomPct } : {}) };
   career.stints = [...career.stints, { coopName: s0.coop.name, regionId: s0.setup.regionId, fromMonth: mi + 1, toMonth: null, reviews: [], earnings: 0, startMembers: members }];
   career.log = [...career.log, { monthIndex: mi, text: `Joined ${s0.coop.name} as general manager at ${formatCents(t.base)} a year.` }].slice(-80);
   const s = { ...s0, inbox: s0.inbox.map((i) => ({ ...i, read: true })), deals: s0.deals.filter((d) => d.stage === 'closed' || d.stage === 'dead'), career };
   s.clock = { ...s.clock, startMonth: mi + 1 };
+  // A private company's CEO earns phantom equity on the growth in book value from now (D-149).
+  if (s.privateCo && t.phantomPct) s.privateCo = { ...s.privateCo, phantom: { pct: t.phantomPct, baseEquity: bookEquity(s), sinceMonth: mi + 1 } };
   s.governance = { ...s.governance, boardConfidence: 60 + Math.round((career.character.stats.boardRelations - 10) / 2), pip: false, reviews: [] };
   const founded = yearOf(s.coop.foundedMonth);
   s.inbox.push({
@@ -106,6 +112,7 @@ export function randomEstablishedSetup(base: GameSetup): GameSetup {
   const years = rng.int(y0, Math.min(y1, base.startYear - 1970));
   const founded = base.startYear - years;
   const regionId = pickW(CAREER.establishedRegions);
+  const privateCo = rng.chance(PRIVATE.establishedShare);
   const [m0, m1] = CAREER.establishedMembers;
   const [mn, mx] = SETUP.membersRange;
   const members = clamp(Math.round(suggestedMembers(regionId, founded) * rng.range(m0, m1) / 10) * 10, mn, Math.min(mx, 2500));
@@ -120,7 +127,9 @@ export function randomEstablishedSetup(base: GameSetup): GameSetup {
     fictionalizeBrands: base.fictionalizeBrands,
     ...(base.debugMode ? { debugMode: true } : {}),
     regionId,
-    coopType: rng.chance(CAREER.establishedSugar) ? 'sugar' : 'grain',
+    // Some employers are family-owned private companies (D-149).
+    ...(privateCo ? { orgType: 'private' as const, ownerStake: 0 } : {}),
+    coopType: !privateCo && rng.chance(CAREER.establishedSugar) ? 'sugar' : 'grain',
     territorySize: pickW(CAREER.establishedSizes) as GameSetup['territorySize'],
     startingMembers: members,
     capitalPreset: pickW(CAREER.establishedCapital) as GameSetup['capitalPreset'],
@@ -158,7 +167,9 @@ export function newEstablishedGame(setup: GameSetup): GameState {
   const career = newCareer(s, ch);
   career.stints = [];
   career.log = [];
-  const t = { base: career.contract!.base, bonusTarget: career.contract!.bonusTarget, severanceMonths: career.contract!.severanceMonths, termYears: CAREER.termYears };
+  const [ph0, ph1] = PRIVATE.phantomPct.value;
+  const phantomPct = setup.orgType === 'private' ? Math.round(stream(setup.gameSeed, -1, 'career.phantom').range(ph0, ph1) * 200) / 200 : undefined;
+  const t = { base: career.contract!.base, bonusTarget: career.contract!.bonusTarget, severanceMonths: career.contract!.severanceMonths, termYears: CAREER.termYears, ...(phantomPct ? { phantomPct } : {}) };
   return handOver(s, career, t);
 }
 

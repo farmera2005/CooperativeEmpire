@@ -46,6 +46,8 @@ import type { TickContext } from '../sim/context';
 import type { CommodityPosition, Facility, GameState, GrainCommodityMonth, GrainMonthReport, Member } from '../types';
 import type { LoadoutType } from '../../data/facilities';
 import { marketValue } from '../world/marketPath';
+import { isPrivate } from '../private/kind';
+import { PRIVATE } from '../../data/private';
 import {
   basisAppreciationNext, bestTruckSale, carryPerMonth, futuresPrice, grainCostIndex, localBasis, priceRatio, railSale, type SaleOption,
 } from './prices';
@@ -215,6 +217,8 @@ export function stepGrain(ctx: TickContext): void {
   // Members count on a patronage refund like last year's (2024 $/bu, valued on corn).
   const refundBu = (expectedRefundRate(state) * (F.corn + local.corn)) / idx;
   const refundPct = expectedRefundRate(state) * 100;
+  // A private company's customers stay on relationships, without patronage (D-149).
+  const rel = isPrivate(state) ? PRIVATE.relationshipLoyalty.value : 0;
 
   for (const m of state.members.list) {
     if (m.status !== 'active') continue;
@@ -232,7 +236,7 @@ export function stepGrain(ctx: TickContext): void {
       const service = (sm.staffingService.value[o.facility.staffing.level] - crewPenalty + originators) * sm.serviceQuality.value
         - sm.waitPerHour.value * o.facility.grain.waitMemory;
       const u = priceW * price + service + contracts * sm.contractOffered.value
-        + (m.kind === 'member' ? sm.loyalty.value * m.loyalty + refundBu : 0) - sm.grievance.value * grievance + bundleBonus;
+        + (m.kind === 'member' ? sm.loyalty.value * m.loyalty + refundBu : rel * sm.loyalty.value * m.loyalty) - sm.grievance.value * grievance + bundleBonus;
       if (!best || u > best.u) best = { facility: o.facility, u, price };
     }
     let denom = 0;
@@ -295,7 +299,7 @@ export function stepGrain(ctx: TickContext): void {
       priceAdv.push(best.price - Math.max(bestComp, -1));
       const adv = posture - bestCompBid;
       const exp = clamp(50 + SATISFACTION.pricePerDollar.value * adv - SATISFACTION.waitPerHour.value * best.facility.grain.waitMemory - SATISFACTION.grievancePerSeverity.value * grievance
-        + (m.kind === 'member' ? SATISFACTION.loyaltyBonus.value * m.loyalty + SATISFACTION.refundPerPct.value * refundPct : 0), 0, 100);
+        + (m.kind === 'member' ? SATISFACTION.loyaltyBonus.value * m.loyalty + SATISFACTION.refundPerPct.value * refundPct : rel * SATISFACTION.loyaltyBonus.value * m.loyalty), 0, 100);
       // Members who do little grain business with us form their opinion slowly.
       const share = m.share[GRAIN_LINE.corn] ?? 0;
       m.satisfaction += SATISFACTION.alpha.value * clamp(0.25 + share, 0.25, 1) * (exp - m.satisfaction);

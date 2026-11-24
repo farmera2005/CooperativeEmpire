@@ -11,6 +11,7 @@ import { clamp } from '../core/math';
 import { roundCents, type Cents } from '../core/money';
 import type { CareerState, CeoCharacter, GameState } from '../types';
 import { nominalCents, pathFor } from '../world/macro';
+import { regularCustomers } from '../private/kind';
 
 /** The player's stat, or null outside career mode (and while not running a co-op). */
 export function ceoStat(s: GameState, stat: CeoStat): number | null {
@@ -49,7 +50,7 @@ export const voteSupport = (s: GameState): number => ((ceoStat(s, 'boardRelation
 
 /** The board's market rate for its GM this month (nominal cents a year): base plus members and locations. */
 export function marketPay(s: GameState, members?: number, locations?: number): Cents {
-  const m = members ?? s.members.list.filter((x) => x.kind === 'member' && x.status === 'active').length;
+  const m = members ?? regularCustomers(s);
   const l = locations ?? s.coop.facilities.filter((f) => f.status !== 'closed').length;
   return nominalCents(pathFor(s), s.clock.monthIndex, OVERHEAD.gmSalaryBase.value + OVERHEAD.gmSalaryPerMember.value * m + OVERHEAD.gmSalaryPerLocation.value * l);
 }
@@ -101,18 +102,22 @@ export function newCareer(s: GameState, character: CeoCharacter): CareerState {
   const mi = s.clock.monthIndex;
   const rep = clamp(BACKGROUNDS[character.background].reputation + Math.max(0, yearOf(mi) - character.birthYear - 30) * 0.4, 0, 60);
   const base = roundCents(marketPay(s) * reputationPay(rep));
+  // Founding a private company you control: you pay yourself, answer to no board and have no term (D-149).
+  const owner = s.setup.orgType === 'private' && (s.setup.ownerStake ?? 1) >= 0.5;
   return {
     seed: s.setup.gameSeed * 7919 + 17,
     character,
     status: 'employed',
     monthIndex: mi,
-    contract: { coopName: s.coop.name, startMonth: mi, endMonth: mi + CAREER.termYears * 12 - 1, base, bonusTarget: CAREER.bonusTarget.value, severanceMonths: CAREER.severanceMonths.value },
+    contract: owner
+      ? { coopName: s.coop.name, startMonth: mi, endMonth: mi + 12 * 100, base, bonusTarget: 0, severanceMonths: 0, owner: true }
+      : { coopName: s.coop.name, startMonth: mi, endMonth: mi + CAREER.termYears * 12 - 1, base, bonusTarget: CAREER.bonusTarget.value, severanceMonths: CAREER.severanceMonths.value },
     reputation: Math.round(rep),
     offers: [],
     nextOfferId: 1,
     stints: [{ coopName: s.coop.name, regionId: s.setup.regionId, fromMonth: mi, toMonth: null, reviews: [], earnings: 0, startMembers: s.members.list.filter((m) => m.kind === 'member').length }],
     earnings: 0,
-    log: [{ monthIndex: mi, text: `Hired as general manager of ${s.coop.name} at ${formatCents(base)} a year.` }],
+    log: [{ monthIndex: mi, text: owner ? `Founded ${s.coop.name}; you pay yourself ${formatCents(base)} a year.` : `Hired as general manager of ${s.coop.name} at ${formatCents(base)} a year.` }],
   };
 }
 

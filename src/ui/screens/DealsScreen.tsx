@@ -1,10 +1,11 @@
 import { CompetitorSiteUnits } from '../components/Projects';
 import { useState } from 'react';
 import {
-  competitorName, dealTitle, forecastDealVote, formatMonth, forSale, integrationPenalty, investmentTypeOf, nominalCents, pathFor, sellerAcceptance, stakeSalePrice,
+  bookEquity, competitorName, dealTitle, ownerRun, forecastDealVote, formatMonth, forSale, integrationPenalty, investmentTypeOf, nominalCents, pathFor, sellerAcceptance, stakeSalePrice,
   type Competitor, type Deal, type DealStage, type DealTerms, type OpDivision,
 } from '../../engine/index';
 import { DEALS } from '../../data/competition';
+import { PRIVATE } from '../../data/private';
 import { INVESTMENTS } from '../../data/investments';
 import { LENDING } from '../../data/tuning';
 import { Term } from '../components/Term';
@@ -68,6 +69,12 @@ export function DealsScreen() {
       </Panel>
 
       <div className="grid gap-4 lg:grid-cols-2">
+        {ownerRun(game) && (
+          <Panel title="Sell the company">
+            <p className="text-sm">Advisers shop {game.coop.name} to the strongest national company or co-op that would want it, for a price around book equity ({money(bookEquity(game), { compact: true })}) — more for a healthy, profitable business. Your {pct(game.privateCo?.playerStake ?? 1, 0)} of the price is yours, and the game ends there. A study costs {money(nominalCents(pathFor(game), game.clock.monthIndex, DEALS.studyCost.value))} and takes {PRIVATE.saleStudyMonths} months.</p>
+            <button className="btn mt-2" disabled={game.deals.some((d) => d.kind === 'buyout' && d.stage !== 'dead' && d.stage !== 'closed')} onClick={() => command({ type: 'shopCompany' })}>Shop the company</button>
+          </Panel>
+        )}
         <Panel title="Sell a division">
           {sellable.length ? (
             <div className="flex flex-wrap gap-2">

@@ -51,6 +51,10 @@ export interface GameSetup {
    * growers' co-op that buys the territory's beet factory and stations at founding.
    */
   coopType?: 'grain' | 'sugar';
+  /** A cooperative (default) or an investor-owned private company (D-149). */
+  orgType?: 'coop' | 'private';
+  /** Private company: the player's ownership stake at founding (0 when hired as CEO by the owners). */
+  ownerStake?: number;
   /** Set when the game began as a scenario (DESIGN §19). */
   scenarioId?: string;
   /** Career mode (D-142): play as this character, hired by the founding board. */
@@ -1393,7 +1397,9 @@ export interface GameState {
   nextInboxId: number;
   firedEvents: FiredEvent[];
   history: MonthSnapshot[];
-  outcome: null | { kind: 'fired' | 'liquidated' | 'absorbed' | 'resigned' | 'notRenewed' | 'moved' | 'retired'; monthIndex: number; text: string };
+  outcome: null | { kind: 'fired' | 'liquidated' | 'absorbed' | 'resigned' | 'notRenewed' | 'moved' | 'retired' | 'sold'; monthIndex: number; text: string };
+  /** A private company's owners, dividends and the hired CEO's phantom equity (D-149). */
+  privateCo?: PrivateCo;
   /** Career mode (D-142): the player's character, contract and career across co-ops. */
   career?: CareerState;
 }
@@ -1553,6 +1559,10 @@ export interface EmploymentContract {
   bonusTarget: number;
   /** Months of base paid if let go without cause. */
   severanceMonths: number;
+  /** Private company (D-149): phantom equity, a share of the growth in book equity over the term. */
+  phantomPct?: number;
+  /** The player owns the company: no board, no review, no term (D-149). */
+  owner?: boolean;
 }
 
 export interface JobOffer {
@@ -1570,6 +1580,9 @@ export interface JobOffer {
   territorySize?: GameSetup['territorySize'];
   /** A co-op in our own territory. */
   neighbor: boolean;
+  /** A private (family-owned) company rather than a co-op (D-149), and the phantom equity it offers. */
+  orgType?: 'coop' | 'private';
+  phantomPct?: number;
   base: Cents;
   bonusTarget: number;
   severanceMonths: number;
@@ -1580,7 +1593,7 @@ export interface JobOffer {
   note: string;
 }
 
-export type StintEnd = 'fired' | 'resigned' | 'notRenewed' | 'liquidated' | 'absorbed' | 'moved' | 'retired';
+export type StintEnd = 'fired' | 'resigned' | 'notRenewed' | 'liquidated' | 'absorbed' | 'moved' | 'retired' | 'sold';
 
 export interface CareerStint {
   coopName: string;
@@ -1613,4 +1626,22 @@ export interface CareerState {
   /** Base pay of the last contract (for severance). */
   lastBase?: Cents;
   log: { monthIndex: number; text: string }[];
+}
+
+// ---------- Private companies (D-149) ----------
+
+export interface PrivateCo {
+  /** The player's share of the company (0–1); a controlling owner runs it without a board. */
+  playerStake: number;
+  /** The family or investors who own the rest (or all, when the player is hired). */
+  ownerName: string;
+  /** Dividend payout as a share of after-tax earnings. */
+  payout: number;
+  /** The closed year awaiting its dividend: declared three months after year end, paid the month after. */
+  pending: { fy: number; afterTax: Cents; closedMonth: number; declared: Cents | null } | null;
+  dividends: { fy: number; monthIndex: number; total: Cents; toPlayer: Cents }[];
+  /** Tax losses carried forward. */
+  nol: { fy: number; amount: Cents; expires: number }[];
+  /** A hired CEO's phantom equity for the current term. */
+  phantom?: { pct: number; baseEquity: Cents; sinceMonth: number };
 }

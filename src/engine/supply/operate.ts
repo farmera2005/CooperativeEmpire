@@ -43,6 +43,8 @@ import { agronomyTieActive, beetAgronomyDemand, tiedGrower } from '../sugar/agro
 import { BEET_INPUTS } from '../../data/sugar';
 import { effect } from '../people/leaders';
 import { staffServicePenalty } from '../people/staff';
+import { isPrivate } from '../private/kind';
+import { PRIVATE } from '../../data/private';
 
 const REPORT_HISTORY = 36;
 const INVENTORY_ACCOUNT: Record<SupplyDivision, string> = { AGRONOMY: '1210', FEED: '1220', ENERGY: '1230', RETAIL: '1240' };
@@ -214,6 +216,8 @@ export function stepSupply(ctx: TickContext): void {
     const creditU = CREDIT.utility.value[pol.credit];
     // Members count on a patronage refund like last year's (percent of price).
     const refundPct = expectedRefundRate(state) * 100;
+    // A private company's customers stay on relationships, without patronage (D-149).
+    const rel = isPrivate(state) ? PRIVATE.relationshipLoyalty.value : 0;
     const dist = state.world.distances;
 
     // Shareholders growing beets buy their beet agronomy from us when the co-op requires it (D-148).
@@ -234,7 +238,7 @@ export function stepSupply(ctx: TickContext): void {
             const full = (divisionsInTown.get(f.townId)?.size ?? 0) >= 3 ? CROSS_DIVISION.fullServicePct.value : 0;
             const u = ourAdv * (0.5 + m.priceSens) - cfg.distancePctPerMile * dd
               + cfg.serviceQuality * (STAFF_SERVICE[f.staffing.level] + peopleU - (d === 'AGRONOMY' ? lateMem * SS.lateServicePenalty.value : 0))
-              + (m.kind === 'member' ? cfg.loyalty * m.loyalty + refundPct : 0) + creditU * m.creditNeed
+              + (m.kind === 'member' ? cfg.loyalty * m.loyalty + refundPct : rel * cfg.loyalty * m.loyalty) + creditU * m.creditNeed
               + CROSS_DIVISION.bundlePct.value * Math.sqrt(nb) + full - griev * SS.grievancePct.value;
             if (!best || u > best.u) best = { u, site: s, dist: dd };
           } else {
@@ -273,7 +277,7 @@ export function stepSupply(ctx: TickContext): void {
           const f = best.site.facility!;
           const service = STAFF_SERVICE[f.staffing.level] + peopleU - (d === 'AGRONOMY' ? lateMem * SS.lateServicePenalty.value : 0);
           const exp = clamp(50 + SATISFACTION.supplyPricePerPct.value * ourAdv + SATISFACTION.supplyServicePerUnit.value * service - SATISFACTION.grievancePerSeverity.value * griev
-            + (m.kind === 'member' ? SATISFACTION.loyaltyBonus.value * m.loyalty + SATISFACTION.refundPerPct.value * refundPct : 0), 0, 100);
+            + (m.kind === 'member' ? SATISFACTION.loyaltyBonus.value * m.loyalty + SATISFACTION.refundPerPct.value * refundPct : rel * SATISFACTION.loyaltyBonus.value * m.loyalty), 0, 100);
           m.satisfaction += SATISFACTION.alpha.value * SATISFACTION.supplyWeight.value * Math.min(1, share) * (exp - m.satisfaction);
         }
         acc.shareSum += share;

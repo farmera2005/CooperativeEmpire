@@ -98,3 +98,5 @@ export { askBoard, backgroundLabel, boardSlack, boardWillingness, counterOffer, 
 export { acceptOffer, ESTABLISHED_FROM_YEAR, newEstablishedGame, randomEstablishedSetup, startGame } from './career/move';
 export { checkNameChange, nameChangeCost } from './governance/rename';
 export { agronomyTieActive, tiedBeetAcres } from './sugar/agronomyTie';
+export { isPrivate, ownerRun, regularCustomers } from './private/kind';
+export { bookEquity, phantomValue } from './private/private';

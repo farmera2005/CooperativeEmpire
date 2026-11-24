@@ -51,6 +51,18 @@ and 200 towns. On larger maps the founders farm around the home town and the out
 belong to county-wide co-ops that grow, open new elevators, merge with each other over the decades
 (fastest from the 1990s) and can become your merger partners (Deals & Competitors, nearest first).
 
+## Private companies
+
+Choose **Private company** on the New Game screen to found an investor-owned grain and farm-supply
+business instead of a co-op. You put up the capital (all of it, or 75% or 51% with family and local
+investors), and if you own control there is no board: your decisions take effect at once and no one
+can fire you. Farmers are customers, not members — there is no patronage, so win them on price and
+service. Each year end the company pays corporate income tax and pays its owners a dividend
+(Financials > Owners & Dividends); you bank commercially and earn no regional patronage. Sell the
+company from Deals & Competitors when you want to cash out. In career mode you can also be hired as
+chief executive of a family-owned company, with an owners' board, a review, and phantom equity in
+the company's growth. Sources are in `docs/research/private.md`.
+
 ## Career mode
 
 Tick **Career mode** on the New Game screen to play as a general manager you create, hired either

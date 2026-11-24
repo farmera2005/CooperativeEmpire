@@ -60,9 +60,9 @@ export function Dashboard() {
         <Stat label="Total assets" value={money(bs.totalAssets, { compact: true })} />
         <Stat label="Member equity" value={money(bs.totalEquity, { compact: true })} sub={<><Term id="owner-equity">Owner equity</Term> {pct(equityPct, 0)}</>} />
         <Stat label={<><Term id="net-savings">Net savings</Term>, FYTD</>} value={money(ytd.netSavings, { compact: true })} tone={ytd.netSavings >= 0 ? 'good' : 'bad'} />
-        <Stat label="Active members" value={num(last.activeMembers)} sub={`${num(first.activeMembers)} at founding`} />
+        <Stat label={game.privateCo ? 'Regular customers' : 'Active members'} value={num(last.activeMembers)} sub={game.privateCo ? 'farms doing a quarter or more of their business with us' : `${num(first.activeMembers)} at founding`} />
         <Stat label="Farms in territory" value={num(last.activeFarms)} sub={`avg ${num(last.totalAcres / Math.max(1, last.activeFarms))} acres`} />
-        <Stat label="Member satisfaction" value={num(last.avgSatisfaction)} sub={<>0–100 · <Why b={() => satisfactionWhy(game)} /></>} />
+        <Stat label={game.privateCo ? 'Customer satisfaction' : 'Member satisfaction'} value={num(last.avgSatisfaction)} sub={<>0–100 · <Why b={() => satisfactionWhy(game)} /></>} />
       </div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <Stat label="Grain margin + services, FYTD" value={money(grainYtd.grossRevenue, { compact: true })} sub={`${num(game.history.slice(-12).reduce((a, h) => a + h.grainBu, 0))} bu received, last 12 mo`} />

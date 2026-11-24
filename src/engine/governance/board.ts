@@ -25,12 +25,13 @@ function petIssues(rng: Rng, m: Member): PetIssue[] {
 }
 
 /** The organizing meeting elects the first board from the founding members. */
-export function electFoundingBoard(rng: Rng, members: Member[], districts: number, year: number): GovernanceState {
+export function electFoundingBoard(rng: Rng, members: Member[], districts: number, year: number, opts: { anyFarm?: boolean; size?: number } = {}): GovernanceState {
   const memberCount = members.filter((m) => m.kind === 'member').length;
-  const size = boardSizeFor(memberCount);
+  // A private company's owners seat a small board from their circle among local farm families (D-149).
+  const size = opts.size ?? boardSizeFor(memberCount);
   const perDistrict = Math.floor(size / districts);
   const atLarge = size - perDistrict * districts;
-  const eligible = members.filter((m) => m.kind === 'member' && m.status === 'active' && year - m.birthYear >= GOVERNANCE_SETUP.directorMinAge && year - m.birthYear <= GOVERNANCE_SETUP.directorMaxAge);
+  const eligible = members.filter((m) => (m.kind === 'member' || opts.anyFarm) && m.status === 'active' && year - m.birthYear >= GOVERNANCE_SETUP.directorMinAge && year - m.birthYear <= GOVERNANCE_SETUP.directorMaxAge);
   const chosen = new Set<number>();
   const pickFrom = (pool: Member[]) => {
     const avail = pool.filter((m) => !chosen.has(m.id));

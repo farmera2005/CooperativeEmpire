@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { CAREER, CEO_STAT_INFO, CEO_STATS } from '../../data/career';
 import {
   ageOf, askBoard, backgroundLabel, boardSlack, boardWillingness, counterOffer, declineOffer, formatMonth, marketPay, raiseWindow,
-  regionLabel, resign, retire, searchMonth, type Ask,
+  regionLabel, resign, retire, searchMonth, bookEquity, phantomValue, type Ask,
 } from '../../engine/index';
 import type { CareerState, GameState, JobOffer } from '../../engine/types';
 import { CommitNumber } from '../components/CommitNumber';
@@ -64,6 +64,20 @@ function ContractPanel({ game, c }: { game: GameState; c: CareerState }) {
   // A better negotiator reads the board more closely.
   const fuzz = Math.max(0.01, 0.08 - 0.005 * (c.character.stats.negotiation - 10));
   const value = k.base * (1 + willing);
+  if (k.owner) {
+    const stake = game.privateCo?.playerStake ?? 1;
+    return (
+      <Panel title={`You own ${k.coopName}`}>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          <Stat label="Your stake" value={pct(stake, 0)} sub={`worth ${money(Math.round(bookEquity(game) * stake), { compact: true })} at book`} />
+          <Stat label="Your salary" value={money(k.base, { compact: true })} sub="what you pay yourself" />
+          <Stat label="Dividends to you" value={money((game.privateCo?.dividends ?? []).reduce((a, d) => a + d.toPlayer, 0), { compact: true })} sub="your share of what the company pays out" />
+        </div>
+        <p className="mt-2 text-sm text-stone-600">An owner answers to no board and has no contract to renew. Other boards leave an owner alone. To move on, sell the company (Deals &amp; Competitors): your share of the price is yours.</p>
+        {ageOf(c) >= 55 && <button className="btn mt-2" onClick={() => { if (window.confirm('Retire for good? The career ends.')) careerAct(retire); }}>Retire</button>}
+      </Panel>
+    );
+  }
   return (
     <Panel title={`Your contract with ${k.coopName}`}>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -72,6 +86,7 @@ function ContractPanel({ game, c }: { game: GameState; c: CareerState }) {
         <Stat label="Severance" value={`${k.severanceMonths} months`} sub="if the board lets you go" />
         <Stat label="Term ends" value={formatMonth(k.endMonth)} sub={`renewed if board confidence is ${CAREER.renewConfidence}+`} />
       </div>
+      {k.phantomPct ? <p className="mt-2 text-sm">Phantom equity: {pct(k.phantomPct, 1)} of the growth in book value this term, now worth <b>{money(phantomValue(game), { compact: true })}</b>; paid when the term ends in good standing or the company is sold, forfeited if you leave early or are let go.</p> : null}
       <div className="mt-3 space-y-2 text-sm">
         <b>Ask the board for better terms</b>
         {w.open ? (
@@ -100,10 +115,10 @@ function OfferCard({ o, c }: { o: JobOffer; c: CareerState }) {
     <div className="rounded border border-stone-300 p-3 text-sm">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <b>{o.coopName}</b>
-        <span className="text-xs text-stone-500">{o.coopType === 'sugar' ? 'sugar beet co-op' : 'grain & farm supply'} · {regionLabel(o.regionId)}{o.neighbor ? ' · our neighbor' : ''} · open until {formatMonth(o.expiresMonth)}</span>
+        <span className="text-xs text-stone-500">{o.orgType === 'private' ? 'family-owned private company' : o.coopType === 'sugar' ? 'sugar beet co-op' : 'grain & farm supply co-op'} · {regionLabel(o.regionId)}{o.neighbor ? ' · our neighbor' : ''} · open until {formatMonth(o.expiresMonth)}</span>
       </div>
       <p className="mt-1 text-stone-600">{o.note}</p>
-      <p className="mt-1">Base <b>{money(o.base, { compact: true })}</b> a year · bonus target <b>{pct(o.bonusTarget, 0)}</b> · severance <b>{o.severanceMonths} months</b> · {o.termYears}-year agreement{o.rounds > 0 ? ` · ${final ? 'final offer' : `after ${o.rounds} counter`}` : ''}</p>
+      <p className="mt-1">Base <b>{money(o.base, { compact: true })}</b> a year · bonus target <b>{pct(o.bonusTarget, 0)}</b> · severance <b>{o.severanceMonths} months</b> · {o.termYears}-year agreement{o.phantomPct ? <> · phantom equity <b>{pct(o.phantomPct, 1)}</b> of the growth in book value</> : null}{o.rounds > 0 ? ` · ${final ? 'final offer' : `after ${o.rounds} counter`}` : ''}</p>
       <div className="mt-2 flex flex-wrap gap-2">
         <button className="btn btn-primary" disabled={!!busy} onClick={() => { if (window.confirm(c.status === 'employed' ? `Leave ${c.contract?.coopName} and take the job at ${o.coopName}?` : `Take the job at ${o.coopName}?`)) takeJob(o.id); }}>Accept</button>
         {!final && <button className="btn" onClick={() => setOpen(!open)}>Negotiate</button>}

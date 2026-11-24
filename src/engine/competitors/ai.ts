@@ -19,6 +19,7 @@ import type { Competitor, CompetitorSite, Destination, GameState } from '../type
 import { ensureSiteUnits, startExpansion, startShuttle, stepCompetitorPlants } from './plants';
 import { competitorName, makeOffer } from './competitors';
 import { proposeIncomingMerger } from '../deals/deals';
+import { isPrivate } from '../private/kind';
 
 const isGrain = (c: Competitor) => c.sites.some((s) => (s.division ?? 'GRAIN') === 'GRAIN');
 
@@ -98,7 +99,7 @@ export function stepCompetitors(ctx: TickContext): void {
       }
     }
     // A weak co-op near us may propose a merger.
-    if (c.kind === 'coop' && st < ai.approachBelow.value && rng.chance(ai.approachProb.value) && nearUs(state, c, ai.approachMiles) && !state.deals.some((d) => d.partnerId === c.id && d.stage !== 'closed' && d.stage !== 'dead')) {
+    if (c.kind === 'coop' && !isPrivate(state) && st < ai.approachBelow.value && rng.chance(ai.approachProb.value) && nearUs(state, c, ai.approachMiles) && !state.deals.some((d) => d.partnerId === c.id && d.stage !== 'closed' && d.stage !== 'dead')) {
       proposeIncomingMerger(ctx, c);
       continue;
     }

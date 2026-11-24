@@ -19,6 +19,9 @@ import { capitalize, facilityBu, grainCapacity, netBookValue, newFacility, repla
 import { usedValueOfUnits } from './valuation';
 import { planLines, quoteProject, rebuildCost, startProject } from './projects';
 import { PROJECTS } from '../../data/equipment';
+import { isPrivate } from '../private/kind';
+/** Beet factories here run on growers' beet shares and contracts (D-133); a private company stays out (D-149). */
+const BEETS_PRIVATE = 'Beet factories here are grower-owned: growers finance them with beet shares and deliver under co-op contracts. A private company stays out of sugar.';
 
 type Result = CommandMessage[];
 const err = (text: string): Result => [{ level: 'error', text }];
@@ -76,6 +79,7 @@ export function financePurchase(state: GameState, cost: Cents, financePct: numbe
 export function dueDiligence(state: GameState, offerId: number): Result {
   const o = state.coop.offers.find((x) => x.id === offerId);
   if (!o) return err('That offer is no longer available.');
+  if (isPrivate(state) && (o.kind === 'sugarfactory' || o.kind === 'beetstation')) return err(BEETS_PRIVATE);
   if (o.diligenceDone) return info('Due diligence already done.');
   const mi = state.clock.monthIndex;
   const fee = nominalCents(pathFor(state), mi, MARKETPLACE.dueDiligenceCost.value);
@@ -129,6 +133,7 @@ export const facilityName = (town: string, kind: FacilityKind): string =>
 /** Build a new supply site from component totals, as catalog units (older command; D-129). */
 export function buildFacility(state: GameState, kind: Exclude<FacilityKind, 'elevator'>, townId: number, components: Components, financePct: number): Result {
   if (!state.world.towns[townId]) return err('Unknown town.');
+  if (isPrivate(state) && (kind === 'sugarfactory' || kind === 'beetstation')) return err(BEETS_PRIVATE);
   const clean: Components = { site: components.site ?? TYPICAL_SITE[kind].site ?? 1 };
   for (const id of Object.keys(components) as ComponentId[]) if ((components[id] ?? 0) > 0) clean[id] = components[id];
   const wrong = (Object.keys(clean) as ComponentId[]).filter((id) => id !== 'site' && COMPONENTS[id].division !== KIND_DIVISION[kind]);

@@ -3,6 +3,7 @@
 import { formatCents } from '../core/format';
 import type { GameState } from '../types';
 import type { TickContext } from './context';
+import { isPrivate } from '../private/kind';
 
 export function capperVolsteadRatio(state: GameState): { member: number; nonmember: number; ratio: number } {
   let member = 0;
@@ -16,7 +17,8 @@ export function capperVolsteadRatio(state: GameState): { member: number; nonmemb
 
 /** Warn when fiscal-year non-member business passes member business (checked each quarter). */
 export function stepCapperVolstead(ctx: TickContext): void {
-  if (ctx.month % 3 !== 0) return;
+  // Capper-Volstead protects producer co-ops; a private company has no such status (D-149).
+  if (ctx.month % 3 !== 0 || isPrivate(ctx.state)) return;
   const cv = capperVolsteadRatio(ctx.state);
   if (cv.member > 0 && cv.nonmember > cv.member) {
     ctx.inbox({

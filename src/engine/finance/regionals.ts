@@ -15,6 +15,7 @@ import { post } from '../ledger/ledger';
 import type { TickContext } from '../sim/context';
 import type { DivisionId, GameSetup, GameState } from '../types';
 import { nominalCents, pathFor, priceLevel } from '../world/macro';
+import { isPrivate } from '../private/kind';
 
 export const CATEGORIES: RegionalCategory[] = ['grain', 'agronomy', 'feed', 'energy', 'retail'];
 export const CATEGORY_DIVISION: Record<RegionalCategory, DivisionId> = { grain: 'GRAIN', agronomy: 'AGRONOMY', feed: 'FEED', energy: 'ENERGY', retail: 'RETAIL' };
@@ -142,7 +143,8 @@ export function stepRegionalAnnual(ctx: TickContext): void {
     const byDiv: { div: DivisionId; amt: Cents }[] = [];
     for (const cat of CATEGORIES) {
       const qty = rb.purchases[rid][cat] ?? 0;
-      const rate = prog.rate[cat] ?? 0;
+      // Regionals pay patronage to member co-ops only; a private company buys without it (D-149).
+      const rate = isPrivate(state) ? 0 : prog.rate[cat] ?? 0;
       if (qty <= 0 || rate <= 0 || health <= 0) continue;
       const amt = cat === 'grain' ? roundCents(qty * rate * priceLevel(ctx.path, ctx.mi - 1) * 100 * health) : roundCents((qty * rate * health) / 100);
       if (amt > 0) byDiv.push({ div: CATEGORY_DIVISION[cat], amt });

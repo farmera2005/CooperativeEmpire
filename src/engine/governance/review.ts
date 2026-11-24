@@ -18,6 +18,7 @@ import { nominalCents } from '../world/macro';
 import { farmStress } from '../supply/credit';
 import { engagement } from './elections';
 import { boardDrift } from '../career/core';
+import { isPrivate, ownerRun, regularCustomers } from '../private/kind';
 
 const memberName = (s: GameState, id: number) => s.members.list.find((m) => m.id === id)?.name ?? 'A director';
 
@@ -63,6 +64,8 @@ function raiseDemands(ctx: TickContext): void {
     const signature = dir.petIssues.filter((p) => p.kind !== 'hometown');
     const canExpand = state.coop.facilities.filter((f) => f.status === 'operating').length >= 2;
     const pet = signature.length && (!canExpand || rng.chance(0.7)) ? rng.pick(signature) : dir.petIssues[0];
+    // Owners of a private company do not ask about patronage or equity redemption (D-149).
+    if (isPrivate(state) && pet && (pet.kind === 'redemption' || pet.kind === 'patronageCash')) continue;
     if (!pet || (pet.kind === 'hometown' && !canExpand)) continue;
     const who = memberName(state, dir.memberId);
     const deadline = ctx.mi + DEMANDS.deadlineMonths;
@@ -139,7 +142,8 @@ function driftConfidence(ctx: TickContext): void {
 export function averageSatisfaction(s: GameState): number {
   let sat = 0;
   let w = 0;
-  for (const m of s.members.list) if (m.kind === 'member' && m.status === 'active') {
+  // A private company's directors care how its customers feel (D-149).
+  for (const m of s.members.list) if ((m.kind === 'member' || isPrivate(s)) && m.status === 'active') {
     const e = 0.1 + engagement(m);
     sat += m.satisfaction * m.weight * e;
     w += m.weight * e;
@@ -189,7 +193,7 @@ export function gmReview(ctx: TickContext, fy: number): GmReview {
   const score = Math.round(Object.entries(c).reduce((a, [k, v]) => a + w[k as keyof typeof w] * v, 0));
   g.boardConfidence = clamp((1 - GM_REVIEW.reviewWeight) * g.boardConfidence + GM_REVIEW.reviewWeight * score, 0, 100);
   // Bonus.
-  const members0 = state.members.list.filter((m) => m.kind === 'member' && m.status === 'active').length;
+  const members0 = regularCustomers(state);
   const salary = nominalCents(ctx.path, ctx.mi, OVERHEAD.gmSalaryBase.value + OVERHEAD.gmSalaryPerMember.value * members0 + OVERHEAD.gmSalaryPerLocation.value * state.coop.facilities.filter((f) => f.status !== 'closed').length);
   // In career mode the contract sets the pay and the bonus target: nothing at 50, the target at 75, twice it at 100 (D-142).
   const contract = state.career?.status === 'employed' ? state.career.contract : null;
@@ -216,6 +220,8 @@ export function gmReview(ctx: TickContext, fy: number): GmReview {
 /** Monthly governance outside the meeting: demands, drift, emergency termination. */
 export function stepBoardRelations(ctx: TickContext): void {
   const { state } = ctx;
+  // An owner who controls the company has no board to answer to (D-149).
+  if (ownerRun(state)) return;
   const g = state.governance;
   raiseDemands(ctx);
   checkDemands(ctx);

@@ -41,6 +41,10 @@ import type { FacilityKind } from '../../data/facilities';
 import type { SupplyDivision } from '../../data/supply';
 import { cloneState } from './clone';
 import { offerBeetShares, setSugarPolicy } from '../sugar/operate';
+import { ownerRun } from '../private/kind';
+import { setDividendPolicy } from '../private/private';
+import { shopCompany } from '../deals/deals';
+import { renameNow } from '../governance/rename';
 
 export type Command =
   | { type: 'markInboxRead'; id: number }
@@ -114,7 +118,9 @@ export type Command =
   | { type: 'chooseOption'; inboxId: number; optionId: string }
   | { type: 'debug'; action: DebugAction }
   | { type: 'enterDebugMode' }
-  | { type: 'proposeNameChange'; name: string };
+  | { type: 'proposeNameChange'; name: string }
+  | { type: 'setDividendPolicy'; payout: number }
+  | { type: 'shopCompany' };
 
 export interface CommandMessage {
   level: 'info' | 'warning' | 'error';
@@ -306,7 +312,14 @@ function run(s: GameState, cmd: Command): CommandMessage[] {
     case 'debug': return applyDebug(s, cmd.action);
     case 'enterDebugMode': return enterDebugMode(s);
     // Only reached as the board's trial run: the rename itself waits for the members (D-146).
-    case 'proposeNameChange': return checkNameChange(s, cmd.name);
+    case 'proposeNameChange': {
+      const bad = checkNameChange(s, cmd.name);
+      // A controlling owner renames the company without asking anyone (D-149).
+      if (bad.length || !ownerRun(s)) return bad;
+      return [{ level: 'info', text: renameNow(s, cmd.name.trim().replace(/\s+/g, ' ')) }];
+    }
+    case 'setDividendPolicy': return setDividendPolicy(s, cmd.payout);
+    case 'shopCompany': return shopCompany(s);
     case 'proposeDivisionSale': return proposeDivisionSale(s, cmd.division);
     case 'respondDeal': return respondDeal(s, cmd.dealId, cmd.accept);
     case 'dealDiligence': return dealDiligence(s, cmd.dealId);

@@ -12,6 +12,7 @@ import { post } from '../ledger/ledger';
 import type { TickContext } from '../sim/context';
 import type { GameState, Member } from '../types';
 import { subscribeStock } from './demographics';
+import { isPrivate } from '../private/kind';
 
 const M = MEMBERSHIP;
 
@@ -57,6 +58,8 @@ export function joinAppeal(satisfaction: number, refundRate: number, recruiting 
 
 export function stepJoining(ctx: TickContext): void {
   const { state, mi } = ctx;
+  // A private company has customers, not members (D-149).
+  if (isPrivate(state)) return;
   const rng = ctx.rng('members.join');
   const refund = expectedRefundRate(state);
   // Salespeople recruit members as they call on customers (D-109).

@@ -35,11 +35,16 @@ export function nameChangeCost(s: GameState, mi = s.clock.monthIndex): number {
 
 /** The members adopted the new name: file it, pay for the change, and use it everywhere. */
 export function renameCoop(ctx: TickContext, newName: string): string {
-  const { state, mi } = ctx;
+  return renameNow(ctx.state, newName, ctx.mi);
+}
+
+/** Rename now (the members adopted it, or a private company's owner decided: D-149). */
+export function renameNow(state: GameState, newName: string, mi = state.clock.monthIndex): string {
   const old = state.coop.name;
   const sites = state.coop.facilities.filter((f) => f.status !== 'closed').length;
-  const filing = nominalCents(ctx.path, mi, NAME_CHANGE.filingCost2024.value);
-  const signs = nominalCents(ctx.path, mi, NAME_CHANGE.perSite2024.value * sites);
+  const path = pathFor(state);
+  const filing = nominalCents(path, mi, NAME_CHANGE.filingCost2024.value);
+  const signs = nominalCents(path, mi, NAME_CHANGE.perSite2024.value * sites);
   post(state, {
     source: 'rename', memo: `Name change: ${old} to ${newName}`,
     lines: [{ account: '7600', division: 'CORP' as const, amount: filing }, { account: '7690', division: 'CORP' as const, amount: signs }, { account: '1000', division: 'CORP' as const, amount: -(filing + signs) }].filter((l) => l.amount !== 0),

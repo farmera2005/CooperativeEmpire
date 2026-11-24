@@ -19,11 +19,14 @@ import type { CareerState, EmploymentContract, GameState, JobOffer, StintEnd } f
 import { nominalCents, pathFor } from '../world/macro';
 import { OVERHEAD } from '../../data/tuning';
 import { ageOf, marketPay, reputationPay } from './core';
+import { regularCustomers } from '../private/kind';
+import { payPhantom } from '../private/private';
+import { PRIVATE } from '../../data/private';
 
 export type CareerMessage = { level: 'info' | 'error'; text: string };
 export interface CareerResult { state: GameState; messages: CareerMessage[]; ok: boolean }
 
-const activeMembers = (s: GameState) => s.members.list.filter((m) => m.kind === 'member' && m.status === 'active').length;
+const activeMembers = (s: GameState) => regularCustomers(s);
 const dollars = (c: Cents) => formatCents(c);
 
 function log(c: CareerState, text: string): void {
@@ -44,6 +47,8 @@ function marketPayAt(s: GameState, mi: number, members: number, locations: numbe
 
 const END_REPUTATION: Partial<Record<StintEnd, number>> = {
   fired: CAREER.firedReputation, liquidated: CAREER.liquidatedReputation, absorbed: CAREER.absorbedReputation, notRenewed: CAREER.notRenewedReputation, resigned: -1,
+  // Selling a company you built (or ran) to a bigger one is a mark of success (D-149).
+  sold: 3,
 };
 
 /** Close the current job: the stint's record, reputation, severance; the career turns to looking (or retires). */
@@ -55,7 +60,7 @@ function endStint(c: CareerState, end: StintEnd, mi: number): void {
   }
   const k = c.contract;
   // Severance is owed when the board ends the job without cause, or the co-op is merged away.
-  if (k && (end === 'fired' || end === 'absorbed')) c.severanceLeft = k.severanceMonths;
+  if (k && !k.owner && (end === 'fired' || end === 'absorbed' || end === 'sold')) c.severanceLeft = k.severanceMonths;
   if (k) c.lastBase = k.base;
   c.reputation = clamp(Math.round(c.reputation + (END_REPUTATION[end] ?? 0)), 0, 100);
   c.contract = null;
@@ -64,7 +69,7 @@ function endStint(c: CareerState, end: StintEnd, mi: number): void {
 }
 
 const OUTCOME_END: Record<NonNullable<GameState['outcome']>['kind'], StintEnd> = {
-  fired: 'fired', liquidated: 'liquidated', absorbed: 'absorbed', resigned: 'resigned', notRenewed: 'notRenewed', moved: 'moved', retired: 'retired',
+  fired: 'fired', liquidated: 'liquidated', absorbed: 'absorbed', resigned: 'resigned', notRenewed: 'notRenewed', moved: 'moved', retired: 'retired', sold: 'sold',
 };
 
 // ---------- monthly, while employed ----------
@@ -107,7 +112,7 @@ export function stepCareer(ctx: TickContext): void {
 
   if (state.outcome) {
     const end = OUTCOME_END[state.outcome.kind];
-    const sev = end === 'fired' || end === 'absorbed' ? k.severanceMonths : 0;
+    const sev = !k.owner && (end === 'fired' || end === 'absorbed' || end === 'sold') ? k.severanceMonths : 0;
     endStint(c, end, mi);
     log(c, `Left ${st.coopName} (${end}).${sev ? ` Severance of ${sev} months' pay.` : ''}`);
     state.outcome = { ...state.outcome, text: `${state.outcome.text}${sev ? ` Your contract pays ${sev} months of base pay as severance.` : ''} Look for your next job on the Career screen.` };
@@ -115,9 +120,12 @@ export function stepCareer(ctx: TickContext): void {
   }
 
   // The contract term ends: the board renews it, with a raise for good years, or lets it lapse.
-  if (mi >= k.endMonth) {
+  if (mi >= k.endMonth && !k.owner) {
     const last = st.reviews[st.reviews.length - 1] ?? 55;
     if (state.governance.boardConfidence >= CAREER.renewConfidence) {
+      // A private company pays the CEO's phantom equity for the term just ended (D-149).
+      const phantom = state.privateCo?.phantom ? payPhantom(state, 'term completed') : 0;
+      if (phantom > 0) log(c, `Phantom equity for the term: ${dollars(phantom)}.`);
       // Pay catches up with the going rate for the job, plus a merit raise for good years.
       const raise = clamp(CAREER.renewRaisePerPoint * (last - 55), 0, 0.08);
       const going = marketPay(state) * reputationPay(c.reputation);
@@ -139,8 +147,9 @@ export function stepCareer(ctx: TickContext): void {
     return;
   }
 
-  // Other boards come calling.
+  // Other boards come calling (not to a controlling owner, who is busy with their company).
   c.offers = c.offers.filter((o) => o.expiresMonth >= mi);
+  if (k.owner) return;
   const settled = mi - st.fromMonth >= CAREER.settleMonths;
   const [p0, p1] = CAREER.offerChanceEmployed;
   const rng = ctx.rng('career.offers');
@@ -167,25 +176,32 @@ function makeOffer(s: GameState, c: CareerState, rng: Rng, searching: boolean): 
   const [h0, h1] = CAREER.historyYears;
   const historyFrom = Math.max(1970, year - rng.int(h0, h1));
   const regionId = neighbor ? s.setup.regionId : rng.chance(0.5) ? s.setup.regionId : rng.pick(REGION_IDS);
-  const coopType: 'grain' | 'sugar' = rng.chance(s.setup.coopType === 'sugar' ? 0.5 : 0.12) ? 'sugar' : 'grain';
+  // Some offers come from family-owned private companies (D-149); they are grain and farm supply.
+  const privateCo = !neighbor && rng.chance(PRIVATE.offerShare);
+  const coopType: 'grain' | 'sugar' = !privateCo && rng.chance(s.setup.coopType === 'sugar' ? 0.5 : 0.12) ? 'sugar' : 'grain';
   const mapSeed = neighbor ? s.setup.mapSeed : 100_000 + ((c.seed * 31 + id * 977) % 900_000);
   const territorySize = neighbor ? s.setup.territorySize : undefined;
   const homeTownId = neighbor ? neighbor.sites[0].townId : undefined;
   const preview = previewTerritory({ mapSeed, regionId, startYear: historyFrom, startingMembers: members, territorySize });
-  const coopName = neighbor ? neighbor.name : suggestCoopNames(preview, historyFrom, mapSeed, 1, coopType)[0] ?? `Cooperative ${id}`;
+  const coopName = neighbor ? neighbor.name : suggestCoopNames(preview, historyFrom, mapSeed, 1, coopType, privateCo ? 'private' : 'coop')[0] ?? `Cooperative ${id}`;
   const town = homeTownId !== undefined ? preview.towns[homeTownId]?.name : undefined;
   const locations = Math.max(1, Math.round(members / 110));
   const base = roundCents(marketPayAt(s, mi, members, locations) * reputationPay(rep) * rng.range(0.95, 1.05) * (searching ? 0.95 : 1) / 100_000) * 100_000;
   const bonusTarget = rng.weighted([0.1, 0.12, 0.15, 0.18, 0.2], (b) => (b <= 0.15 ? 1.2 - rep / 100 : 0.4 + rep / 100));
   const severanceMonths = rep >= 60 ? 9 : rep < 25 ? 3 : CAREER.severanceMonths.value;
-  const kind = coopType === 'sugar' ? 'a sugar beet growers\' co-op' : 'a grain and farm supply co-op';
-  const note = neighbor
+  const kind = privateCo ? 'a family-owned grain and farm supply company' : coopType === 'sugar' ? 'a sugar beet growers\' co-op' : 'a grain and farm supply co-op';
+  const [ph0, ph1] = PRIVATE.phantomPct.value;
+  const phantomPct = privateCo ? Math.round(rng.range(ph0, ph1) * 200) / 200 : undefined;
+  const note = privateCo
+    ? `A search consultant calls on behalf of ${coopName}, ${kind} serving about ${members.toLocaleString('en-US')} farms in ${regionLabel(regionId)}. The owners want a chief executive; besides salary and bonus they offer phantom equity: ${Math.round((phantomPct ?? 0) * 1000) / 10}% of the growth in the company's book value, paid at the end of each term in good standing or if the company is sold.`
+    : neighbor
     ? `The board of ${coopName}, a neighboring co-op${town ? ` based in ${town}` : ''}, is looking for a general manager and asked whether you would be interested.`
     : `A search consultant calls on behalf of ${coopName}, ${kind} of about ${members.toLocaleString('en-US')} members in ${regionLabel(regionId)}. Its board wants a new general manager.`;
   return {
     id, monthIndex: mi, expiresMonth: mi + CAREER.offerMonths, coopName, regionId, coopType, members, historyFrom, mapSeed,
     ...(homeTownId !== undefined ? { homeTownId } : {}), ...(territorySize ? { territorySize } : {}), neighbor: !!neighbor,
     base, bonusTarget, severanceMonths, termYears: CAREER.termYears, rounds: 0, opening: { base, bonusTarget, severanceMonths }, note,
+    ...(privateCo ? { orgType: 'private' as const, phantomPct } : {}),
   };
 }
 
@@ -323,6 +339,7 @@ export function askBoard(s0: GameState, askIn: Ask): CareerResult {
 /** Resign: the job ends this month. */
 export function resign(s0: GameState): CareerResult {
   if (s0.career?.status !== 'employed' || s0.outcome) return { state: s0, ok: false, messages: [{ level: 'error', text: 'You are not running a co-op.' }] };
+  if (s0.career.contract?.owner) return { state: s0, ok: false, messages: [{ level: 'error', text: 'You own the company: sell it (Deals screen) or retire.' }] };
   const s = withCareer(s0);
   const c = s.career!;
   const mi = s.clock.monthIndex;

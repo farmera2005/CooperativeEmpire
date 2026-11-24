@@ -45,6 +45,9 @@ import { applyCommand, type Command } from './commands';
 import { makeContext } from './context';
 import { snapshot } from './snapshot';
 import { refreshMarkets, stepHistory, stepWeather } from './steps';
+import { isPrivate } from '../private/kind';
+import { closePrivateYear, stepPrivateEquity } from '../private/private';
+import { fiscalYearOf } from '../core/calendar';
 
 /** Fiscal years of journal detail kept besides the current one (D-007). */
 export const RETAIN_DETAIL_YEARS = 2;
@@ -129,7 +132,9 @@ export function advanceMonth(state: GameState, decisions: Command[] = [], opts: 
   // 13b. purchases from regional co-ops
   stepRegionalPurchases(ctx);
   // 18. annual meeting payments, regional and lender patronage, lender succession
-  stepEquityCycle(ctx);
+  // A private company declares and pays dividends instead of patronage (D-149).
+  if (isPrivate(w)) stepPrivateEquity(ctx);
+  else stepEquityCycle(ctx);
   stepLenderSuccession(ctx);
   stepRegionalAnnual(ctx);
   stepLenderPatronage(ctx);
@@ -142,8 +147,13 @@ export function advanceMonth(state: GameState, decisions: Command[] = [], opts: 
   stepChoices(ctx);
   // 24. annual cycle: fiscal year close, budget
   if (isFiscalYearEnd(ctx.mi, w.setup.fiscalYearEndMonth)) {
-    const r = closeFiscalYearCycle(ctx);
-    interrupts.push({ kind: 'fiscalYearEnd', text: `FY${r.fy}` });
+    if (isPrivate(w)) {
+      closePrivateYear(ctx);
+      interrupts.push({ kind: 'fiscalYearEnd', text: `FY${fiscalYearOf(ctx.mi, w.setup.fiscalYearEndMonth)}` });
+    } else {
+      const r = closeFiscalYearCycle(ctx);
+      interrupts.push({ kind: 'fiscalYearEnd', text: `FY${r.fy}` });
+    }
   }
   stepBudget(ctx);
   // 26. competitors move; deals advance (closings post entries, so before invariants)
